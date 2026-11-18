@@ -1,0 +1,29 @@
+<resources>
+    <color name="f1_red">#E10600</color>
+    <color name="f1_dark">#0F1115</color>
+    <color name="f1_surface">#181B22</color>
+    <color name="f1_surface_card">#202530</color>
+    <color name="f1_focused">#FF2A24</color>
+    <color name="f1_focused_bg">#2C3345</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#9DA4B5</color>
+    <color name="text_muted">#687082</color>
+
+    <!-- Sector timing colors -->
+    <color name="sector_purple">#A855F7</color>
+    <color name="sector_green">#22C55E</color>
+    <color name="sector_yellow">#EAB308</color>
+
+    <!-- Tyre compound colors -->
+    <color name="tyre_soft">#EF4444</color>
+    <color name="tyre_medium">#FACC15</color>
+    <color name="tyre_hard">#FFFFFF</color>
+    <color name="tyre_inter">#10B981</color>
+    <color name="tyre_wet">#0EA5E9</color>
+
+    <!-- Race Flags -->
+    <color name="flag_green">#22C55E</color>
+    <color name="flag_yellow">#EAB308</color>
+    <color name="flag_safety_car">#F97316</color>
+    <color name="flag_red">#EF4444</color>
+</resources>

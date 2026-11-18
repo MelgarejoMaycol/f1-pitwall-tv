@@ -1,0 +1,552 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f1_dark"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- TOP HEADER & NAVIGATION TABS -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <!-- F1 Logo Badge -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/tv_banner"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:text="F1 PITWALL"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <!-- Navigation Tabs (Optimized for TV D-Pad) -->
+        <Button
+            android:id="@+id/btnTabPitWall"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/btn_tab_selector"
+            android:focusable="true"
+            android:paddingHorizontal="14dp"
+            android:text="🏎️ Muro de Pits"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnTabArchive"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/btn_tab_selector"
+            android:focusable="true"
+            android:paddingHorizontal="14dp"
+            android:text="📅 Carreras y Archivo"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnTabSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/btn_tab_selector"
+            android:focusable="true"
+            android:paddingHorizontal="14dp"
+            android:text="📺 Ajustes de Video"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- Status Badges (Flag & Weather) -->
+        <TextView
+            android:id="@+id/tvRaceFlag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/card_focus_selector"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:text="🏁 BANDERA VERDE"
+            android:textColor="@color/flag_green"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvWeather"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⛅ Pista: 32°C | Aire: 24°C"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- MAIN BODY: VIEW SWITCHER -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="6dp">
+
+        <!-- 1. PIT WALL VIEW (VIDEO + LIVE METRICS) -->
+        <LinearLayout
+            android:id="@+id/layoutPitWall"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:visibility="visible">
+
+            <!-- Video Player Column (65% width) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.65"
+                android:layout_marginEnd="6dp"
+                android:orientation="vertical">
+
+                <!-- FutbolVivo F1 Stream Alert Banner -->
+                <LinearLayout
+                    android:id="@+id/layoutFutbolVivoBanner"
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:layout_marginBottom="4dp"
+                    android:background="@drawable/card_focus_selector"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="10dp"
+                    android:visibility="visible">
+
+                    <TextView
+                        android:id="@+id/tvFutbolVivoTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="📡 futbolvivo.tv: Escaneando señales de F1..."
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnTuneFutbolVivo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="⚡ Sintonizar"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Embedded ExoPlayer -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="#000000"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="0dp">
+
+                    <androidx.media3.ui.PlayerView
+                        android:id="@+id/playerView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:focusable="true"
+                        app:show_buffering="always"
+                        app:use_controller="true" />
+                </androidx.cardview.widget.CardView>
+
+                <!-- Radio & Race Control Bar -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/card_focus_selector"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp">
+
+                    <TextView
+                        android:id="@+id/tvRadioTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="📻 Radio: [ESCUCHAR ÚLTIMA RADIO DE PILOTO]"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnPlayRadio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:text="▶ Reproducir Radio"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Live Metrics Column (35% width) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.35"
+                android:background="@color/f1_surface"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <!-- Header of Leaderboard -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingBottom="4dp">
+
+                    <TextView
+                        android:id="@+id/tvSessionTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="TIEMPOS EN VIVO (OPENF1)"
+                        android:textColor="@color/f1_red"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnRefreshLive"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:paddingHorizontal="8dp"
+                        android:text="🔄 Actualizar"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp" />
+                </LinearLayout>
+
+                <!-- Leaderboard RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvLeaderboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:focusable="true" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 2. ARCHIVE / CALENDAR VIEW -->
+        <LinearLayout
+            android:id="@+id/layoutArchive"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <!-- Grand Prix List (45% width) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.45"
+                android:background="@color/f1_surface"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingBottom="6dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="CALENDARIO OFICIAL F1"
+                        android:textColor="@color/f1_red"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- Year Selector -->
+                    <Button
+                        android:id="@+id/btnYear2024"
+                        android:layout_width="52dp"
+                        android:layout_height="30dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:text="2024"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btnYear2025"
+                        android:layout_width="52dp"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:text="2025"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btnYear2026"
+                        android:layout_width="52dp"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:text="2026"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvMeetings"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:focusable="true" />
+            </LinearLayout>
+
+            <!-- GP Detail and Official Weekend Schedule (55% width) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.55"
+                android:layout_marginStart="8dp"
+                android:background="@color/f1_surface"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <!-- Header with GP Name, Circuit and Track Outline -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvSelectedGpName"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Selecciona un Gran Premio"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSelectedGpCircuit"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Circuito e información oficial"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvSelectedGpDates"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Fechas: --"
+                            android:textColor="@color/f1_red"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- Official Track Map Image -->
+                    <ImageView
+                        android:id="@+id/ivCircuitTrackMap"
+                        android:layout_width="110dp"
+                        android:layout_height="70dp"
+                        android:background="#151821"
+                        android:padding="4dp"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+                <!-- Sub-tabs: Horarios Oficiales vs Resultados -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnViewSchedule"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="📅 Horarios de Sesiones"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnViewResults"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="📊 Resultados de Carrera"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <!-- 1. Official Sessions Schedule List -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvSessionsSchedule"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginTop="8dp"
+                    android:focusable="true"
+                    android:visibility="visible" />
+
+                <!-- 2. Historical Session Classification Results -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvArchiveResults"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginTop="8dp"
+                    android:focusable="true"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 3. SETTINGS / STREAM CONFIGURATION VIEW -->
+        <LinearLayout
+            android:id="@+id/layoutSettings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/f1_surface"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CONFIGURACIÓN DE TRANSMISIÓN DE VIDEO"
+                android:textColor="@color/f1_red"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Ingresa una URL de video o selecciona una señal disponible para ver en el Muro de Pits:"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+            <!-- Stream URL Input -->
+            <EditText
+                android:id="@+id/etStreamUrl"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/card_focus_selector"
+                android:focusable="true"
+                android:hint="https://tu-servidor/stream.m3u8 o video directo"
+                android:paddingHorizontal="12dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnApplyStream"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:focusable="true"
+                    android:text="Aplicar Señal de Video"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnPresetDemo1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:focusable="true"
+                    android:text="Video Demostración 1 (HLS)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnPresetDemo2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:focusable="true"
+                    android:text="Video Demostración 2 (MP4)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnScanFutbolVivo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:focusable="true"
+                    android:text="🏎️ Escanear F1 futbolvivo.tv"
+                    android:textColor="@color/f1_red"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:lineSpacingExtra="4dp"
+                android:text="ℹ️ Nota sobre transmisiones: Puedes reproducir cualquier enlace HLS (.m3u8), DASH (.mpd) o MP4 directamente dentro de la app mientras ves la telemetría en vivo a tu derecha."
+                android:textColor="@color/text_muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>

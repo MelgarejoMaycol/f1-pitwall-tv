@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="2dp"
+    android:background="@drawable/card_focus_selector"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="6dp">
+
+    <!-- Position Badge -->
+    <TextView
+        android:id="@+id/tvPosition"
+        android:layout_width="26dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="1"
+        android:textColor="@color/text_primary"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- Team Color Bar -->
+    <View
+        android:id="@+id/viewTeamColor"
+        android:layout_width="4dp"
+        android:layout_height="22dp"
+        android:layout_marginHorizontal="4dp"
+        android:background="@color/f1_red" />
+
+    <!-- Driver Acronym -->
+    <TextView
+        android:id="@+id/tvDriverAcronym"
+        android:layout_width="45dp"
+        android:layout_height="wrap_content"
+        android:text="VER"
+        android:textColor="@color/text_primary"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- Tyre Badge -->
+    <TextView
+        android:id="@+id/tvTyreBadge"
+        android:layout_width="32dp"
+        android:layout_height="18dp"
+        android:layout_marginEnd="6dp"
+        android:background="#EF4444"
+        android:gravity="center"
+        android:text="S 14"
+        android:textColor="#000000"
+        android:textSize="10sp"
+        android:textStyle="bold" />
+
+    <!-- Interval / Gap -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvGap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LÍDER"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLastLap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1:32.450"
+            android:textColor="@color/text_secondary"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- Sectors S1, S2, S3 mini badges -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tvS1"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_marginEnd="2dp"
+            android:background="@color/sector_purple"
+            android:gravity="center"
+            android:text="1"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp" />
+
+        <TextView
+            android:id="@+id/tvS2"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_marginEnd="2dp"
+            android:background="@color/sector_green"
+            android:gravity="center"
+            android:text="2"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp" />
+
+        <TextView
+            android:id="@+id/tvS3"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:background="@color/sector_yellow"
+            android:gravity="center"
+            android:text="3"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp" />
+    </LinearLayout>
+</LinearLayout>

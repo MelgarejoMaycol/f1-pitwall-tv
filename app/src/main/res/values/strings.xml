@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">F1 PitWall TV</string>
+    <string name="tab_pitwall">🏎️ Muro de Pits</string>
+    <string name="tab_calendar">📅 Carreras y Archivo</string>
+    <string name="tab_standings">🏆 Mundial</string>
+    <string name="tab_stream">📺 Transmisión</string>
+</resources>
