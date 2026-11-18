@@ -1,0 +1,7 @@
+{
+  "defaultSeason": 2026,
+  "supportedSeasons": [2024, 2025, 2026],
+  "timeZone": "America/Bogota",
+  "refreshIntervalLiveSeconds": 4,
+  "primaryDataSource": "OpenF1_and_Jolpica"
+}

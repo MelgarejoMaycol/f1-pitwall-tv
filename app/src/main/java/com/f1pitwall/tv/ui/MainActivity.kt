@@ -13,6 +13,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
+import com.f1pitwall.tv.core.config.AppConfig
+import com.f1pitwall.tv.core.config.VideoSourcesConfig
+import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
@@ -54,6 +57,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvRadioTitle: TextView
     private lateinit var btnPlayRadio: Button
 
+    // Live Alert Banner (desacoplado y legítimo)
+    private lateinit var layoutLiveSessionAlert: LinearLayout
+    private lateinit var tvLiveSessionAlertTitle: TextView
+    private lateinit var btnLiveSessionAction: Button
+
+    // Telemetry Panel UI
+    private lateinit var btnMetricsTiming: Button
+    private lateinit var btnMetricsTelemetry: Button
+    private lateinit var layoutTelemetryPanel: LinearLayout
+    private lateinit var tvTelemetryDriverHeader: TextView
+    private lateinit var tvTelemetryDrs: TextView
+    private lateinit var tvTelemetrySpeed: TextView
+    private lateinit var tvTelemetryGear: TextView
+    private lateinit var tvTelemetryRpm: TextView
+    private lateinit var pbTelemetryRpm: ProgressBar
+    private lateinit var tvTelemetryThrottle: TextView
+    private lateinit var pbTelemetryThrottle: ProgressBar
+    private lateinit var tvTelemetryBrake: TextView
+    private lateinit var pbTelemetryBrake: ProgressBar
+    private lateinit var btnTelemetryDemoToggle: Button
+
     // Archive / Calendar UI
     private lateinit var btnYear2024: Button
     private lateinit var btnYear2025: Button
@@ -71,23 +95,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rvArchiveResults: RecyclerView
     private lateinit var archiveResultsAdapter: LeaderboardAdapter
 
-    // Settings UI
+    // Settings UI & Smart Search
+    private lateinit var tvDetectedSessionTitle: TextView
+    private lateinit var tvSearchChip1: TextView
+    private lateinit var tvSearchChip2: TextView
+    private lateinit var tvSearchChip3: TextView
+    private lateinit var tvSearchChip4: TextView
     private lateinit var etStreamUrl: EditText
     private lateinit var btnApplyStream: Button
     private lateinit var btnPresetDemo1: Button
     private lateinit var btnPresetDemo2: Button
-    private lateinit var btnScanFutbolVivo: Button
+    private lateinit var btnReloadGitSources: Button
 
-    // FutbolVivo Banner
-    private lateinit var layoutFutbolVivoBanner: LinearLayout
-    private lateinit var tvFutbolVivoTitle: TextView
-    private lateinit var btnTuneFutbolVivo: Button
-    private lateinit var futbolVivoExtractor: com.f1pitwall.tv.network.FutbolVivoExtractor
-    private var currentFutbolVivoStreamUrl: String? = null
     private var currentSessionKey: Long? = null
     private var latestRadioUrl: String? = null
     private var selectedMeeting: Meeting? = null
-    private var selectedYear: Int = 2024
+    private var selectedYear: Int = AppConfig.DEFAULT_SEASON // 2026 por defecto
+    private var isLiveSessionActive: Boolean = false
 
     // Demo stream presets
     private val demoHlsUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
@@ -101,6 +125,7 @@ class MainActivity : AppCompatActivity() {
         initExoPlayer()
         setupNavigation()
         setupLeaderboards()
+        setupTelemetryView()
         loadInitialData()
     }
 
@@ -124,6 +149,7 @@ class MainActivity : AppCompatActivity() {
                 btnTabPitWall.performClick()
             },
             onOpenGpDetail = { meeting ->
+                selectedMeeting = meeting
                 btnTabArchive.performClick()
                 displayMeetingDetails(meeting)
             },
@@ -135,6 +161,10 @@ class MainActivity : AppCompatActivity() {
                         btnViewResults.performClick()
                     }
                     "configuracion" -> btnTabSettings.performClick()
+                    "estadisticas" -> {
+                        btnTabPitWall.performClick()
+                        btnMetricsTelemetry.performClick()
+                    }
                     else -> {
                         Toast.makeText(this, "Sección '$hubId' disponible en las siguientes fases", Toast.LENGTH_SHORT).show()
                     }
@@ -142,6 +172,7 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
+        // Pit Wall Header & Controls
         tvRaceFlag = findViewById(R.id.tvRaceFlag)
         tvWeather = findViewById(R.id.tvWeather)
         tvSessionTitle = findViewById(R.id.tvSessionTitle)
@@ -150,6 +181,27 @@ class MainActivity : AppCompatActivity() {
         tvRadioTitle = findViewById(R.id.tvRadioTitle)
         btnPlayRadio = findViewById(R.id.btnPlayRadio)
 
+        layoutLiveSessionAlert = findViewById(R.id.layoutLiveSessionAlert)
+        tvLiveSessionAlertTitle = findViewById(R.id.tvLiveSessionAlertTitle)
+        btnLiveSessionAction = findViewById(R.id.btnLiveSessionAction)
+
+        // Telemetry
+        btnMetricsTiming = findViewById(R.id.btnMetricsTiming)
+        btnMetricsTelemetry = findViewById(R.id.btnMetricsTelemetry)
+        layoutTelemetryPanel = findViewById(R.id.layoutTelemetryPanel)
+        tvTelemetryDriverHeader = findViewById(R.id.tvTelemetryDriverHeader)
+        tvTelemetryDrs = findViewById(R.id.tvTelemetryDrs)
+        tvTelemetrySpeed = findViewById(R.id.tvTelemetrySpeed)
+        tvTelemetryGear = findViewById(R.id.tvTelemetryGear)
+        tvTelemetryRpm = findViewById(R.id.tvTelemetryRpm)
+        pbTelemetryRpm = findViewById(R.id.pbTelemetryRpm)
+        tvTelemetryThrottle = findViewById(R.id.tvTelemetryThrottle)
+        pbTelemetryThrottle = findViewById(R.id.pbTelemetryThrottle)
+        tvTelemetryBrake = findViewById(R.id.tvTelemetryBrake)
+        pbTelemetryBrake = findViewById(R.id.pbTelemetryBrake)
+        btnTelemetryDemoToggle = findViewById(R.id.btnTelemetryDemoToggle)
+
+        // Archive / Calendar
         btnYear2024 = findViewById(R.id.btnYear2024)
         btnYear2025 = findViewById(R.id.btnYear2025)
         btnYear2026 = findViewById(R.id.btnYear2026)
@@ -163,56 +215,96 @@ class MainActivity : AppCompatActivity() {
         rvSessionsSchedule = findViewById(R.id.rvSessionsSchedule)
         rvArchiveResults = findViewById(R.id.rvArchiveResults)
 
+        // Settings & Smart Search
+        tvDetectedSessionTitle = findViewById(R.id.tvDetectedSessionTitle)
+        tvSearchChip1 = findViewById(R.id.tvSearchChip1)
+        tvSearchChip2 = findViewById(R.id.tvSearchChip2)
+        tvSearchChip3 = findViewById(R.id.tvSearchChip3)
+        tvSearchChip4 = findViewById(R.id.tvSearchChip4)
         etStreamUrl = findViewById(R.id.etStreamUrl)
         btnApplyStream = findViewById(R.id.btnApplyStream)
         btnPresetDemo1 = findViewById(R.id.btnPresetDemo1)
         btnPresetDemo2 = findViewById(R.id.btnPresetDemo2)
-        btnScanFutbolVivo = findViewById(R.id.btnScanFutbolVivo)
+        btnReloadGitSources = findViewById(R.id.btnReloadGitSources)
 
-        layoutFutbolVivoBanner = findViewById(R.id.layoutFutbolVivoBanner)
-        tvFutbolVivoTitle = findViewById(R.id.tvFutbolVivoTitle)
-        btnTuneFutbolVivo = findViewById(R.id.btnTuneFutbolVivo)
-
-        setupFutbolVivoExtractor()
+        btnLiveSessionAction.setOnClickListener {
+            btnTabSettings.performClick()
+        }
     }
 
-    private fun setupFutbolVivoExtractor() {
-        futbolVivoExtractor = com.f1pitwall.tv.network.FutbolVivoExtractor(this)
-        futbolVivoExtractor.onF1EventDetected = { event ->
-            layoutFutbolVivoBanner.visibility = View.VISIBLE
-            val status = if (event.isLive) "🔴 EN VIVO" else "⏳ PROGRAMADA"
-            tvFutbolVivoTitle.text = "🏁 futbolvivo.tv: ${event.title} ($status)"
-            currentFutbolVivoStreamUrl = event.streamUrl
+    private fun setupTelemetryView() {
+        btnMetricsTiming.setOnClickListener {
+            rvLeaderboard.visibility = View.VISIBLE
+            layoutTelemetryPanel.visibility = View.GONE
+            btnMetricsTiming.isSelected = true
+            btnMetricsTelemetry.isSelected = false
+        }
 
-            if (event.streamUrl != null) {
-                btnTuneFutbolVivo.text = "⚡ Sintonizar (${event.streamName ?: "HD"})"
-                btnTuneFutbolVivo.visibility = View.VISIBLE
-            } else {
-                btnTuneFutbolVivo.text = "⏳ Señal en espera"
-                btnTuneFutbolVivo.visibility = View.VISIBLE
+        btnMetricsTelemetry.setOnClickListener {
+            rvLeaderboard.visibility = View.GONE
+            layoutTelemetryPanel.visibility = View.VISIBLE
+            btnMetricsTiming.isSelected = false
+            btnMetricsTelemetry.isSelected = true
+            loadDriverTelemetry(1)
+        }
+        btnMetricsTiming.isSelected = true
+
+        btnTelemetryDemoToggle.setOnClickListener {
+            loadDriverTelemetry(1, forceDemo = true)
+        }
+    }
+
+    private fun loadDriverTelemetry(driverNumber: Int, forceDemo: Boolean = false) {
+        lifecycleScope.launch {
+            try {
+                val key = if (forceDemo || currentSessionKey == null) 9472L else currentSessionKey!!
+                val telemetry = repository.getTelemetryForDriver(key, driverNumber)
+
+                if (telemetry != null && (telemetry.speed ?: 0) > 0) {
+                    val spd = telemetry.speed ?: 0
+                    tvTelemetrySpeed.text = spd.toString()
+
+                    val gear = telemetry.gear ?: 0
+                    tvTelemetryGear.text = if (gear == 0) "N" else gear.toString()
+
+                    val rpm = telemetry.rpm ?: 0
+                    tvTelemetryRpm.text = String.format("%,d RPM", rpm)
+                    pbTelemetryRpm.progress = rpm
+
+                    val thr = telemetry.throttle ?: 0
+                    tvTelemetryThrottle.text = "Acelerador: $thr%"
+                    pbTelemetryThrottle.progress = thr
+
+                    val brk = if ((telemetry.brake ?: 0) > 0) 100 else 0
+                    tvTelemetryBrake.text = "Freno: $brk%"
+                    pbTelemetryBrake.progress = brk
+
+                    val drsActive = (telemetry.drs ?: 0) in listOf(10, 12, 14)
+                    if (drsActive) {
+                        tvTelemetryDrs.text = "DRS ACTIVO"
+                        tvTelemetryDrs.setBackgroundColor(Color.parseColor("#15803D"))
+                    } else {
+                        tvTelemetryDrs.text = "DRS INACTIVO"
+                        tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
+                    }
+                } else {
+                    // Estado informativo sin datos simulados falsos
+                    tvTelemetrySpeed.text = "0"
+                    tvTelemetryGear.text = "N"
+                    tvTelemetryRpm.text = "Motor en reposo"
+                    pbTelemetryRpm.progress = 0
+                    tvTelemetryThrottle.text = "Acelerador: 0%"
+                    pbTelemetryThrottle.progress = 0
+                    tvTelemetryBrake.text = "Freno: 0%"
+                    pbTelemetryBrake.progress = 0
+                    tvTelemetryDrs.text = "DRS OFF"
+                    tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
+                    Toast.makeText(this@MainActivity, "Sin telemetría en vivo en este momento. Pulsa 'Cargar Datos Oficiales' para ver telemetría de sesión.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
-
-        futbolVivoExtractor.onNoEventDetected = {
-            tvFutbolVivoTitle.text = "📡 futbolvivo.tv: No hay carrera programada en este momento."
-            btnTuneFutbolVivo.visibility = View.GONE
-        }
-
-        btnTuneFutbolVivo.setOnClickListener {
-            currentFutbolVivoStreamUrl?.let { url ->
-                playStream(url)
-                Toast.makeText(this, "Sintonizando carrera desde futbolvivo.tv", Toast.LENGTH_SHORT).show()
-            } ?: run {
-                Toast.makeText(this, "Carrera detectada en futbolvivo.tv. Las señales se activan antes de iniciar la carrera.", Toast.LENGTH_LONG).show()
-            }
-        }
-
-        btnScanFutbolVivo.setOnClickListener {
-            Toast.makeText(this, "Escaneando futbolvivo.tv en busca de carreras de F1...", Toast.LENGTH_SHORT).show()
-            futbolVivoExtractor.startExtraction()
-        }
-
-        futbolVivoExtractor.startExtraction()
     }
 
     private fun initExoPlayer() {
@@ -230,7 +322,7 @@ class MainActivity : AppCompatActivity() {
                 radioPlayer?.play()
                 Toast.makeText(this, "Reproduciendo audio de radio...", Toast.LENGTH_SHORT).show()
             } ?: run {
-                Toast.makeText(this, "No hay audio de radio disponible", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "No hay audio de radio disponible en este momento", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -259,6 +351,11 @@ class MainActivity : AppCompatActivity() {
             btnTabPitWall.isSelected = true
             btnTabArchive.isSelected = false
             btnTabSettings.isSelected = false
+
+            if (!isLiveSessionActive) {
+                tvLiveSessionAlertTitle.text = "⏸️ Sin carrera en vivo • Próxima: GP Las Vegas (Jue 19 nov, 7:30 PM Col)"
+                btnLiveSessionAction.text = "⚡ Señal y Demostración"
+            }
         }
 
         btnTabArchive.setOnClickListener {
@@ -297,6 +394,11 @@ class MainActivity : AppCompatActivity() {
             etStreamUrl.setText(demoMp4Url)
             playStream(demoMp4Url)
             Toast.makeText(this, "Cargado Demo 2 (MP4)", Toast.LENGTH_SHORT).show()
+        }
+
+        btnReloadGitSources.setOnClickListener {
+            val providers = VideoSourcesConfig.loadProviders(this)
+            Toast.makeText(this, "Fuentes Git recargadas (${providers.size} proveedores disponibles)", Toast.LENGTH_SHORT).show()
         }
 
         btnRefreshLive.setOnClickListener {
@@ -351,7 +453,9 @@ class MainActivity : AppCompatActivity() {
     private fun setupLeaderboards() {
         rvLeaderboard.layoutManager = LinearLayoutManager(this)
         leaderboardAdapter = LeaderboardAdapter { item ->
-            Toast.makeText(this, "Piloto: ${item.fullName} (${item.teamName})", Toast.LENGTH_SHORT).show()
+            tvTelemetryDriverHeader.text = "#${item.driverNumber} ${item.fullName} • ${item.teamName}"
+            btnMetricsTelemetry.performClick()
+            loadDriverTelemetry(item.driverNumber, forceDemo = true)
         }
         rvLeaderboard.adapter = leaderboardAdapter
 
@@ -389,7 +493,27 @@ class MainActivity : AppCompatActivity() {
             ivCircuitTrackMap.visibility = View.GONE
         }
 
+        // Actualizar búsqueda adaptativa en ajustes
+        updateSmartSearchQueries(meeting.meetingName ?: "Las Vegas", "prácticas")
+
         loadSessionsForMeeting(meeting.meetingKey)
+    }
+
+    private fun updateSmartSearchQueries(gpName: String, sessionType: String = "prácticas") {
+        tvDetectedSessionTitle.text = "🏎️ Evento identificado: $gpName • ${sessionType.replaceFirstChar { it.uppercase() }}"
+        val queries = VideoSourcesConfig.generateSmartSearchQueries(gpName, sessionType)
+        val chips = listOf(tvSearchChip1, tvSearchChip2, tvSearchChip3, tvSearchChip4)
+        chips.forEachIndexed { idx, chip ->
+            if (idx < queries.size) {
+                chip.text = queries[idx]
+                chip.visibility = View.VISIBLE
+                chip.setOnClickListener {
+                    Toast.makeText(this, "Búsqueda sugerida: ${queries[idx]}", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                chip.visibility = View.GONE
+            }
+        }
     }
 
     private fun formatMeetingDates(startIso: String?, endIso: String?): String {
@@ -402,12 +526,12 @@ class MainActivity : AppCompatActivity() {
 
             val outFormat = SimpleDateFormat("d 'de' MMMM", Locale("es", "ES"))
             val yearFormat = SimpleDateFormat("yyyy", Locale("es", "ES"))
-            outFormat.timeZone = TimeZone.getDefault()
+            outFormat.timeZone = TimeZone.getTimeZone("America/Bogota")
 
             if (sDate != null && eDate != null) {
-                "Fechas: ${outFormat.format(sDate)} al ${outFormat.format(eDate)} de ${yearFormat.format(eDate)}"
+                "Fechas: ${outFormat.format(sDate)} al ${outFormat.format(eDate)} de ${yearFormat.format(eDate)} (Hora Colombia)"
             } else if (sDate != null) {
-                "Fecha: ${outFormat.format(sDate)}"
+                "Fecha: ${outFormat.format(sDate)} (Hora Colombia)"
             } else "Fechas por confirmar"
         } catch (e: Exception) {
             "Fechas: ${startIso.take(10)}"
@@ -416,16 +540,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadInitialData() {
         loadLiveSessionData()
+        updateYearButtonHighlights()
     }
 
     private fun loadLiveSessionData() {
         lifecycleScope.launch {
             try {
-                btnRefreshLive.text = "⏳ Cargando..."
+                btnRefreshLive.text = "⏳"
                 val session = api.getLatestSession()
                 if (session != null) {
                     currentSessionKey = session.sessionKey
                     tvSessionTitle.text = "${session.circuitShortName ?: "F1"} - ${session.sessionName ?: "Sesión"}"
+
+                    val isLive = TimeUtils.isCurrentlyLive(session.dateStart, session.dateEnd)
+                    isLiveSessionActive = isLive
+
+                    if (isLive) {
+                        tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: ${session.circuitShortName} - ${session.sessionName}"
+                        btnLiveSessionAction.text = "⚡ Ver Señal en Vivo"
+                    } else {
+                        tvLiveSessionAlertTitle.text = "⏸️ Sin sesión en curso • Datos oficiales disponibles"
+                        btnLiveSessionAction.text = "⚡ Señal de Prueba"
+                    }
 
                     val drivers = api.getDrivers(session.sessionKey)
                     val positions = api.getLatestPositions(session.sessionKey)
@@ -436,7 +572,6 @@ class MainActivity : AppCompatActivity() {
                     val weather = api.getLatestWeather(session.sessionKey)
                     val raceControl = api.getLatestRaceControl(session.sessionKey)
 
-                    // Weather & Race Control
                     weather?.let { w ->
                         tvWeather.text = "⛅ Pista: ${w.trackTemp ?: 0}°C | Aire: ${w.airTemp ?: 0}°C"
                     }
@@ -451,21 +586,19 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Radio
                     radios.firstOrNull()?.let { r ->
                         latestRadioUrl = r.recordingUrl
                         val driver = drivers.find { it.driverNumber == r.driverNumber }
                         tvRadioTitle.text = "📻 Radio: #${r.driverNumber} ${driver?.broadcastName ?: "Piloto"}"
                     }
 
-                    // Build Leaderboard Items
                     val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
                     leaderboardAdapter.updateData(items)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
-                btnRefreshLive.text = "🔄 Actualizar"
+                btnRefreshLive.text = "🔄"
             }
         }
     }
@@ -529,11 +662,25 @@ class MainActivity : AppCompatActivity() {
     private fun loadCalendar(year: Int) {
         lifecycleScope.launch {
             try {
-                val meetings = api.getMeetings(year)
+                val meetings = repository.getMeetings(year)
                 meetingAdapter.updateData(meetings)
+
                 if (meetings.isNotEmpty()) {
-                    val defaultMeeting = meetings.firstOrNull { it.meetingName?.contains("Grand Prix", true) == true } ?: meetings.first()
-                    displayMeetingDetails(defaultMeeting)
+                    // Selección inteligente: No seleccionar siempre Australia (index 0).
+                    // Seleccionar el Gran Premio activo o próximo (en 2026: Las Vegas GP)
+                    val targetMeeting = if (selectedMeeting != null && selectedMeeting!!.year == year) {
+                        selectedMeeting!!
+                    } else {
+                        repository.findSmartSelectedMeeting(year) ?: meetings.first()
+                    }
+
+                    displayMeetingDetails(targetMeeting)
+
+                    // Desplazar la lista al Gran Premio seleccionado
+                    val index = meetings.indexOfFirst { it.meetingKey == targetMeeting.meetingKey }
+                    if (index >= 0) {
+                        rvMeetings.scrollToPosition(index)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

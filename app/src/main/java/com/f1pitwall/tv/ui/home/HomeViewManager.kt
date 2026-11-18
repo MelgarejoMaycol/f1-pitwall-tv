@@ -11,8 +11,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
+import com.f1pitwall.tv.core.config.AppConfig
 import com.f1pitwall.tv.data.model.HeroBannerData
 import com.f1pitwall.tv.data.model.HeroStateType
+import com.f1pitwall.tv.data.model.RecentRaceSummary
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.Meeting
 import kotlinx.coroutines.launch
@@ -38,6 +40,18 @@ class HomeViewManager(
     private val ivHeroFlag: ImageView = rootView.findViewById(R.id.ivHeroFlag)
     private val ivHeroCircuitMap: ImageView = rootView.findViewById(R.id.ivHeroCircuitMap)
 
+    // Recent Results Card Elements
+    private val tvRecentResultsGpTitle: TextView = rootView.findViewById(R.id.tvRecentResultsGpTitle)
+    private val tvRecentResultsCircuit: TextView = rootView.findViewById(R.id.tvRecentResultsCircuit)
+    private val tvRecentResultsDate: TextView = rootView.findViewById(R.id.tvRecentResultsDate)
+    private val tvPodium1Name: TextView = rootView.findViewById(R.id.tvPodium1Name)
+    private val tvPodium1Team: TextView = rootView.findViewById(R.id.tvPodium1Team)
+    private val tvPodium2Name: TextView = rootView.findViewById(R.id.tvPodium2Name)
+    private val tvPodium2Team: TextView = rootView.findViewById(R.id.tvPodium2Team)
+    private val tvPodium3Name: TextView = rootView.findViewById(R.id.tvPodium3Name)
+    private val tvPodium3Team: TextView = rootView.findViewById(R.id.tvPodium3Team)
+    private val btnViewFullResults: Button = rootView.findViewById(R.id.btnViewFullResults)
+
     // Carousels
     private val rvCircularHubs: RecyclerView = rootView.findViewById(R.id.rvCircularHubs)
     private val rvCarouselGp: RecyclerView = rootView.findViewById(R.id.rvCarouselGp)
@@ -50,11 +64,13 @@ class HomeViewManager(
     private lateinit var driverCarouselAdapter: DriverCarouselAdapter
     private lateinit var circuitCarouselAdapter: CircuitCarouselAdapter
 
-    private var currentHeroMeetingKey: Long? = null
+    private var currentHeroMeeting: Meeting? = null
+    private var lastFinishedMeeting: Meeting? = null
 
     init {
         setupCarousels()
-        loadHomeData()
+        setupActionButtons()
+        loadHomeData(AppConfig.DEFAULT_SEASON)
     }
 
     private fun setupCarousels() {
@@ -94,52 +110,51 @@ class HomeViewManager(
             Toast.makeText(context, "${circuit.circuitName} (${circuit.country})", Toast.LENGTH_SHORT).show()
         }
         rvCarouselCircuits.adapter = circuitCarouselAdapter
+    }
 
-        // Action Buttons
+    private fun setupActionButtons() {
         btnHeroWatchLive.setOnClickListener {
             onOpenRaceScreen()
         }
 
         btnHeroViewGp.setOnClickListener {
-            currentHeroMeetingKey?.let { key ->
-                scope.launch {
-                    val meetings = repository.getMeetings(2024)
-                    val m = meetings.find { it.meetingKey == key } ?: meetings.firstOrNull()
-                    m?.let { onOpenGpDetail(it) }
-                }
-            }
+            currentHeroMeeting?.let { onOpenGpDetail(it) }
         }
 
         btnHeroResults.setOnClickListener {
-            currentHeroMeetingKey?.let { key ->
-                scope.launch {
-                    val meetings = repository.getMeetings(2024)
-                    val m = meetings.find { it.meetingKey == key } ?: meetings.firstOrNull()
-                    m?.let { onOpenGpDetail(it) }
-                }
-            }
+            lastFinishedMeeting?.let { onOpenGpDetail(it) } ?: currentHeroMeeting?.let { onOpenGpDetail(it) }
+        }
+
+        btnViewFullResults.setOnClickListener {
+            lastFinishedMeeting?.let { onOpenGpDetail(it) }
         }
     }
 
-    fun loadHomeData(year: Int = 2024) {
+    fun loadHomeData(year: Int = AppConfig.DEFAULT_SEASON) {
         scope.launch {
             try {
-                // 1. Resolve Dynamic Hero Banner
-                val heroData = repository.resolveHeroBannerData(year)
-                heroData?.let { bindHero(it) }
-
-                // 2. Load GP Meetings Carousel
+                // 1. Cargar Grandes Premios del año (2026 por defecto)
                 val meetings = repository.getMeetings(year)
                 gpCarouselAdapter.updateData(meetings)
 
-                // 3. Load Drivers Carousel
-                val lastMeetingKey = heroData?.meetingKey ?: meetings.lastOrNull()?.meetingKey
-                if (lastMeetingKey != null) {
-                    val drivers = repository.getDriversCarouselData(heroData?.sessionKey ?: 9472L)
-                    driverCarouselAdapter.updateData(drivers)
-                }
+                // 2. Selección inteligente del GP para Hero y Detalles
+                val smartMeeting = repository.findSmartSelectedMeeting(year)
+                currentHeroMeeting = smartMeeting
 
-                // 4. Load Circuits Carousel
+                // 3. Resolver Hero Banner con datos dinámicos reales
+                val heroData = repository.resolveHeroBannerData(year)
+                heroData?.let { bindHero(it) }
+
+                // 4. Cargar resumen de última carrera disputada y podio real (São Paulo GP)
+                val recentSummary = repository.getRecentRaceSummary(year)
+                recentSummary?.let { bindRecentResults(it, meetings) }
+
+                // 5. Cargar Pilotos de la parrilla
+                val driverSessionKey = heroData?.sessionKey ?: 9472L
+                val drivers = repository.getDriversCarouselData(driverSessionKey)
+                driverCarouselAdapter.updateData(drivers)
+
+                // 6. Cargar Circuitos del año
                 val circuits = repository.getCircuits(year)
                 circuitCarouselAdapter.updateData(circuits)
 
@@ -150,7 +165,6 @@ class HomeViewManager(
     }
 
     private fun bindHero(hero: HeroBannerData) {
-        currentHeroMeetingKey = hero.meetingKey
         tvHeroTitle.text = hero.grandPrixName
         tvHeroSubtitle.text = "${hero.circuitName} • ${hero.location}"
         tvHeroColombiaTime.text = hero.timingDisplay
@@ -160,13 +174,14 @@ class HomeViewManager(
             HeroStateType.LIVE -> {
                 tvHeroStateBadge.text = "🔴 EN DIRECTO"
                 tvHeroStateBadge.setBackgroundColor(Color.parseColor("#E10600"))
+                btnHeroWatchLive.text = "🏎️ Ver en Directo (Muro de Pits)"
                 btnHeroWatchLive.visibility = View.VISIBLE
                 btnHeroWatchLive.requestFocus()
             }
             HeroStateType.UPCOMING -> {
                 tvHeroStateBadge.text = "⏳ PRÓXIMA CARRERA"
                 tvHeroStateBadge.setBackgroundColor(Color.parseColor("#2563EB"))
-                btnHeroWatchLive.text = "🏎️ Ir al Muro de Pits"
+                btnHeroWatchLive.text = "🏎️ Muro de Pits (En Espera)"
                 btnHeroWatchLive.visibility = View.VISIBLE
             }
             HeroStateType.COMPLETED -> {
@@ -189,6 +204,33 @@ class HomeViewManager(
             ivHeroCircuitMap.load(hero.circuitImageUrl) { crossfade(true) }
         } else {
             ivHeroCircuitMap.visibility = View.GONE
+        }
+    }
+
+    private fun bindRecentResults(summary: RecentRaceSummary, meetings: List<Meeting>) {
+        tvRecentResultsGpTitle.text = "${summary.grandPrixName} ${summary.season}"
+        tvRecentResultsCircuit.text = "${summary.circuitName} • ${summary.country}"
+        tvRecentResultsDate.text = "Fecha oficial: ${summary.dateDisplay}"
+
+        lastFinishedMeeting = meetings.find {
+            it.meetingName?.contains(summary.grandPrixName.replace("Grand Prix", "").trim(), ignoreCase = true) == true
+        } ?: meetings.lastOrNull { it.meetingName?.contains("Grand Prix", true) == true }
+
+        val p1 = summary.podium.getOrNull(0)
+        val p2 = summary.podium.getOrNull(1)
+        val p3 = summary.podium.getOrNull(2)
+
+        if (p1 != null) {
+            tvPodium1Name.text = p1.fullName
+            tvPodium1Team.text = "${p1.teamName} • Ganador 🏆"
+        }
+        if (p2 != null) {
+            tvPodium2Name.text = p2.fullName
+            tvPodium2Team.text = p2.teamName
+        }
+        if (p3 != null) {
+            tvPodium3Name.text = p3.fullName
+            tvPodium3Team.text = p3.teamName
         }
     }
 }

@@ -138,4 +138,10 @@ class OpenF1ApiClient {
         val all = get("$baseUrl/weather?session_key=$sessionKey", type, useCache = false) ?: emptyList()
         return all.lastOrNull()
     }
+
+    suspend fun getLatestTelemetry(sessionKey: Long, driverNumber: Int): CarTelemetry? {
+        val type = object : TypeToken<List<CarTelemetry>>() {}
+        val all = get("$baseUrl/car_data?session_key=$sessionKey&driver_number=$driverNumber&speed>=0", type, useCache = false) ?: emptyList()
+        return all.lastOrNull()
+    }
 }

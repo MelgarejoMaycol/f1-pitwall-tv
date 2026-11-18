@@ -112,3 +112,14 @@ data class DriverLeaderboardItem(
     val tyreCompound: String,
     val tyreAge: Int
 )
+
+data class CarTelemetry(
+    @SerializedName("speed") val speed: Int?,
+    @SerializedName("throttle") val throttle: Int?,
+    @SerializedName("brake") val brake: Int?,
+    @SerializedName("rpm") val rpm: Int?,
+    @SerializedName("n_gear") val gear: Int?,
+    @SerializedName("drs") val drs: Int?,
+    @SerializedName("driver_number") val driverNumber: Int?,
+    @SerializedName("date") val date: String?
+)

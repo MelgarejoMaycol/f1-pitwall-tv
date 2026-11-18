@@ -1,0 +1,25 @@
+{
+  "providers": [
+    {
+      "id": "hls_stream_1",
+      "name": "Señal HLS Principal",
+      "streamUrl": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+      "type": "HLS",
+      "isDefault": true
+    },
+    {
+      "id": "mp4_stream_2",
+      "name": "Señal MP4 Alternativa",
+      "streamUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "type": "MP4",
+      "isDefault": false
+    }
+  ],
+  "searchTemplates": [
+    "GP {gpName} F1",
+    "Gran Premio de {gpName} Fórmula 1",
+    "Fórmula 1 {gpName} en directo",
+    "F1 {gpName} {sessionType}",
+    "Carrera Fórmula 1 {gpName}"
+  ]
+}
