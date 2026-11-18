@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scrollHome"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f1_dark"
+    android:clipToPadding="false"
+    android:descendantFocusability="afterDescendants"
+    android:fillViewport="true"
+    android:paddingBottom="40dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- ============================================== -->
+        <!-- 1. HERO PRINCIPAL (DISNEY+ / F1 TV STYLE)     -->
+        <!-- ============================================== -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardHero"
+            android:layout_width="match_parent"
+            android:layout_height="270dp"
+            android:layout_margin="10dp"
+            app:cardBackgroundColor="#131722"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- Background Subtle Glow/Gradient -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/tv_banner"
+                    android:alpha="0.12" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="28dp"
+                    android:paddingVertical="16dp">
+
+                    <!-- Hero Left Metadata & Action Buttons -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <!-- Live/Upcoming/Completed Pill Badge -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvHeroStateBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="24dp"
+                                android:background="#E10600"
+                                android:gravity="center"
+                                android:paddingHorizontal="10dp"
+                                android:text="🔴 EN DIRECTO"
+                                android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvHeroCountdown"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="10dp"
+                                android:text="Cuenta regresiva"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Grand Prix Title -->
+                        <TextView
+                            android:id="@+id/tvHeroTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="FORMULA 1 BAHRAIN GRAND PRIX"
+                            android:textColor="@color/text_primary"
+                            android:textSize="26sp"
+                            android:textStyle="bold" />
+
+                        <!-- Subtitle (Circuit & Location) -->
+                        <TextView
+                            android:id="@+id/tvHeroSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Bahrain International Circuit • Sakhir, Bahréin"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="14sp" />
+
+                        <!-- Local Colombia Time -->
+                        <TextView
+                            android:id="@+id/tvHeroColombiaTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="📅 Domingo, 2 de marzo • 10:00 AM (Hora Colombia)"
+                            android:textColor="@color/f1_red"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <!-- Action Buttons Row -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnHeroWatchLive"
+                                android:layout_width="wrap_content"
+                                android:layout_height="42dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:focusable="true"
+                                android:paddingHorizontal="18dp"
+                                android:text="🏎️ Ver en Directo (Muro de Pits)"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnHeroViewGp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="42dp"
+                                android:layout_marginStart="12dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:focusable="true"
+                                android:paddingHorizontal="16dp"
+                                android:text="📅 Detalle del GP"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp" />
+
+                            <Button
+                                android:id="@+id/btnHeroResults"
+                                android:layout_width="wrap_content"
+                                android:layout_height="42dp"
+                                android:layout_marginStart="12dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:focusable="true"
+                                android:paddingHorizontal="16dp"
+                                android:text="📊 Resultados Oficiales"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Hero Right Visuals: Circuit Map + Flag -->
+                    <LinearLayout
+                        android:layout_width="220dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:id="@+id/ivHeroFlag"
+                            android:layout_width="54dp"
+                            android:layout_height="34dp"
+                            android:layout_marginBottom="8dp"
+                            android:scaleType="fitCenter" />
+
+                        <ImageView
+                            android:id="@+id/ivHeroCircuitMap"
+                            android:layout_width="190dp"
+                            android:layout_height="140dp"
+                            android:padding="6dp"
+                            android:scaleType="fitCenter" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ============================================== -->
+        <!-- 2. ACCESOS CIRCULARES (DISNEY+ HUB PILLS)      -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="EXPLORAR PLATAFORMA"
+                android:textColor="@color/f1_red"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCircularHubs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:focusable="false"
+                android:descendantFocusability="afterDescendants"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 3. CARRUSEL: GRANDES PREMIOS DE LA TEMPORADA  -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="🏁 GRANDES PREMIOS DE LA TEMPORADA"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCarouselGp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:focusable="false"
+                android:descendantFocusability="afterDescendants"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 4. CARRUSEL: PILOTOS DESTACADOS                -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="🏎️ PILOTOS DE LA PARRILLA"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCarouselDrivers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:focusable="false"
+                android:descendantFocusability="afterDescendants"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 5. CARRUSEL: ESCUDERÍAS Y CONSTRUCTORES       -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="🛠️ ESCUDERÍAS Y CONSTRUCTORES"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCarouselConstructors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:focusable="false"
+                android:descendantFocusability="afterDescendants"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 6. CARRUSEL: CIRCUITOS EMBLEMÁTICOS           -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="🗺️ CIRCUITOS DEL MUNDIAL"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCarouselCircuits"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:focusable="false"
+                android:descendantFocusability="afterDescendants"
+                android:orientation="horizontal" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

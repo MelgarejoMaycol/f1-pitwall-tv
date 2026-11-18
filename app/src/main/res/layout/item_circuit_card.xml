@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="180dp"
+    android:layout_height="125dp"
+    android:layout_marginHorizontal="6dp"
+    android:layout_marginVertical="4dp"
+    android:background="@drawable/card_focus_selector"
+    android:focusable="true"
+    android:clickable="true"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Circuit outline silhouette image -->
+    <ImageView
+        android:id="@+id/ivCircuitSilhouette"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="2dp"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/tvCircuitCardName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Interlagos"
+        android:textColor="@color/text_primary"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvCircuitCardLocation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="São Paulo • Brazil"
+        android:textColor="@color/text_secondary"
+        android:textSize="10sp" />
+</LinearLayout>

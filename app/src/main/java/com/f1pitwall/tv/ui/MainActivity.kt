@@ -13,8 +13,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
+import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
+import com.f1pitwall.tv.ui.home.HomeViewManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -26,14 +28,21 @@ class MainActivity : AppCompatActivity() {
     private var radioPlayer: ExoPlayer? = null
 
     // Tabs
+    private lateinit var btnTabHome: Button
     private lateinit var btnTabPitWall: Button
     private lateinit var btnTabArchive: Button
     private lateinit var btnTabSettings: Button
 
     // Layout Containers
+    private lateinit var layoutHome: View
     private lateinit var layoutPitWall: LinearLayout
     private lateinit var layoutArchive: LinearLayout
     private lateinit var layoutSettings: LinearLayout
+
+    // F1 Repository & Home Manager
+    private val api = OpenF1ApiClient()
+    private val repository by lazy { F1Repository(api) }
+    private lateinit var homeViewManager: HomeViewManager
 
     // Pit Wall UI
     private lateinit var tvRaceFlag: TextView
@@ -75,8 +84,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTuneFutbolVivo: Button
     private lateinit var futbolVivoExtractor: com.f1pitwall.tv.network.FutbolVivoExtractor
     private var currentFutbolVivoStreamUrl: String? = null
-
-    private val api = OpenF1ApiClient()
     private var currentSessionKey: Long? = null
     private var latestRadioUrl: String? = null
     private var selectedMeeting: Meeting? = null
@@ -99,13 +106,41 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         playerView = findViewById(R.id.playerView)
+        btnTabHome = findViewById(R.id.btnTabHome)
         btnTabPitWall = findViewById(R.id.btnTabPitWall)
         btnTabArchive = findViewById(R.id.btnTabArchive)
         btnTabSettings = findViewById(R.id.btnTabSettings)
 
+        layoutHome = findViewById(R.id.layoutHome)
         layoutPitWall = findViewById(R.id.layoutPitWall)
         layoutArchive = findViewById(R.id.layoutArchive)
         layoutSettings = findViewById(R.id.layoutSettings)
+
+        homeViewManager = HomeViewManager(
+            rootView = layoutHome,
+            repository = repository,
+            scope = lifecycleScope,
+            onOpenRaceScreen = {
+                btnTabPitWall.performClick()
+            },
+            onOpenGpDetail = { meeting ->
+                btnTabArchive.performClick()
+                displayMeetingDetails(meeting)
+            },
+            onOpenHubSection = { hubId ->
+                when (hubId) {
+                    "calendario" -> btnTabArchive.performClick()
+                    "resultados" -> {
+                        btnTabArchive.performClick()
+                        btnViewResults.performClick()
+                    }
+                    "configuracion" -> btnTabSettings.performClick()
+                    else -> {
+                        Toast.makeText(this, "Sección '$hubId' disponible en las siguientes fases", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
 
         tvRaceFlag = findViewById(R.id.tvRaceFlag)
         tvWeather = findViewById(R.id.tvWeather)
@@ -210,8 +245,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavigation() {
+        btnTabHome.setOnClickListener {
+            showLayout(layoutHome)
+            btnTabHome.isSelected = true
+            btnTabPitWall.isSelected = false
+            btnTabArchive.isSelected = false
+            btnTabSettings.isSelected = false
+        }
+
         btnTabPitWall.setOnClickListener {
             showLayout(layoutPitWall)
+            btnTabHome.isSelected = false
             btnTabPitWall.isSelected = true
             btnTabArchive.isSelected = false
             btnTabSettings.isSelected = false
@@ -219,6 +263,7 @@ class MainActivity : AppCompatActivity() {
 
         btnTabArchive.setOnClickListener {
             showLayout(layoutArchive)
+            btnTabHome.isSelected = false
             btnTabPitWall.isSelected = false
             btnTabArchive.isSelected = true
             btnTabSettings.isSelected = false
@@ -227,6 +272,7 @@ class MainActivity : AppCompatActivity() {
 
         btnTabSettings.setOnClickListener {
             showLayout(layoutSettings)
+            btnTabHome.isSelected = false
             btnTabPitWall.isSelected = false
             btnTabArchive.isSelected = false
             btnTabSettings.isSelected = true
@@ -279,8 +325,8 @@ class MainActivity : AppCompatActivity() {
         }
         btnViewSchedule.isSelected = true
 
-        btnTabPitWall.isSelected = true
-        btnTabPitWall.requestFocus()
+        btnTabHome.isSelected = true
+        btnTabHome.requestFocus()
     }
 
     private fun selectYear(year: Int) {
@@ -296,6 +342,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLayout(target: View) {
+        layoutHome.visibility = if (target == layoutHome) View.VISIBLE else View.GONE
         layoutPitWall.visibility = if (target == layoutPitWall) View.VISIBLE else View.GONE
         layoutArchive.visibility = if (target == layoutArchive) View.VISIBLE else View.GONE
         layoutSettings.visibility = if (target == layoutSettings) View.VISIBLE else View.GONE

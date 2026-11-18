@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="170dp"
+    android:layout_height="115dp"
+    android:layout_marginHorizontal="6dp"
+    android:layout_marginVertical="4dp"
+    android:background="@drawable/card_focus_selector"
+    android:focusable="true"
+    android:clickable="true"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <!-- Team color indicator strip -->
+    <View
+        android:id="@+id/viewConstructorColor"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:background="@color/f1_red" />
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/tvConstructorName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="McLaren"
+        android:textColor="@color/text_primary"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvConstructorDrivers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Norris • Piastri"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp" />
+</LinearLayout>
