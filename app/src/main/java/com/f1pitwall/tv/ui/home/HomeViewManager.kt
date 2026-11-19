@@ -79,6 +79,8 @@ class HomeViewManager(
         val context = rootView.context
 
         // 1. Navigation Hub Cards (Reemplazo moderno de círculos genéricos)
+        // Evitar una segunda navegación redundante: las secciones ya están en la barra superior.
+        rvCircularHubs.visibility = View.GONE
         rvCircularHubs.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         circularHubAdapter = CircularHubAdapter(repository.getCircularHubItems()) { hub ->
             onOpenHubSection(hub.id)
@@ -109,7 +111,7 @@ class HomeViewManager(
         // 5. Circuitos Oficiales
         rvCarouselCircuits.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         circuitCarouselAdapter = CircuitCarouselAdapter { circuit ->
-            Toast.makeText(context, "${circuit.circuitName} (${circuit.country})", Toast.LENGTH_SHORT).show()
+            onOpenHubSection("resultados")
         }
         rvCarouselCircuits.adapter = circuitCarouselAdapter
     }
