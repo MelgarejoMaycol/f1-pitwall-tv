@@ -44,17 +44,15 @@ object VideoSourcesConfig {
 
     fun loadProviders(context: Context): List<VideoProviderItem> {
         val userSources = PreferencesManager(context).getCustomSources()
-        if (userSources.isNotEmpty()) {
-            return userSources
-        }
-        return try {
+        val assetSources = try {
             val json = context.assets.open("video_sources.json").bufferedReader().use { it.readText() }
             val parsed = Gson().fromJson(json, VideoSourcesFile::class.java)
             parsed.providers ?: emptyList()
-        } catch (e: Exception) {
-            // Sin una fuente configurada por el usuario, no cargar ningún stream genérico.
+        } catch (_: Exception) {
             emptyList()
         }
+        // Custom sources override asset entries with matching IDs; otherwise both are available.
+        return (assetSources + userSources).associateBy { it.id }.values.toList()
     }
 
     /**
