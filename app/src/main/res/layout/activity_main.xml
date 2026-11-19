@@ -854,6 +854,9 @@
                         android:layout_height="30dp"
                         android:background="@drawable/btn_tab_selector"
                         android:focusable="true"
+                        android:nextFocusDown="@+id/rvMeetings"
+                        android:nextFocusRight="@+id/btnYear2025"
+                        android:nextFocusUp="@+id/btnTabArchive"
                         android:text="2024"
                         android:textColor="@color/text_primary"
                         android:textSize="11sp" />
@@ -865,6 +868,10 @@
                         android:layout_marginStart="4dp"
                         android:background="@drawable/btn_tab_selector"
                         android:focusable="true"
+                        android:nextFocusDown="@+id/rvMeetings"
+                        android:nextFocusLeft="@+id/btnYear2024"
+                        android:nextFocusRight="@+id/btnYear2026"
+                        android:nextFocusUp="@+id/btnTabArchive"
                         android:text="2025"
                         android:textColor="@color/text_primary"
                         android:textSize="11sp" />
@@ -876,6 +883,10 @@
                         android:layout_marginStart="4dp"
                         android:background="@drawable/btn_tab_selector"
                         android:focusable="true"
+                        android:nextFocusDown="@+id/rvMeetings"
+                        android:nextFocusLeft="@+id/btnYear2025"
+                        android:nextFocusRight="@+id/btnViewSchedule"
+                        android:nextFocusUp="@+id/btnTabArchive"
                         android:text="2026"
                         android:textColor="@color/text_primary"
                         android:textSize="11sp" />
@@ -885,7 +896,10 @@
                     android:id="@+id/rvMeetings"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:focusable="true" />
+                    android:descendantFocusability="afterDescendants"
+                    android:focusable="true"
+                    android:nextFocusRight="@+id/btnViewSchedule"
+                    android:nextFocusUp="@+id/btnYear2026" />
             </LinearLayout>
 
             <!-- GP Detail and Official Weekend Schedule (55% width) -->
@@ -964,6 +978,10 @@
                         android:layout_height="32dp"
                         android:background="@drawable/btn_tab_selector"
                         android:focusable="true"
+                        android:nextFocusDown="@+id/rvSessionsSchedule"
+                        android:nextFocusLeft="@+id/rvMeetings"
+                        android:nextFocusRight="@+id/btnViewResults"
+                        android:nextFocusUp="@+id/btnTabArchive"
                         android:paddingHorizontal="10dp"
                         android:text="📅 Horarios de Sesiones"
                         android:textColor="@color/text_primary"
@@ -977,6 +995,9 @@
                         android:layout_marginStart="8dp"
                         android:background="@drawable/btn_tab_selector"
                         android:focusable="true"
+                        android:nextFocusDown="@+id/rvArchiveResults"
+                        android:nextFocusLeft="@+id/btnViewSchedule"
+                        android:nextFocusUp="@+id/btnTabArchive"
                         android:paddingHorizontal="10dp"
                         android:text="📊 Resultados de Carrera"
                         android:textColor="@color/text_primary"
@@ -990,7 +1011,10 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:layout_marginTop="8dp"
+                    android:descendantFocusability="afterDescendants"
                     android:focusable="true"
+                    android:nextFocusLeft="@+id/rvMeetings"
+                    android:nextFocusUp="@+id/btnViewSchedule"
                     android:visibility="visible" />
 
                 <!-- 2. Historical Session Classification Results -->
@@ -1000,7 +1024,10 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:layout_marginTop="8dp"
+                    android:descendantFocusability="afterDescendants"
                     android:focusable="true"
+                    android:nextFocusLeft="@+id/rvMeetings"
+                    android:nextFocusUp="@+id/btnViewResults"
                     android:visibility="gone" />
 
                 <!-- Empty state when no historical results are registered -->

@@ -1,6 +1,7 @@
 package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
@@ -132,12 +133,9 @@ class HomeViewManager(
                 val smartMeeting = repository.findSmartSelectedMeeting(year)
                 currentHeroMeeting = smartMeeting
 
-                // Actualizar carrusel de GP y situar Las Vegas al frente
-                val smartIndex = meetings.indexOfFirst { it.meetingKey == smartMeeting?.meetingKey }
+                // Actualizar carrusel de GP iniciando en la primera carrera y destacando Las Vegas
                 gpCarouselAdapter.updateData(meetings, smartMeeting?.meetingKey)
-                if (smartIndex >= 0) {
-                    rvCarouselGp.scrollToPosition(smartIndex)
-                }
+                rvCarouselGp.scrollToPosition(0)
 
                 // 3. Resolver Hero Banner con datos dinámicos oficiales
                 val heroData = repository.resolveHeroBannerData(year)
@@ -150,14 +148,17 @@ class HomeViewManager(
                 // 5. Cargar Mundial de Pilotos con puntos y posiciones reales (Jolpica 2026)
                 val driversStandings = repository.getDriverStandings(year)
                 driverCarouselAdapter.updateData(driversStandings)
+                rvCarouselDrivers.scrollToPosition(0)
 
                 // 6. Cargar Mundial de Constructores con puntos reales (Jolpica 2026)
                 val constructorStandings = repository.getConstructorStandings(year)
                 constructorCarouselAdapter.updateData(constructorStandings)
+                rvCarouselConstructors.scrollToPosition(0)
 
                 // 7. Cargar Circuitos oficiales
                 val circuits = repository.getCircuits(year)
                 circuitCarouselAdapter.updateData(circuits)
+                rvCarouselCircuits.scrollToPosition(0)
 
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -222,6 +223,7 @@ class HomeViewManager(
 
         if (!hero.circuitImageUrl.isNullOrEmpty()) {
             ivHeroCircuitMap.visibility = View.VISIBLE
+            ivHeroCircuitMap.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
             ivHeroCircuitMap.load(hero.circuitImageUrl) { crossfade(true) }
         } else {
             ivHeroCircuitMap.visibility = View.GONE

@@ -1,6 +1,7 @@
 package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -92,6 +93,19 @@ class GpCarouselAdapter(
             }
 
             itemView.isSelected = isSelected
+
+            itemView.setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    val currentPos = bindingAdapterPosition
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && currentPos == 0) {
+                        return@setOnKeyListener true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && currentPos == items.size - 1) {
+                        return@setOnKeyListener true
+                    }
+                }
+                false
+            }
 
             itemView.setOnClickListener {
                 selectedMeetingKey = meeting.meetingKey

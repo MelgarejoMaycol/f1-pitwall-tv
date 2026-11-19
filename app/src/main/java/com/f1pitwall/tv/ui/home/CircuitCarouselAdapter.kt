@@ -1,5 +1,8 @@
 package com.f1pitwall.tv.ui.home
 
+import android.graphics.Color
+import android.graphics.PorterDuff
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -41,10 +44,28 @@ class CircuitCarouselAdapter(
             tvCircuitCardName.text = circuit.circuitName
             tvCircuitCardLocation.text = "${circuit.location} • ${circuit.country}"
 
+            // Force all circuit silhouettes to be pure white for high contrast on dark glass cards
+            ivCircuitSilhouette.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+
             if (!circuit.circuitImageUrl.isNullOrEmpty()) {
                 ivCircuitSilhouette.load(circuit.circuitImageUrl) {
                     crossfade(true)
                 }
+            } else {
+                ivCircuitSilhouette.setImageDrawable(null)
+            }
+
+            itemView.setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    val currentPos = bindingAdapterPosition
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && currentPos == 0) {
+                        return@setOnKeyListener true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && currentPos == items.size - 1) {
+                        return@setOnKeyListener true
+                    }
+                }
+                false
             }
 
             itemView.setOnClickListener {

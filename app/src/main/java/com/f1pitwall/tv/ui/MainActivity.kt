@@ -1,6 +1,7 @@
 package com.f1pitwall.tv.ui
 
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.os.Bundle
 import android.view.View
 import android.widget.*
@@ -719,8 +720,15 @@ class MainActivity : AppCompatActivity() {
 
         rvSessionsSchedule.layoutManager = LinearLayoutManager(this)
         sessionScheduleAdapter = SessionScheduleAdapter { session ->
-            loadHistoricalSession(session.sessionKey)
-            btnViewResults.performClick()
+            val sName = session.sessionName ?: "Sesión"
+            btnViewResults.text = "📊 $sName"
+            btnViewResults.isSelected = true
+            btnViewSchedule.isSelected = false
+            rvSessionsSchedule.visibility = View.GONE
+            rvArchiveResults.visibility = View.GONE
+            layoutEmptyArchiveResults.visibility = View.VISIBLE
+            tvEmptyArchiveResults.text = "Cargando tiempos y clasificación de $sName..."
+            loadHistoricalSession(session.sessionKey, sName)
         }
         rvSessionsSchedule.adapter = sessionScheduleAdapter
 
@@ -733,13 +741,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun displayMeetingDetails(meeting: Meeting) {
         selectedMeeting = meeting
+        btnViewResults.text = "📊 Resultados de Carrera"
         tvSelectedGpName.text = "🏁 ${meeting.meetingName ?: "Gran Premio"}"
         tvSelectedGpCircuit.text = "${meeting.officialName ?: ""}\n📍 ${meeting.location ?: ""}, ${meeting.countryName ?: ""}"
         tvSelectedGpDates.text = formatMeetingDates(meeting.dateStart, meeting.dateEnd)
 
-        // Load Official Circuit Image
+        // Load Official Circuit Image with crisp white color filter
         if (!meeting.circuitImage.isNullOrEmpty()) {
             ivCircuitTrackMap.visibility = View.VISIBLE
+            ivCircuitTrackMap.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
             ivCircuitTrackMap.load(meeting.circuitImage) {
                 crossfade(true)
             }
@@ -832,8 +842,10 @@ class MainActivity : AppCompatActivity() {
                         exoPlayer?.stop()
                     }
 
-                    // Standby Information
-                    tvStandbyNextSession.text = "Próximo evento: ${session.circuitShortName ?: "Gran Premio"} (${session.sessionName ?: "Sesión"})"
+                    // Standby Information: próximo evento real (Las Vegas GP)
+                    val smartMeeting = repository.findSmartSelectedMeeting(AppConfig.DEFAULT_SEASON)
+                    val nextGpName = smartMeeting?.meetingName ?: "Las Vegas Grand Prix"
+                    tvStandbyNextSession.text = "Próximo evento: $nextGpName (Práctica 1)"
                     tvStandbyLastRace.text = "🏆 Temporada Oficial de Fórmula 1 • OpenF1 Live Telemetry"
 
                     val drivers = api.getDrivers(session.sessionKey)
@@ -1005,7 +1017,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadHistoricalSession(sessionKey: Long) {
+    private fun loadHistoricalSession(sessionKey: Long, sessionName: String? = null) {
         lifecycleScope.launch {
             try {
                 val drivers = api.getDrivers(sessionKey)
@@ -1021,6 +1033,7 @@ class MainActivity : AppCompatActivity() {
                     if (items.isEmpty()) {
                         rvArchiveResults.visibility = View.GONE
                         layoutEmptyArchiveResults.visibility = View.VISIBLE
+                        tvEmptyArchiveResults.text = "Sin tiempos o clasificación registrados para ${sessionName ?: "esta sesión"}"
                     } else {
                         rvArchiveResults.visibility = View.VISIBLE
                         layoutEmptyArchiveResults.visibility = View.GONE
@@ -1031,6 +1044,7 @@ class MainActivity : AppCompatActivity() {
                 if (btnViewResults.isSelected) {
                     rvArchiveResults.visibility = View.GONE
                     layoutEmptyArchiveResults.visibility = View.VISIBLE
+                    tvEmptyArchiveResults.text = "No se pudieron obtener los datos de ${sessionName ?: "la sesión"}"
                 }
             }
         }
