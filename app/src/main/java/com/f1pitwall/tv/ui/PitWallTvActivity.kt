@@ -105,7 +105,8 @@ class PitWallTvActivity : AppCompatActivity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url ?: return true
-                    return url.scheme == "https" || url.scheme == "http"
+                    // Allow WebView to navigate to regular web URLs; true would cancel the load.
+                    return url.scheme != "https" && url.scheme != "http"
                 }
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     progress.visibility = View.VISIBLE
