@@ -406,6 +406,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun tuneRadioDriver(driverNumber: Int, driverName: String) {
+        if (!isLiveSessionActive || currentSessionKey == null) {
+            latestRadioUrl = null
+            radioPlayer?.stop()
+            tvRadioTitle.text = "Radio desconectada: no hay sesión en directo"
+            Toast.makeText(this, "La radio solo está disponible durante una sesión en directo.", Toast.LENGTH_SHORT).show()
+            return
+        }
         tvRadioTitle.text = "📻 Sintonizando Radio: $driverName (#$driverNumber)..."
         lifecycleScope.launch {
             try {
