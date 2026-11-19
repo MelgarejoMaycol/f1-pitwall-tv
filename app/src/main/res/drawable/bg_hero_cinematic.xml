@@ -1,25 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Base dark background with gradient -->
     <item>
         <shape android:shape="rectangle">
-            <gradient
-                android:type="linear"
-                android:angle="90"
-                android:startColor="#0D111A"
-                android:centerColor="#131926"
-                android:endColor="#182030" />
-            <corners android:radius="16dp" />
-            <stroke android:width="1.5dp" android:color="#2A354A" />
+            <gradient android:type="linear" android:angle="0" android:startColor="#1D314A" android:centerColor="#142338" android:endColor="#0C1422" />
+            <corners android:radius="22dp" />
+            <stroke android:width="1dp" android:color="#6686B8D8" />
         </shape>
     </item>
-    <!-- Left racing stripe accent -->
-    <item android:right="980dp">
+    <item android:top="-120dp" android:right="-180dp">
         <shape android:shape="rectangle">
-            <solid android:color="#E10600" />
-            <corners
-                android:topLeftRadius="16dp"
-                android:bottomLeftRadius="16dp" />
+            <gradient android:type="radial" android:gradientRadius="300dp" android:centerColor="#5535B4D8" android:endColor="#0035B4D8" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+    <item android:right="985dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#D9E10600" />
+            <corners android:topLeftRadius="22dp" android:bottomLeftRadius="22dp" />
         </shape>
     </item>
 </layer-list>
