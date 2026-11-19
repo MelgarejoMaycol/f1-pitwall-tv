@@ -44,6 +44,16 @@ class PitWallTvActivity : AppCompatActivity() {
         window.navigationBarColor = Color.BLACK
         buildScreen()
         providers = VideoSourcesConfig.loadProviders(this)
+        val previewUrl = intent.getStringExtra("preview_url")
+        if (!previewUrl.isNullOrBlank()) {
+            providers = providers + VideoProviderItem(
+                id = "preview_web",
+                name = intent.getStringExtra("preview_name") ?: "Vista previa WEB",
+                streamUrl = previewUrl,
+                type = "WEB",
+                isDefault = false
+            )
+        }
         if (providers.isEmpty()) {
             status.text = "No hay canales configurados. Añade fuentes en Ajustes."
             refreshButton.isEnabled = false
