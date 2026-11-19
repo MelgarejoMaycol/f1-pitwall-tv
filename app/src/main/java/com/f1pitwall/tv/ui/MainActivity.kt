@@ -260,7 +260,7 @@ class MainActivity : AppCompatActivity() {
             btnViewResults.performClick()
         }
         btnStandbyConfigureSource.setOnClickListener {
-            btnTabSettings.performClick()
+            startActivity(android.content.Intent(this, PitWallTvActivity::class.java))
         }
 
         // F1 Content Hub Controls
