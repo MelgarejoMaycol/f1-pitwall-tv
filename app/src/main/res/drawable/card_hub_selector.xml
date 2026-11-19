@@ -2,8 +2,8 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <gradient android:type="linear" android:angle="135" android:startColor="#E633526B" android:centerColor="#E523334B" android:endColor="#E51B2638" />
-            <stroke android:width="2dp" android:color="#77A6E8FF" />
+            <gradient android:type="linear" android:angle="135" android:startColor="#F0385875" android:centerColor="#F0243852" android:endColor="#F01B293C" />
+            <stroke android:width="2.5dp" android:color="#00F0FF" />
             <corners android:radius="22dp" />
         </shape>
     </item>

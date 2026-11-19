@@ -61,5 +61,8 @@ data class CircuitCardItem(
     val circuitName: String,
     val location: String,
     val country: String,
-    val circuitImageUrl: String?
+    val circuitImageUrl: String? = null,
+    val meetingKey: Long? = null,
+    val season: Int = com.f1pitwall.tv.core.config.AppConfig.DEFAULT_SEASON,
+    val round: Int? = null
 )

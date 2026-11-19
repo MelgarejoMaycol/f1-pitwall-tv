@@ -94,7 +94,8 @@ data class RecentRaceSummary(
     val winnerTeam: String,
     val podium: List<PodiumDriver>,
     val round: Int,
-    val season: Int
+    val season: Int,
+    val circuitId: String? = null
 )
 
 data class PodiumDriver(
@@ -123,7 +124,7 @@ data class StandingsList(
 
 data class JolpicaDriverStanding(
     @SerializedName("position") val position: String?,
-    @SerializedName("positionText") val positionText: String?,
+    @SerializedName("positionText") val positionText: String? = null,
     @SerializedName("points") val points: String?,
     @SerializedName("wins") val wins: String?,
     @SerializedName("Driver") val driver: JolpicaDriver?,
@@ -132,7 +133,7 @@ data class JolpicaDriverStanding(
 
 data class JolpicaConstructorStanding(
     @SerializedName("position") val position: String?,
-    @SerializedName("positionText") val positionText: String?,
+    @SerializedName("positionText") val positionText: String? = null,
     @SerializedName("points") val points: String?,
     @SerializedName("wins") val wins: String?,
     @SerializedName("Constructor") val constructor: JolpicaConstructor?

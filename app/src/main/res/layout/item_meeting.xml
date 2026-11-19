@@ -3,20 +3,22 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginVertical="3dp"
-    android:layout_marginHorizontal="2dp"
+    android:layout_marginHorizontal="3dp"
+    android:layout_marginVertical="4dp"
     android:background="@drawable/card_focus_selector"
+    android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="8dp">
+    android:padding="10dp"
+    android:stateListAnimator="@animator/tv_card_elevation">
 
     <!-- Round Number Badge -->
     <TextView
         android:id="@+id/tvRoundBadge"
-        android:layout_width="48dp"
-        android:layout_height="36dp"
-        android:background="#242B38"
+        android:layout_width="46dp"
+        android:layout_height="34dp"
+        android:background="#1E2A3C"
         android:gravity="center"
         android:text="R01"
         android:textColor="@color/f1_red"
@@ -28,14 +30,14 @@
         android:id="@+id/ivFlag"
         android:layout_width="32dp"
         android:layout_height="22dp"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="10dp"
         android:scaleType="fitCenter" />
 
     <!-- GP Info -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="10dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -47,13 +49,14 @@
             android:maxLines="1"
             android:text="Bahrain Grand Prix"
             android:textColor="@color/text_primary"
-            android:textSize="13sp"
+            android:textSize="13.5sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvCircuitAndLocation"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:text="Sakhir • Bahrain International Circuit"
@@ -74,20 +77,20 @@
             android:layout_height="wrap_content"
             android:text="29 Feb - 02 Mar"
             android:textColor="@color/text_primary"
-            android:textSize="11sp"
+            android:textSize="11.5sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvStatusBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="3dp"
             android:background="#15803D"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="1dp"
+            android:paddingHorizontal="7dp"
+            android:paddingVertical="2dp"
             android:text="COMPLETADA"
             android:textColor="#FFFFFF"
-            android:textSize="9sp"
+            android:textSize="9.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

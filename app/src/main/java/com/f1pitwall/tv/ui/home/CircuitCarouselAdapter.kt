@@ -2,7 +2,6 @@ package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
 import android.graphics.PorterDuff
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,12 +13,14 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.model.CircuitCardItem
 
 class CircuitCarouselAdapter(
-    private var items: List<CircuitCardItem> = emptyList(),
+    private var itemsList: List<CircuitCardItem> = emptyList(),
     private val onCircuitClick: (CircuitCardItem) -> Unit
 ) : RecyclerView.Adapter<CircuitCarouselAdapter.ViewHolder>() {
 
+    val items: List<CircuitCardItem> get() = itemsList
+
     fun updateData(newItems: List<CircuitCardItem>) {
-        items = newItems
+        itemsList = newItems
         notifyDataSetChanged()
     }
 
@@ -30,10 +31,10 @@ class CircuitCarouselAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(itemsList[position])
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = itemsList.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivCircuitSilhouette: ImageView = itemView.findViewById(R.id.ivCircuitSilhouette)
@@ -53,19 +54,6 @@ class CircuitCarouselAdapter(
                 }
             } else {
                 ivCircuitSilhouette.setImageDrawable(null)
-            }
-
-            itemView.setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    val currentPos = bindingAdapterPosition
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && currentPos == 0) {
-                        return@setOnKeyListener true
-                    }
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && currentPos == items.size - 1) {
-                        return@setOnKeyListener true
-                    }
-                }
-                false
             }
 
             itemView.setOnClickListener {

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext for custom user-configured video sources (e.g. local LAN servers: Emby, Jellyfin, HLS) -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Strictly enforce secure HTTPS for official external APIs and media hosts -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.openf1.org</domain>
+        <domain includeSubdomains="true">api.jolpica.com</domain>
+        <domain includeSubdomains="true">media.formula1.com</domain>
+    </domain-config>
+</network-security-config>

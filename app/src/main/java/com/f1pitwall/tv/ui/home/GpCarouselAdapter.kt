@@ -1,7 +1,6 @@
 package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,22 +13,39 @@ import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.model.Meeting
 
 class GpCarouselAdapter(
-    private var items: List<Meeting> = emptyList(),
+    private var itemsList: List<Meeting> = emptyList(),
     private var selectedMeetingKey: Long? = null,
     private val onGpClick: (Meeting) -> Unit
 ) : RecyclerView.Adapter<GpCarouselAdapter.ViewHolder>() {
 
+    val items: List<Meeting> get() = itemsList
+    private var roundLabels: Map<Long, String> = emptyMap()
+
     fun updateData(newItems: List<Meeting>, selectKey: Long? = null) {
-        items = newItems
+        itemsList = newItems
         if (selectKey != null) {
             selectedMeetingKey = selectKey
+        }
+        var roundCount = 0
+        roundLabels = itemsList.associate { m ->
+            val isTest = m.meetingName?.contains("test", ignoreCase = true) == true
+            val label = if (isTest) "TEST" else {
+                roundCount++
+                String.format("R%02d", roundCount)
+            }
+            m.meetingKey to label
         }
         notifyDataSetChanged()
     }
 
     fun setSelectedKey(key: Long) {
+        val oldKey = selectedMeetingKey
+        if (oldKey == key) return
         selectedMeetingKey = key
-        notifyDataSetChanged()
+        val oldIndex = itemsList.indexOfFirst { it.meetingKey == oldKey }
+        val newIndex = itemsList.indexOfFirst { it.meetingKey == key }
+        if (oldIndex >= 0) notifyItemChanged(oldIndex)
+        if (newIndex >= 0) notifyItemChanged(newIndex)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -39,10 +55,10 @@ class GpCarouselAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position], position)
+        holder.bind(itemsList[position])
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = itemsList.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivGpFlag: ImageView = itemView.findViewById(R.id.ivGpFlag)
@@ -52,13 +68,12 @@ class GpCarouselAdapter(
         private val tvGpCircuit: TextView = itemView.findViewById(R.id.tvGpCircuit)
         private val tvGpDates: TextView = itemView.findViewById(R.id.tvGpDates)
 
-        fun bind(meeting: Meeting, position: Int) {
-            val isTesting = meeting.meetingName?.contains("Testing", true) == true
-            if (isTesting) {
-                tvGpRound.text = "TEST"
+        fun bind(meeting: Meeting) {
+            val roundLabel = roundLabels[meeting.meetingKey] ?: "GP"
+            tvGpRound.text = roundLabel
+            if (roundLabel == "TEST") {
                 tvGpRound.setTextColor(Color.parseColor("#9DA4B5"))
             } else {
-                tvGpRound.text = String.format("R%02d", position + 1)
                 tvGpRound.setTextColor(Color.parseColor("#E10600"))
             }
 
@@ -93,19 +108,6 @@ class GpCarouselAdapter(
             }
 
             itemView.isSelected = isSelected
-
-            itemView.setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    val currentPos = bindingAdapterPosition
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && currentPos == 0) {
-                        return@setOnKeyListener true
-                    }
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && currentPos == items.size - 1) {
-                        return@setOnKeyListener true
-                    }
-                }
-                false
-            }
 
             itemView.setOnClickListener {
                 selectedMeetingKey = meeting.meetingKey

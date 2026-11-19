@@ -5,6 +5,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.model.Session
@@ -12,13 +14,20 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class SessionScheduleAdapter(
-    private var items: List<Session> = emptyList(),
+    items: List<Session> = emptyList(),
     private val onSessionClick: (Session) -> Unit
-) : RecyclerView.Adapter<SessionScheduleAdapter.ViewHolder>() {
+) : ListAdapter<Session, SessionScheduleAdapter.ViewHolder>(SessionDiffCallback) {
+
+    init {
+        if (items.isNotEmpty()) {
+            submitList(items)
+        }
+    }
+
+    val sessions: List<Session> get() = currentList
 
     fun updateData(newItems: List<Session>) {
-        items = newItems
-        notifyDataSetChanged()
+        submitList(newItems)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -28,10 +37,8 @@ class SessionScheduleAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(getItem(position))
     }
-
-    override fun getItemCount(): Int = items.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvSessionTypeTag: TextView = itemView.findViewById(R.id.tvSessionTypeTag)
@@ -78,6 +85,16 @@ class SessionScheduleAdapter(
             } catch (e: Exception) {
                 dateIso
             }
+        }
+    }
+
+    object SessionDiffCallback : DiffUtil.ItemCallback<Session>() {
+        override fun areItemsTheSame(oldItem: Session, newItem: Session): Boolean {
+            return oldItem.sessionKey == newItem.sessionKey
+        }
+
+        override fun areContentsTheSame(oldItem: Session, newItem: Session): Boolean {
+            return oldItem == newItem
         }
     }
 }

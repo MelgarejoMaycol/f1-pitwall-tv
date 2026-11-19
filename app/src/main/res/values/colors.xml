@@ -1,36 +1,57 @@
 <resources>
-    <color name="f1_red">#E10600</color>
-    <color name="f1_dark">#080C13</color>
-    <color name="f1_surface">#142033</color>
-    <color name="f1_surface_card">#1B2739</color>
-    <color name="f1_focused">#B8E8FF</color>
-    <color name="f1_focused_bg">#2A4059</color>
-    <color name="text_primary">#F5F8FC</color>
-    <color name="text_secondary">#A8B7C9</color>
-    <color name="text_muted">#718095</color>
+    <!-- Base Dark & Graphite Palette -->
+    <color name="f1_dark">#070A11</color>
+    <color name="f1_navy_deep">#0A101C</color>
+    <color name="f1_surface">#111A28</color>
+    <color name="f1_surface_card">#142032</color>
+    <color name="f1_glass_bg">#D9111B2B</color>
+    <color name="f1_glass_border">#202E42</color>
+    <color name="f1_glass_border_subtle">#162232</color>
 
+    <!-- Brand & Accent Colors -->
+    <color name="f1_red">#E10600</color>
+    <color name="f1_red_subtle">#99E10600</color>
+    <color name="f1_cyan">#00F0FF</color>
+    <color name="f1_cyan_soft">#38BDF8</color>
+    <color name="f1_blue_accent">#2563EB</color>
+    <color name="neon_cyan">#38BDF8</color>
+    <color name="gold_accent">#FFD700</color>
+    <color name="silver_accent">#E2E8F0</color>
+    <color name="bronze_accent">#CD7F32</color>
+
+    <!-- Typography Colors -->
+    <color name="text_primary">#F8FAFC</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_muted">#64748B</color>
+
+    <!-- Focus & State Colors -->
+    <color name="f1_focused">#00F0FF</color>
+    <color name="f1_focused_bg">#F01B2E42</color>
+    <color name="card_glass_bg">#C9142032</color>
+    <color name="card_glass_border">#223348</color>
+    <color name="card_focus_stroke">#00F0FF</color>
+    <color name="card_focus_bg">#F022374E</color>
+    <color name="tab_selected_bg">#D9182A40</color>
+
+    <!-- F1 Sectors & Telemetry -->
     <color name="sector_purple">#A855F7</color>
     <color name="sector_green">#22C55E</color>
     <color name="sector_yellow">#EAB308</color>
 
+    <!-- Tyres -->
     <color name="tyre_soft">#EF4444</color>
     <color name="tyre_medium">#FACC15</color>
     <color name="tyre_hard">#FFFFFF</color>
     <color name="tyre_inter">#10B981</color>
     <color name="tyre_wet">#0EA5E9</color>
 
+    <!-- Race Flags -->
     <color name="flag_green">#22C55E</color>
     <color name="flag_yellow">#EAB308</color>
     <color name="flag_safety_car">#F97316</color>
     <color name="flag_red">#EF4444</color>
 
-    <color name="bg_dark_start">#101A2B</color>
-    <color name="bg_dark_end">#06080D</color>
-    <color name="neon_cyan">#85D8F5</color>
-    <color name="gold_accent">#EFCB74</color>
-    <color name="card_glass_bg">#C91B2738</color>
-    <color name="card_glass_border">#332E4359</color>
-    <color name="card_focus_stroke">#77B7ECFF</color>
-    <color name="card_focus_bg">#E52B4058</color>
-    <color name="tab_selected_bg">#CC26364A</color>
+    <!-- Gradients -->
+    <color name="bg_dark_start">#0E1726</color>
+    <color name="bg_dark_end">#06080E</color>
 </resources>

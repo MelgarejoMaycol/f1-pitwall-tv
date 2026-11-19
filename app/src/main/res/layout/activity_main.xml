@@ -1,33 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/f1_dark"
+    android:background="@drawable/bg_tv_gradient"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:orientation="vertical"
     android:padding="8dp">
 
     <!-- TOP HEADER & NAVIGATION TABS -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="52dp"
+        android:background="@drawable/bg_glass_header"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="8dp">
+        android:paddingHorizontal="12dp">
 
         <!-- Original Motorsport Logo (Telemetry + Apex Curve) & PitWall TV Brand -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="38dp"
-            android:background="#151A24"
+            android:background="@drawable/bg_logo_badge"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingHorizontal="10dp">
 
             <ImageView
                 android:id="@+id/ivPitWallLogo"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
                 android:src="@drawable/ic_pitwall_logo" />
 
             <TextView
@@ -42,8 +48,8 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:background="#E10600"
+                android:layout_marginStart="5dp"
+                android:background="@drawable/bg_badge_red"
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="1dp"
                 android:text="TV"
@@ -132,7 +138,8 @@
             android:background="@drawable/card_focus_selector"
             android:paddingHorizontal="10dp"
             android:paddingVertical="4dp"
-            android:text="🏁 BANDERA VERDE"
+            android:text=""
+            tools:text="🏁 BANDERA VERDE"
             android:textColor="@color/flag_green"
             android:textSize="12sp"
             android:textStyle="bold"
@@ -142,7 +149,8 @@
             android:id="@+id/tvWeather"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⛅ Pista: 32°C | Aire: 24°C"
+            android:text=""
+            tools:text="⛅ Pista: 32°C | Aire: 24°C"
             android:textColor="@color/text_secondary"
             android:textSize="12sp"
             android:visibility="gone" />
@@ -153,6 +161,8 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:layout_marginTop="6dp">
 
         <!-- 0. DISNEY+ STYLE HOME VIEW -->
@@ -168,6 +178,8 @@
             android:id="@+id/layoutPitWall"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="horizontal"
             android:visibility="gone">
 
@@ -268,6 +280,20 @@
                         android:textColor="@color/text_primary"
                         android:textSize="10sp"
                         android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnPitWallFullscreen"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="⛶ Pantalla Completa"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <!-- Pit Wall Video Screen: Player + Standby Container -->
@@ -292,12 +318,96 @@
                             app:show_buffering="always"
                             app:use_controller="true" />
 
+                        <WebView
+                            android:id="@+id/webVideoView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:focusable="true"
+                            android:focusableInTouchMode="true"
+                            android:visibility="gone" />
+
+                        <!-- Video Playback Status Overlay (Loading / Buffering / Error) -->
+                        <LinearLayout
+                            android:id="@+id/layoutPlayerStatusOverlay"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="#D9000000"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="24dp"
+                            android:visibility="gone">
+
+                            <ProgressBar
+                                android:id="@+id/pbPlayerLoading"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:indeterminate="true"
+                                android:indeterminateTint="@color/f1_red"
+                                android:visibility="visible" />
+
+                            <TextView
+                                android:id="@+id/tvPlayerStatusTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="14dp"
+                                android:text="Cargando transmisión..."
+                                android:textColor="#FFFFFF"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvPlayerStatusMessage"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:gravity="center"
+                                android:text="Conectando con la señal de video"
+                                android:textColor="#94A3B8"
+                                android:textSize="12sp" />
+
+                            <LinearLayout
+                                android:id="@+id/layoutPlayerErrorActions"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="18dp"
+                                android:orientation="horizontal"
+                                android:visibility="gone">
+
+                                <Button
+                                    android:id="@+id/btnPlayerRetry"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:background="@drawable/btn_tab_selector"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:paddingHorizontal="14dp"
+                                    android:text="🔄 Reintentar"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+
+                                <Button
+                                    android:id="@+id/btnPlayerGoSettings"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginStart="10dp"
+                                    android:background="@drawable/btn_tab_selector"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:paddingHorizontal="14dp"
+                                    android:text="⚙️ Cambiar Fuente"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
                         <!-- Editorial Standby Screen when No Live Race -->
                         <LinearLayout
                             android:id="@+id/layoutPitWallStandby"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:background="#E60D1522"
+                            android:background="@drawable/bg_glass_panel"
                             android:gravity="center"
                             android:orientation="vertical"
                             android:padding="20dp"
@@ -330,7 +440,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="6dp"
-                                android:text="Próximo evento: GP de Las Vegas 2026"
+                                android:text=""
+                                tools:text="Próximo evento: GP de Las Vegas 2026"
                                 android:textColor="#94A3B8"
                                 android:textSize="12sp" />
 
@@ -338,7 +449,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="14dp"
-                                android:background="#152033"
+                                android:background="@drawable/bg_glass_card"
                                 android:orientation="horizontal"
                                 android:paddingHorizontal="16dp"
                                 android:paddingVertical="8dp">
@@ -347,7 +458,8 @@
                                     android:id="@+id/tvStandbyLastRace"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="🏆 Último GP Finalizado: São Paulo (Norris 1º, Verstappen 2º)"
+                                    android:text=""
+                                    tools:text="🏆 Último GP Finalizado: São Paulo (Norris 1º, Verstappen 2º)"
                                     android:textColor="#CBD5E1"
                                     android:textSize="11sp" />
                             </LinearLayout>
@@ -381,6 +493,20 @@
                                     android:focusable="true"
                                     android:paddingHorizontal="12dp"
                                     android:text="🏁 Ver Resultados"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+
+                                <Button
+                                    android:id="@+id/btnStandbyOpenStream"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginStart="10dp"
+                                    android:background="@drawable/btn_tab_selector"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:paddingHorizontal="14dp"
+                                    android:text="⚡ Abrir F1 Live"
                                     android:textColor="#FFFFFF"
                                     android:textSize="11sp"
                                     android:textStyle="bold" />
@@ -426,7 +552,7 @@
                             android:layout_weight="1"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="Radio no disponible: no hay sesión en directo"
+                            android:text="Radio: selecciona un piloto para buscar grabaciones"
                             android:textColor="@color/text_primary"
                             android:textSize="11sp"
                             android:textStyle="bold" />
@@ -561,7 +687,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="0.35"
-                android:background="@color/f1_surface"
+                android:background="@drawable/bg_glass_panel"
                 android:orientation="vertical"
                 android:padding="8dp">
 
@@ -631,6 +757,8 @@
                     android:id="@+id/rvLeaderboard"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:focusable="true"
                     android:visibility="visible" />
 
@@ -646,7 +774,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="#1E2433"
+                        android:background="@drawable/bg_glass_card"
                         android:orientation="horizontal"
                         android:padding="8dp">
 
@@ -655,7 +783,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="#1 Max Verstappen • Red Bull Racing"
+                            android:text="Selecciona un piloto de la clasificación"
+                            tools:text="#1 Max Verstappen • Red Bull Racing"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp"
                             android:textStyle="bold" />
@@ -664,14 +793,52 @@
                             android:id="@+id/tvTelemetryDrs"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="#15803D"
+                            android:background="#4B5563"
                             android:paddingHorizontal="6dp"
                             android:paddingVertical="1dp"
-                            android:text="DRS ACTIVO"
+                            android:text="DRS --"
+                            tools:text="DRS ACTIVO"
                             android:textColor="#FFFFFF"
                             android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
+
+                    <!-- Telemetry Sub-Status Bar: Live/Historical & Temperature -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="4dp">
+
+                        <TextView
+                            android:id="@+id/tvTelemetrySessionStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Selecciona un piloto de la clasificación"
+                            tools:text="🔴 Telemetría en Vivo"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvTelemetryTemperature"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Pista: -- | Aire: --"
+                            tools:text="Pista: 32°C | Aire: 24°C"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <!-- Loading Indicator for Telemetry -->
+                    <ProgressBar
+                        android:id="@+id/pbTelemetryLoading"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
 
                     <!-- Speed & Gear Gauges -->
                     <LinearLayout
@@ -683,9 +850,9 @@
                         <!-- Speed Box -->
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="72dp"
+                            android:layout_height="74dp"
                             android:layout_weight="1"
-                            android:background="#161B26"
+                            android:background="@drawable/bg_glass_card"
                             android:gravity="center"
                             android:orientation="vertical">
 
@@ -693,26 +860,27 @@
                                 android:id="@+id/tvTelemetrySpeed"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="294"
+                                android:text="--"
+                                tools:text="294"
                                 android:textColor="@color/text_primary"
-                                android:textSize="28sp"
+                                android:textSize="30sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="KM/H"
-                                android:textColor="@color/f1_red"
+                                android:textColor="#38BDF8"
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
                         <!-- Gear Box -->
                         <LinearLayout
-                            android:layout_width="72dp"
-                            android:layout_height="72dp"
+                            android:layout_width="74dp"
+                            android:layout_height="74dp"
                             android:layout_marginStart="6dp"
-                            android:background="#161B26"
+                            android:background="@drawable/bg_glass_card"
                             android:gravity="center"
                             android:orientation="vertical">
 
@@ -720,9 +888,10 @@
                                 android:id="@+id/tvTelemetryGear"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="7"
-                                android:textColor="#22C55E"
-                                android:textSize="28sp"
+                                android:text="--"
+                                tools:text="7"
+                                android:textColor="#00F0FF"
+                                android:textSize="30sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -741,7 +910,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="11,480 RPM"
+                        android:text="--"
+                        tools:text="11,480 RPM"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:textStyle="bold" />
@@ -752,7 +922,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="8dp"
                         android:max="15000"
-                        android:progress="11480"
+                        android:progress="0"
                         android:progressTint="#EAB308" />
 
                     <!-- Throttle Gauge -->
@@ -761,7 +931,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Acelerador: 100%"
+                        android:text="Acelerador: --"
+                        tools:text="Acelerador: 100%"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
 
@@ -771,7 +942,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="8dp"
                         android:max="100"
-                        android:progress="100"
+                        android:progress="0"
                         android:progressTint="#22C55E" />
 
                     <!-- Brake Gauge -->
@@ -780,7 +951,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Freno: 0%"
+                        android:text="Freno: --"
+                        tools:text="Freno: 0%"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
 
@@ -798,7 +970,7 @@
                         android:layout_height="0dp"
                         android:layout_weight="1" />
 
-                    <!-- Demo Telemetry Toggle Button -->
+                    <!-- Telemetry Action Button -->
                     <Button
                         android:id="@+id/btnTelemetryDemoToggle"
                         android:layout_width="match_parent"
@@ -806,7 +978,7 @@
                         android:background="@drawable/btn_tab_selector"
                         android:clickable="true"
                         android:focusable="true"
-                        android:text="⚡ Cargar Datos Oficiales (OpenF1)"
+                        android:text="🔄 Actualizar Telemetría"
                         android:textColor="@color/text_primary"
                         android:textSize="10sp"
                         android:textStyle="bold" />
@@ -819,6 +991,8 @@
             android:id="@+id/layoutArchive"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="horizontal"
             android:visibility="gone">
 
@@ -827,9 +1001,11 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="0.45"
-                android:background="@color/f1_surface"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:background="@drawable/bg_glass_panel"
                 android:orientation="vertical"
-                android:padding="8dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -896,6 +1072,8 @@
                     android:id="@+id/rvMeetings"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:descendantFocusability="afterDescendants"
                     android:focusable="true"
                     android:nextFocusRight="@+id/btnViewSchedule"
@@ -908,9 +1086,11 @@
                 android:layout_height="match_parent"
                 android:layout_weight="0.55"
                 android:layout_marginStart="8dp"
-                android:background="@color/f1_surface"
+                android:background="@drawable/bg_glass_panel"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:orientation="vertical"
-                android:padding="10dp">
+                android:padding="12dp">
 
                 <!-- Header with GP Name, Circuit and Track Outline -->
                 <LinearLayout
@@ -959,7 +1139,7 @@
                         android:id="@+id/ivCircuitTrackMap"
                         android:layout_width="110dp"
                         android:layout_height="70dp"
-                        android:background="#151821"
+                        android:background="@drawable/bg_glass_card"
                         android:padding="4dp"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
@@ -1011,6 +1191,8 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:layout_marginTop="8dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:descendantFocusability="afterDescendants"
                     android:focusable="true"
                     android:nextFocusLeft="@+id/rvMeetings"
@@ -1024,6 +1206,8 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:layout_marginTop="8dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:descendantFocusability="afterDescendants"
                     android:focusable="true"
                     android:nextFocusLeft="@+id/rvMeetings"
@@ -1067,13 +1251,17 @@
             android:id="@+id/layoutSettings"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/f1_surface"
+            android:background="@android:color/transparent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:fillViewport="true"
             android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -1098,8 +1286,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    app:cardBackgroundColor="#131722"
-                    app:cardCornerRadius="10dp"
+                    app:cardBackgroundColor="#CC0E1624"
+                    app:cardCornerRadius="14dp"
                     app:cardElevation="2dp">
 
                     <LinearLayout
@@ -1196,8 +1384,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    app:cardBackgroundColor="#131722"
-                    app:cardCornerRadius="10dp"
+                    app:cardBackgroundColor="#CC0E1624"
+                    app:cardCornerRadius="14dp"
                     app:cardElevation="2dp">
 
                     <LinearLayout
@@ -1313,6 +1501,7 @@
                                 android:id="@+id/btnTypeHls"
                                 android:layout_width="wrap_content"
                                 android:layout_height="32dp"
+                                android:layout_marginStart="8dp"
                                 android:background="@drawable/btn_tab_selector"
                                 android:clickable="true"
                                 android:focusable="true"
@@ -1369,6 +1558,21 @@
                                 android:textStyle="bold" />
 
                             <Button
+                                android:id="@+id/btnCancelEdit"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="12dp"
+                                android:text="✕ Cancelar"
+                                android:textColor="#EF4444"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+
+                            <Button
                                 android:id="@+id/btnTestStream"
                                 android:layout_width="wrap_content"
                                 android:layout_height="36dp"
@@ -1400,7 +1604,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:background="#151A24"
+                    android:background="@drawable/bg_glass_card"
                     android:gravity="center"
                     android:padding="20dp"
                     android:text="No hay fuentes de video configuradas. Añade una arriba para ver transmisiones en el Muro de Pits."
@@ -1414,10 +1618,211 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:focusable="true"
                     android:visibility="gone" />
 
             </LinearLayout>
         </ScrollView>
+
+        <!-- 4. DEDICATED FULLSCREEN PLAYBACK VIEW -->
+        <FrameLayout
+            android:id="@+id/layoutDedicatedPlayback"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#0B0E14"
+            android:visibility="gone">
+
+            <!-- Video/Web Surface Container -->
+            <FrameLayout
+                android:id="@+id/frameDedicatedSurface"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <androidx.media3.ui.PlayerView
+                    android:id="@+id/playerViewDedicated"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:focusable="true"
+                    android:visibility="gone"
+                    app:show_buffering="always"
+                    app:use_controller="true" />
+
+                <WebView
+                    android:id="@+id/webVideoViewDedicated"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <!-- Dedicated Top Bar Controls -->
+            <LinearLayout
+                android:id="@+id/layoutDedicatedTopBar"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_gravity="top"
+                android:background="#CC0B0E14"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="24dp">
+
+                <Button
+                    android:id="@+id/btnDedicatedBack"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="14dp"
+                    android:text="⬅ Volver"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDedicatedSourceName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:text="F1 Live Principal"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDedicatedSourceTypeBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:background="#22EF4444"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:text="WEB"
+                    android:textColor="#EF4444"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <!-- Dynamic F1 Channel Selector in Dedicated Top Bar -->
+                <LinearLayout
+                    android:id="@+id/llDedicatedChannels"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="14dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <Button
+                    android:id="@+id/btnDedicatedPlayPause"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="14dp"
+                    android:text="⏯ Pausa"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnDedicatedReload"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="14dp"
+                    android:text="🔄 Recargar"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Status / Buffering / Error Overlay -->
+            <LinearLayout
+                android:id="@+id/layoutDedicatedStatusOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#D9000000"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="24dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/pbDedicatedLoading"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:indeterminate="true"
+                    android:indeterminateTint="@color/f1_red"
+                    android:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/tvDedicatedStatusTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="Cargando transmisión..."
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDedicatedStatusMessage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="Conectando con la señal de video"
+                    android:textColor="#94A3B8"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/layoutDedicatedErrorActions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <Button
+                        android:id="@+id/btnDedicatedRetry"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="14dp"
+                        android:text="🔄 Reintentar"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnDedicatedGoSettings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="10dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="14dp"
+                        android:text="⚙️ Cambiar Fuente"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
     </FrameLayout>
 </LinearLayout>

@@ -18,7 +18,11 @@ data class Meeting(
     @SerializedName("gmt_offset") val gmtOffset: String?,
     @SerializedName("year") val year: Int?,
     @SerializedName("is_cancelled") val isCancelled: Boolean?
-)
+) {
+    val isPreSeasonTesting: Boolean
+        get() = (meetingName?.contains("Test", ignoreCase = true) == true) ||
+                (circuitShortName?.contains("Test", ignoreCase = true) == true)
+}
 
 data class Session(
     @SerializedName("session_key") val sessionKey: Long,
@@ -109,8 +113,25 @@ data class DriverLeaderboardItem(
     val s1: String,
     val s2: String,
     val s3: String,
-    val tyreCompound: String,
-    val tyreAge: Int
+    val tyreCompound: String? = null,
+    val tyreAge: Int? = null
+)
+
+enum class SessionStatusType {
+    LIVE,
+    UPCOMING,
+    COMPLETED,
+    NO_DATA
+}
+
+data class ResolvedSessionInfo(
+    val status: SessionStatusType,
+    val activeSession: Session? = null,
+    val activeMeeting: Meeting? = null,
+    val upcomingSession: Session? = null,
+    val upcomingMeeting: Meeting? = null,
+    val lastCompletedSession: Session? = null,
+    val lastCompletedMeeting: Meeting? = null
 )
 
 data class CarTelemetry(

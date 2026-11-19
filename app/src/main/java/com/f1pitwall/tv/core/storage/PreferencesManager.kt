@@ -3,10 +3,12 @@ package com.f1pitwall.tv.core.storage
 import android.content.Context
 import android.content.SharedPreferences
 import com.f1pitwall.tv.core.config.VideoProviderItem
+import com.f1pitwall.tv.core.config.VideoSourcesConfig
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
 class PreferencesManager(context: Context) {
+    private val appContext = context.applicationContext ?: context
     private val prefs: SharedPreferences = context.getSharedPreferences("f1_pitwall_tv_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
 
@@ -36,6 +38,15 @@ class PreferencesManager(context: Context) {
         }
     }
 
+    fun findById(id: String): VideoProviderItem? {
+        return getCustomSources().find { it.id == id }
+    }
+
+    fun findByUrl(url: String): VideoProviderItem? {
+        val target = url.trim()
+        return getCustomSources().find { it.streamUrl.trim().equals(target, ignoreCase = true) }
+    }
+
     fun saveCustomSource(source: VideoProviderItem) {
         val current = getCustomSources().toMutableList()
         val index = current.indexOfFirst { it.id == source.id }
@@ -57,10 +68,23 @@ class PreferencesManager(context: Context) {
         }
     }
 
+    fun clearCustomSources() {
+        prefs.edit().remove(KEY_CUSTOM_SOURCES).remove(KEY_VIDEO_PROVIDER).apply()
+    }
+
     fun getSelectedSource(): VideoProviderItem? {
-        val sources = getCustomSources()
+        val userSources = getCustomSources()
+        val sources = if (userSources.isNotEmpty()) {
+            userSources
+        } else {
+            VideoSourcesConfig.loadProviders(appContext)
+        }
         if (sources.isEmpty()) return null
         return sources.find { it.id == activeVideoProvider } ?: sources.find { it.isDefault } ?: sources.first()
+    }
+
+    fun getAllAvailableSources(): List<VideoProviderItem> {
+        return VideoSourcesConfig.loadProviders(appContext)
     }
 
     companion object {

@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/cardGpContainer"
-    android:layout_width="225dp"
-    android:layout_height="135dp"
-    android:layout_marginHorizontal="6dp"
-    android:layout_marginVertical="6dp"
+    android:layout_width="230dp"
+    android:layout_height="140dp"
+    android:layout_marginHorizontal="7dp"
+    android:layout_marginVertical="8dp"
     android:background="@drawable/card_focus_selector"
     android:clickable="true"
     android:focusable="true"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="12dp"
+    android:stateListAnimator="@animator/tv_card_elevation">
 
     <!-- Top line: Flag + Round + Status Badge -->
     <LinearLayout
@@ -20,18 +21,18 @@
 
         <ImageView
             android:id="@+id/ivGpFlag"
-            android:layout_width="28dp"
-            android:layout_height="18dp"
+            android:layout_width="30dp"
+            android:layout_height="20dp"
             android:scaleType="fitCenter" />
 
         <TextView
             android:id="@+id/tvGpRound"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:text="R21"
             android:textColor="@color/f1_red"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <View
@@ -45,10 +46,10 @@
             android:layout_height="wrap_content"
             android:background="#2563EB"
             android:paddingHorizontal="8dp"
-            android:paddingVertical="2dp"
+            android:paddingVertical="3dp"
             android:text="PRÓXIMA"
             android:textColor="#FFFFFF"
-            android:textSize="9sp"
+            android:textSize="9.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -66,7 +67,7 @@
         android:maxLines="1"
         android:text="Las Vegas Grand Prix"
         android:textColor="@color/text_primary"
-        android:textSize="14sp"
+        android:textSize="14.5sp"
         android:textStyle="bold" />
 
     <TextView
@@ -78,15 +79,15 @@
         android:maxLines="1"
         android:text="Las Vegas Strip Circuit • Nevada"
         android:textColor="@color/text_secondary"
-        android:textSize="11sp" />
+        android:textSize="11.5sp" />
 
     <TextView
         android:id="@+id/tvGpDates"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="4dp"
         android:text="19 Nov - 22 Nov • Hora Colombia"
-        android:textColor="#00F0FF"
-        android:textSize="10sp"
+        android:textColor="@color/neon_cyan"
+        android:textSize="10.5sp"
         android:textStyle="bold" />
 </LinearLayout>

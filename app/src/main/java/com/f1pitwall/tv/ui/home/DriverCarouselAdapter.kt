@@ -1,7 +1,6 @@
 package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,12 +12,14 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.model.DriverCardItem
 
 class DriverCarouselAdapter(
-    private var items: List<DriverCardItem> = emptyList(),
+    private var itemsList: List<DriverCardItem> = emptyList(),
     private val onDriverClick: (DriverCardItem) -> Unit
 ) : RecyclerView.Adapter<DriverCarouselAdapter.ViewHolder>() {
 
+    val items: List<DriverCardItem> get() = itemsList
+
     fun updateData(newItems: List<DriverCardItem>) {
-        items = newItems
+        itemsList = newItems
         notifyDataSetChanged()
     }
 
@@ -29,10 +30,10 @@ class DriverCarouselAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position], position)
+        holder.bind(itemsList[position], position)
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = itemsList.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvDriverRank: TextView = itemView.findViewById(R.id.tvDriverRank)
@@ -86,19 +87,6 @@ class DriverCarouselAdapter(
                 }
             } else {
                 ivDriverPhoto.setImageResource(R.drawable.ic_driver_helmet)
-            }
-
-            itemView.setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    val currentPos = bindingAdapterPosition
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && currentPos == 0) {
-                        return@setOnKeyListener true
-                    }
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && currentPos == items.size - 1) {
-                        return@setOnKeyListener true
-                    }
-                }
-                false
             }
 
             itemView.setOnClickListener {

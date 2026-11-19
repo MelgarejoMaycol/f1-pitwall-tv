@@ -1,7 +1,6 @@
 package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,12 +11,14 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.model.ConstructorCardItem
 
 class ConstructorCarouselAdapter(
-    private var items: List<ConstructorCardItem> = emptyList(),
+    private var itemsList: List<ConstructorCardItem> = emptyList(),
     private val onTeamClick: (ConstructorCardItem) -> Unit
 ) : RecyclerView.Adapter<ConstructorCarouselAdapter.ViewHolder>() {
 
+    val items: List<ConstructorCardItem> get() = itemsList
+
     fun updateData(newItems: List<ConstructorCardItem>) {
-        items = newItems
+        itemsList = newItems
         notifyDataSetChanged()
     }
 
@@ -28,10 +29,10 @@ class ConstructorCarouselAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position], position)
+        holder.bind(itemsList[position], position)
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = itemsList.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val viewConstructorColor: View = itemView.findViewById(R.id.viewConstructorColor)
@@ -56,7 +57,7 @@ class ConstructorCarouselAdapter(
 
             tvConstructorWins.text = if (item.wins > 0) "🏆 ${item.wins} Vict." else "0 Vict."
             tvConstructorName.text = item.teamName
-            tvConstructorDrivers.text = item.drivers.joinToString(" • ")
+            tvConstructorDrivers.text = if (item.drivers.isNotEmpty()) item.drivers.joinToString(" • ") else "Pilotos por confirmar"
             tvConstructorPoints.text = "${item.points} pts"
             tvConstructorGap.text = item.gapToLeader ?: if (rankPos == 1) "LÍDER" else ""
 
@@ -71,19 +72,6 @@ class ConstructorCarouselAdapter(
                 viewConstructorColor.setBackgroundColor(Color.parseColor(hex))
             } catch (e: Exception) {
                 viewConstructorColor.setBackgroundColor(Color.RED)
-            }
-
-            itemView.setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    val currentPos = bindingAdapterPosition
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && currentPos == 0) {
-                        return@setOnKeyListener true
-                    }
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && currentPos == items.size - 1) {
-                        return@setOnKeyListener true
-                    }
-                }
-                false
             }
 
             itemView.setOnClickListener {

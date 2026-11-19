@@ -8,7 +8,8 @@
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="12dp">
+    android:padding="12dp"
+    android:stateListAnimator="@animator/tv_card_elevation">
 
     <!-- Source Info -->
     <LinearLayout
@@ -94,6 +95,19 @@
             android:textColor="@color/text_primary"
             android:textSize="10sp"
             android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnEditSource"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/btn_tab_selector"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingHorizontal="10dp"
+            android:text="✏️"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp" />
 
         <Button
             android:id="@+id/btnDeleteSource"

@@ -13,9 +13,13 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.AppConfig
+import com.f1pitwall.tv.core.util.AppLogger
 import com.f1pitwall.tv.data.model.*
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.Meeting
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 class HomeViewManager(
@@ -25,7 +29,9 @@ class HomeViewManager(
     private val onOpenRaceScreen: () -> Unit,
     private val onOpenGpDetail: (Meeting) -> Unit,
     private val onOpenHubSection: (String) -> Unit,
-    private val onOpenCircuit: (CircuitCardItem) -> Unit = {}
+    private val onOpenCircuit: (CircuitCardItem) -> Unit = {},
+    private val onOpenGpResults: (Meeting) -> Unit = {},
+    private val onOpenDriverTelemetry: (DriverCardItem) -> Unit = {}
 ) {
 
     // Hero Elements
@@ -52,6 +58,10 @@ class HomeViewManager(
     private val tvPodium3Team: TextView = rootView.findViewById(R.id.tvPodium3Team)
     private val btnViewFullResults: Button = rootView.findViewById(R.id.btnViewFullResults)
 
+    // Section Subtitles
+    private val tvDriversSectionSubtitle: TextView? = rootView.findViewById(R.id.tvDriversSectionSubtitle)
+    private val tvConstructorsSectionSubtitle: TextView? = rootView.findViewById(R.id.tvConstructorsSectionSubtitle)
+
     // Carousels
     private val rvCarouselGp: RecyclerView = rootView.findViewById(R.id.rvCarouselGp)
     private val rvCarouselDrivers: RecyclerView = rootView.findViewById(R.id.rvCarouselDrivers)
@@ -66,6 +76,7 @@ class HomeViewManager(
 
     private var currentHeroMeeting: Meeting? = null
     private var lastFinishedMeeting: Meeting? = null
+    private var activeLoadJob: Job? = null
 
     init {
         setupCarousels()
@@ -86,7 +97,7 @@ class HomeViewManager(
         // 2. Mundial de Pilotos (Puntuaciones y posiciones oficiales)
         rvCarouselDrivers.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         driverCarouselAdapter = DriverCarouselAdapter { driver ->
-            Toast.makeText(context, "${driver.position}º ${driver.fullName} (${driver.points} pts)", Toast.LENGTH_SHORT).show()
+            onOpenDriverTelemetry(driver)
         }
         rvCarouselDrivers.adapter = driverCarouselAdapter
 
@@ -115,53 +126,83 @@ class HomeViewManager(
         }
 
         btnHeroResults.setOnClickListener {
-            lastFinishedMeeting?.let { onOpenGpDetail(it) } ?: currentHeroMeeting?.let { onOpenGpDetail(it) }
+            val target = lastFinishedMeeting ?: currentHeroMeeting
+            target?.let { onOpenGpResults(it) }
         }
 
         btnViewFullResults.setOnClickListener {
-            lastFinishedMeeting?.let { onOpenGpDetail(it) }
+            val target = lastFinishedMeeting ?: currentHeroMeeting
+            target?.let { onOpenGpResults(it) }
         }
     }
 
     fun loadHomeData(year: Int = AppConfig.DEFAULT_SEASON) {
-        scope.launch {
+        activeLoadJob?.cancel()
+        activeLoadJob = scope.launch {
             try {
-                // 1. Cargar Grandes Premios del año (2026)
-                val meetings = repository.getMeetings(year)
+                // Carga concurrente paralela de fuentes independientes sin bloquear el hilo principal
+                val meetingsDeferred = async(Dispatchers.IO) { repository.getMeetings(year) }
+                val smartMeetingDeferred = async(Dispatchers.IO) { repository.findSmartSelectedMeeting(year) }
+                val heroDataDeferred = async(Dispatchers.IO) { repository.resolveHeroBannerData(year) }
+                val recentSummaryDeferred = async(Dispatchers.IO) { repository.getRecentRaceSummary(year) }
+                val driversDeferred = async(Dispatchers.IO) { repository.getDriverStandings(year) }
+                val constructorsDeferred = async(Dispatchers.IO) { repository.getConstructorStandings(year) }
+                val circuitsDeferred = async(Dispatchers.IO) { repository.getCircuits(year) }
 
-                // 2. Selección inteligente del GP: Próximo evento (Las Vegas GP) o Sesión en Vivo
-                val smartMeeting = repository.findSmartSelectedMeeting(year)
+                // 1. Calendario y GP inteligente
+                val meetings = meetingsDeferred.await()
+                val smartMeeting = smartMeetingDeferred.await()
                 currentHeroMeeting = smartMeeting
-
-                // Actualizar carrusel de GP iniciando en la primera carrera y destacando Las Vegas
                 gpCarouselAdapter.updateData(meetings, smartMeeting?.meetingKey)
                 rvCarouselGp.scrollToPosition(0)
 
-                // 3. Resolver Hero Banner con datos dinámicos oficiales
-                val heroData = repository.resolveHeroBannerData(year)
-                heroData?.let { bindHero(it) }
+                // 2. Hero Banner dinámico
+                val heroData = heroDataDeferred.await()
+                if (heroData != null) {
+                    bindHero(heroData)
+                } else {
+                    bindEmptyHero()
+                }
 
-                // 4. Cargar resumen de última carrera disputada y podio real (São Paulo GP)
-                val recentSummary = repository.getRecentRaceSummary(year)
-                recentSummary?.let { bindRecentResults(it, meetings) }
+                // 3. Resumen y podio de carrera reciente
+                val recentSummary = recentSummaryDeferred.await()
+                if (recentSummary != null) {
+                    bindRecentResults(recentSummary, meetings)
+                } else {
+                    clearRecentResults()
+                }
 
-                // 5. Cargar Mundial de Pilotos con puntos y posiciones reales (Jolpica 2026)
-                val driversStandings = repository.getDriverStandings(year)
+                // 4. Clasificación de Pilotos
+                val driversStandings = driversDeferred.await()
                 driverCarouselAdapter.updateData(driversStandings)
                 rvCarouselDrivers.scrollToPosition(0)
+                val driverLeader = driversStandings.firstOrNull()
+                tvDriversSectionSubtitle?.text = if (driverLeader != null && driverLeader.position > 0) {
+                    "Líder: ${driverLeader.fullName} (${driverLeader.points} pts) • Orden Oficial"
+                } else {
+                    "Sin clasificación oficial disponible para la temporada $year"
+                }
 
-                // 6. Cargar Mundial de Constructores con puntos reales (Jolpica 2026)
-                val constructorStandings = repository.getConstructorStandings(year)
+                // 5. Clasificación de Constructores
+                val constructorStandings = constructorsDeferred.await()
                 constructorCarouselAdapter.updateData(constructorStandings)
                 rvCarouselConstructors.scrollToPosition(0)
+                val constructorLeader = constructorStandings.firstOrNull()
+                tvConstructorsSectionSubtitle?.text = if (constructorLeader != null && constructorLeader.position > 0) {
+                    "Líder: ${constructorLeader.teamName} (${constructorLeader.points} pts) • Orden Oficial"
+                } else {
+                    "Sin clasificación oficial disponible para la temporada $year"
+                }
 
-                // 7. Cargar Circuitos oficiales
-                val circuits = repository.getCircuits(year)
+                // 6. Circuitos oficiales
+                val circuits = circuitsDeferred.await()
                 circuitCarouselAdapter.updateData(circuits)
                 rvCarouselCircuits.scrollToPosition(0)
 
             } catch (e: Exception) {
-                e.printStackTrace()
+                AppLogger.w("HomeViewManager", "Excepción controlada al cargar pantalla de inicio para temporada $year", e)
+                clearRecentResults()
+                bindEmptyHero()
             }
         }
     }
@@ -235,9 +276,23 @@ class HomeViewManager(
         tvRecentResultsCircuit.text = "${summary.circuitName} • ${summary.country}"
         tvRecentResultsDate.text = "Fecha oficial: ${summary.dateDisplay}"
 
-        lastFinishedMeeting = meetings.find {
-            it.meetingName?.contains(summary.grandPrixName.replace("Grand Prix", "").trim(), ignoreCase = true) == true
-        } ?: meetings.lastOrNull { it.meetingName?.contains("Grand Prix", true) == true }
+        val championshipMeetings = meetings.filter {
+            val name = it.meetingName?.lowercase() ?: ""
+            !name.contains("test")
+        }.sortedBy { it.dateStart }
+
+        // Relacionar Grandes Premios mediante temporada, ronda oficial y fechas exactas
+        val matchByRound = championshipMeetings.getOrNull(summary.round - 1)
+        lastFinishedMeeting = if (matchByRound != null && (matchByRound.year == summary.season || summary.season == 0)) {
+            matchByRound
+        } else {
+            meetings.find { m ->
+                (m.year == summary.season || summary.season == 0) &&
+                        (m.dateEnd?.startsWith(summary.dateDisplay) == true || m.dateStart?.startsWith(summary.dateDisplay) == true)
+            }
+        }
+
+        btnViewFullResults.visibility = if (lastFinishedMeeting != null) View.VISIBLE else View.GONE
 
         val p1 = summary.podium.getOrNull(0)
         val p2 = summary.podium.getOrNull(1)
@@ -255,5 +310,30 @@ class HomeViewManager(
             tvPodium3Name.text = p3.fullName
             tvPodium3Team.text = "${p3.teamName} • 3º Lugar (15 pts)"
         }
+    }
+
+    private fun clearRecentResults() {
+        tvRecentResultsGpTitle.text = "Sin resultados disponibles"
+        tvRecentResultsCircuit.text = "No se encontraron resultados oficiales para esta temporada"
+        tvRecentResultsDate.text = ""
+        tvPodium1Name.text = "-"
+        tvPodium1Team.text = ""
+        tvPodium2Name.text = "-"
+        tvPodium2Team.text = ""
+        tvPodium3Name.text = "-"
+        tvPodium3Team.text = ""
+        btnViewFullResults.visibility = View.GONE
+    }
+
+    private fun bindEmptyHero() {
+        tvHeroTitle.text = "Fórmula 1"
+        tvHeroSubtitle.text = "Sin eventos programados"
+        tvHeroColombiaTime.text = ""
+        tvHeroCountdown.text = ""
+        tvHeroStateBadge.text = "FUERA DE TEMPORADA"
+        tvHeroStateBadge.setBackgroundColor(Color.parseColor("#4B5563"))
+        btnHeroWatchLive.visibility = View.GONE
+        ivHeroFlag.visibility = View.GONE
+        ivHeroCircuitMap.visibility = View.GONE
     }
 }
