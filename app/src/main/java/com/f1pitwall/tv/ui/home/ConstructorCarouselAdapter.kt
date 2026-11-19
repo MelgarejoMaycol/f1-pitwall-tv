@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
@@ -39,6 +40,7 @@ class ConstructorCarouselAdapter(
         private val tvConstructorDrivers: TextView = itemView.findViewById(R.id.tvConstructorDrivers)
         private val tvConstructorPoints: TextView = itemView.findViewById(R.id.tvConstructorPoints)
         private val tvConstructorGap: TextView = itemView.findViewById(R.id.tvConstructorGap)
+        private val ivConstructorLogo: ImageView = itemView.findViewById(R.id.ivConstructorLogo)
 
         fun bind(item: ConstructorCardItem, position: Int) {
             val rankPos = if (item.position > 0) item.position else (position + 1)
@@ -56,6 +58,12 @@ class ConstructorCarouselAdapter(
             tvConstructorDrivers.text = item.drivers.joinToString(" • ")
             tvConstructorPoints.text = "${item.points} pts"
             tvConstructorGap.text = item.gapToLeader ?: if (rankPos == 1) "LÍDER" else ""
+
+            if (item.logoResId != 0) {
+                ivConstructorLogo.setImageResource(item.logoResId)
+            } else {
+                ivConstructorLogo.setImageResource(R.drawable.ic_pitwall_logo)
+            }
 
             try {
                 val hex = if (item.teamColor.startsWith("#")) item.teamColor else "#${item.teamColor}"

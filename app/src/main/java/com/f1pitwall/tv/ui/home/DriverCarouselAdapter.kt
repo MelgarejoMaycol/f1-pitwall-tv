@@ -80,11 +80,11 @@ class DriverCarouselAdapter(
             if (!driver.headshotUrl.isNullOrEmpty()) {
                 ivDriverPhoto.load(driver.headshotUrl) {
                     crossfade(true)
-                    placeholder(R.drawable.ic_pitwall_logo)
-                    error(R.drawable.ic_pitwall_logo)
+                    placeholder(R.drawable.ic_driver_helmet)
+                    error(R.drawable.ic_driver_helmet)
                 }
             } else {
-                ivDriverPhoto.setImageResource(R.drawable.ic_pitwall_logo)
+                ivDriverPhoto.setImageResource(R.drawable.ic_driver_helmet)
             }
 
             itemView.setOnClickListener {

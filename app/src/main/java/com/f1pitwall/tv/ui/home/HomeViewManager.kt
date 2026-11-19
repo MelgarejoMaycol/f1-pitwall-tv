@@ -12,9 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.AppConfig
-import com.f1pitwall.tv.data.model.HeroBannerData
-import com.f1pitwall.tv.data.model.HeroStateType
-import com.f1pitwall.tv.data.model.RecentRaceSummary
+import com.f1pitwall.tv.data.model.*
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.Meeting
 import kotlinx.coroutines.launch
@@ -25,7 +23,8 @@ class HomeViewManager(
     private val scope: LifecycleCoroutineScope,
     private val onOpenRaceScreen: () -> Unit,
     private val onOpenGpDetail: (Meeting) -> Unit,
-    private val onOpenHubSection: (String) -> Unit
+    private val onOpenHubSection: (String) -> Unit,
+    private val onOpenCircuit: (CircuitCardItem) -> Unit = {}
 ) {
 
     // Hero Elements
@@ -53,14 +52,12 @@ class HomeViewManager(
     private val btnViewFullResults: Button = rootView.findViewById(R.id.btnViewFullResults)
 
     // Carousels
-    private val rvCircularHubs: RecyclerView = rootView.findViewById(R.id.rvCircularHubs)
     private val rvCarouselGp: RecyclerView = rootView.findViewById(R.id.rvCarouselGp)
     private val rvCarouselDrivers: RecyclerView = rootView.findViewById(R.id.rvCarouselDrivers)
     private val rvCarouselConstructors: RecyclerView = rootView.findViewById(R.id.rvCarouselConstructors)
     private val rvCarouselCircuits: RecyclerView = rootView.findViewById(R.id.rvCarouselCircuits)
 
     // Adapters
-    private lateinit var circularHubAdapter: CircularHubAdapter
     private lateinit var gpCarouselAdapter: GpCarouselAdapter
     private lateinit var driverCarouselAdapter: DriverCarouselAdapter
     private lateinit var constructorCarouselAdapter: ConstructorCarouselAdapter
@@ -78,40 +75,31 @@ class HomeViewManager(
     private fun setupCarousels() {
         val context = rootView.context
 
-        // 1. Navigation Hub Cards (Reemplazo moderno de círculos genéricos)
-        // Evitar una segunda navegación redundante: las secciones ya están en la barra superior.
-        rvCircularHubs.visibility = View.GONE
-        rvCircularHubs.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        circularHubAdapter = CircularHubAdapter(repository.getCircularHubItems()) { hub ->
-            onOpenHubSection(hub.id)
-        }
-        rvCircularHubs.adapter = circularHubAdapter
-
-        // 2. Grandes Premios de la Temporada (Selección dinámica)
+        // 1. Grandes Premios de la Temporada (Selección dinámica)
         rvCarouselGp.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         gpCarouselAdapter = GpCarouselAdapter { meeting ->
             onOpenGpDetail(meeting)
         }
         rvCarouselGp.adapter = gpCarouselAdapter
 
-        // 3. Mundial de Pilotos (Puntuaciones y posiciones oficiales)
+        // 2. Mundial de Pilotos (Puntuaciones y posiciones oficiales)
         rvCarouselDrivers.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         driverCarouselAdapter = DriverCarouselAdapter { driver ->
             Toast.makeText(context, "${driver.position}º ${driver.fullName} (${driver.points} pts)", Toast.LENGTH_SHORT).show()
         }
         rvCarouselDrivers.adapter = driverCarouselAdapter
 
-        // 4. Mundial de Constructores (Puntuaciones oficiales)
+        // 3. Mundial de Constructores (Puntuaciones oficiales)
         rvCarouselConstructors.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         constructorCarouselAdapter = ConstructorCarouselAdapter { team ->
             Toast.makeText(context, "${team.position}º ${team.teamName} (${team.points} pts)", Toast.LENGTH_SHORT).show()
         }
         rvCarouselConstructors.adapter = constructorCarouselAdapter
 
-        // 5. Circuitos Oficiales
+        // 4. Circuitos Oficiales (Navega a resultados históricos de ese circuito)
         rvCarouselCircuits.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         circuitCarouselAdapter = CircuitCarouselAdapter { circuit ->
-            onOpenHubSection("resultados")
+            onOpenCircuit(circuit)
         }
         rvCarouselCircuits.adapter = circuitCarouselAdapter
     }
@@ -179,31 +167,48 @@ class HomeViewManager(
 
     private fun bindHero(hero: HeroBannerData) {
         tvHeroTitle.text = hero.grandPrixName
-        tvHeroSubtitle.text = listOf(hero.circuitName, hero.countryName)
-            .filter { it.isNotBlank() }
-            .distinct()
-            .joinToString(" • ")
+
+        // Presenta circuito y país de forma limpia sin duplicar ubicaciones
+        val cleanCircuit = hero.circuitName.trim()
+        val cleanCountry = hero.countryName.trim()
+        tvHeroSubtitle.text = if (cleanCircuit.contains(cleanCountry, ignoreCase = true) || cleanCountry.isBlank()) {
+            cleanCircuit
+        } else {
+            "$cleanCircuit • $cleanCountry"
+        }
+
         tvHeroColombiaTime.text = hero.timingDisplay
         tvHeroCountdown.text = hero.countdownText
+
+        // Diferenciar visualmente las prácticas, clasificación, Sprint y carrera con colores elegantes
+        val lowerTiming = hero.timingDisplay.lowercase()
+        val sessionColor = when {
+            lowerTiming.contains("practice") || lowerTiming.contains("práctica") || lowerTiming.contains("libres") -> Color.parseColor("#38BDF8") // Steel Blue / Cyan
+            lowerTiming.contains("qualifying") || lowerTiming.contains("clasificación") || lowerTiming.contains("shootout") -> Color.parseColor("#C084FC") // Purple
+            lowerTiming.contains("sprint") -> Color.parseColor("#FB923C") // Apex Amber
+            lowerTiming.contains("carrera") || lowerTiming.contains("race") -> Color.parseColor("#FF2A24") // Racing Red
+            else -> Color.parseColor("#85D8F5")
+        }
+        tvHeroColombiaTime.setTextColor(sessionColor)
 
         when (hero.type) {
             HeroStateType.LIVE -> {
                 tvHeroStateBadge.text = "🔴 EN DIRECTO"
                 tvHeroStateBadge.setBackgroundColor(Color.parseColor("#E10600"))
-                btnHeroWatchLive.text = "🏎️ Ver en Directo (Muro de Pits)"
+                btnHeroWatchLive.text = "▶ Ver Transmisión"
                 btnHeroWatchLive.visibility = View.VISIBLE
                 btnHeroWatchLive.requestFocus()
             }
             HeroStateType.UPCOMING -> {
                 tvHeroStateBadge.text = "⏳ PRÓXIMO GRAN PREMIO"
-                tvHeroStateBadge.setBackgroundColor(Color.parseColor("#2563EB"))
-                btnHeroWatchLive.text = "🏎️ Muro de Pits & Previa"
+                tvHeroStateBadge.setBackgroundColor(sessionColor)
+                btnHeroWatchLive.text = "▶ Muro de Pits & Previa"
                 btnHeroWatchLive.visibility = View.VISIBLE
             }
             HeroStateType.COMPLETED -> {
                 tvHeroStateBadge.text = "🏁 RESULTADOS DISPONIBLES"
                 tvHeroStateBadge.setBackgroundColor(Color.parseColor("#15803D"))
-                btnHeroWatchLive.text = "🏎️ Muro de Pits y Telemetría"
+                btnHeroWatchLive.text = "▶ Muro de Pits y Telemetría"
                 btnHeroWatchLive.visibility = View.VISIBLE
             }
         }

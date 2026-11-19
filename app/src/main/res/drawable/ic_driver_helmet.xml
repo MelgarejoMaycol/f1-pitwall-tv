@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Helmet Outer Shell (Sleek Dark Carbon with Neon Outline) -->
+    <path
+        android:fillColor="#181F2E"
+        android:strokeColor="#2E394E"
+        android:strokeWidth="1.5"
+        android:pathData="M 28,68 C 22,62 20,52 20,44 C 20,26 34,14 54,14 C 74,14 86,28 86,46 C 86,56 82,68 74,74 C 66,80 48,82 38,78 Z" />
+
+    <!-- Aerodynamic Top Ridge -->
+    <path
+        android:fillColor="#242E44"
+        android:pathData="M 40,16 C 50,14 62,15 70,20 C 64,18 52,17 40,16 Z" />
+
+    <!-- Helmet Visor (High-Tech Electric Cyan Tint) -->
+    <path
+        android:fillColor="#00F0FF"
+        android:fillAlpha="0.85"
+        android:pathData="M 50,34 L 82,38 C 84,46 82,54 78,58 L 52,58 C 48,52 46,42 50,34 Z" />
+
+    <!-- Visor Reflection Highlight -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6"
+        android:pathData="M 54,37 L 76,40 C 74,44 70,45 66,45 L 52,43 Z" />
+
+    <!-- Visor Tear-off Post / Pivot -->
+    <path
+        android:fillColor="#FF2A24"
+        android:pathData="M 48,46 A 3.5,3.5 0 1,1 48,39 A 3.5,3.5 0 1,1 48,46 Z" />
+
+    <!-- Chin Air Vent / Intake Grille (Racing Red Slash) -->
+    <path
+        android:fillColor="#FF2A24"
+        android:pathData="M 64,68 L 72,66 L 70,71 L 62,72 Z" />
+
+    <!-- Lower Carbon Aerodynamic Spoiler Lip -->
+    <path
+        android:fillColor="#0E131C"
+        android:pathData="M 28,68 L 38,78 C 48,82 66,80 74,74 L 70,76 C 60,82 44,83 34,78 Z" />
+</vector>

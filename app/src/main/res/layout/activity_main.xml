@@ -52,16 +52,19 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Navigation Tabs (Optimized for TV D-Pad) -->
+        <!-- Navigation Tabs (Optimized for TV D-Pad with consistent vector icons) -->
         <Button
             android:id="@+id/btnTabHome"
             android:layout_width="wrap_content"
             android:layout_height="38dp"
             android:layout_marginStart="16dp"
             android:background="@drawable/btn_tab_selector"
+            android:drawableStart="@drawable/ic_nav_home"
+            android:drawablePadding="8dp"
             android:focusable="true"
+            android:gravity="center"
             android:paddingHorizontal="14dp"
-            android:text="🏠 Inicio"
+            android:text="Inicio"
             android:textColor="@color/text_primary"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -72,9 +75,12 @@
             android:layout_height="38dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/btn_tab_selector"
+            android:drawableStart="@drawable/ic_nav_pitwall"
+            android:drawablePadding="8dp"
             android:focusable="true"
+            android:gravity="center"
             android:paddingHorizontal="14dp"
-            android:text="🏎️ Muro de Pits"
+            android:text="Muro de Pits"
             android:textColor="@color/text_primary"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -85,9 +91,12 @@
             android:layout_height="38dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/btn_tab_selector"
+            android:drawableStart="@drawable/ic_nav_calendar"
+            android:drawablePadding="8dp"
             android:focusable="true"
+            android:gravity="center"
             android:paddingHorizontal="14dp"
-            android:text="📅 Carreras y Archivo"
+            android:text="Archivo"
             android:textColor="@color/text_primary"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -98,9 +107,12 @@
             android:layout_height="38dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/btn_tab_selector"
+            android:drawableStart="@drawable/ic_nav_settings"
+            android:drawablePadding="8dp"
             android:focusable="true"
+            android:gravity="center"
             android:paddingHorizontal="14dp"
-            android:text="📺 Ajustes de Video"
+            android:text="Ajustes"
             android:textColor="@color/text_primary"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -111,7 +123,7 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
-        <!-- Status Badges (Flag & Weather) -->
+        <!-- Status Badges (Flag & Weather: Hidden by default, shown only if verified live data exists) -->
         <TextView
             android:id="@+id/tvRaceFlag"
             android:layout_width="wrap_content"
@@ -123,7 +135,8 @@
             android:text="🏁 BANDERA VERDE"
             android:textColor="@color/flag_green"
             android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tvWeather"
@@ -131,7 +144,8 @@
             android:layout_height="wrap_content"
             android:text="⛅ Pista: 32°C | Aire: 24°C"
             android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <!-- MAIN BODY: VIEW SWITCHER -->
@@ -256,7 +270,7 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- Embedded ExoPlayer -->
+                <!-- Pit Wall Video Screen: Player + Standby Container -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
@@ -265,13 +279,129 @@
                     app:cardCornerRadius="10dp"
                     app:cardElevation="0dp">
 
-                    <androidx.media3.ui.PlayerView
-                        android:id="@+id/playerView"
+                    <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:focusable="true"
-                        app:show_buffering="always"
-                        app:use_controller="true" />
+                        android:layout_height="match_parent">
+
+                        <androidx.media3.ui.PlayerView
+                            android:id="@+id/playerView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:focusable="true"
+                            android:visibility="gone"
+                            app:show_buffering="always"
+                            app:use_controller="true" />
+
+                        <!-- Editorial Standby Screen when No Live Race -->
+                        <LinearLayout
+                            android:id="@+id/layoutPitWallStandby"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="#E60D1522"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="20dp"
+                            android:visibility="visible">
+
+                            <TextView
+                                android:id="@+id/tvStandbyBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="#2238BDF8"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="4dp"
+                                android:text="⏸️ MODO STANDBY • FUERA DE SESIÓN"
+                                android:textColor="#38BDF8"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvStandbyTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:text="Sin transmisión en directo en este momento"
+                                android:textColor="#FFFFFF"
+                                android:textSize="17sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvStandbyNextSession"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="Próximo evento: GP de Las Vegas 2026"
+                                android:textColor="#94A3B8"
+                                android:textSize="12sp" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="14dp"
+                                android:background="#152033"
+                                android:orientation="horizontal"
+                                android:paddingHorizontal="16dp"
+                                android:paddingVertical="8dp">
+
+                                <TextView
+                                    android:id="@+id/tvStandbyLastRace"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🏆 Último GP Finalizado: São Paulo (Norris 1º, Verstappen 2º)"
+                                    android:textColor="#CBD5E1"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="16dp"
+                                android:orientation="horizontal">
+
+                                <Button
+                                    android:id="@+id/btnStandbyViewSchedule"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:background="@drawable/btn_tab_selector"
+                                    android:drawableStart="@drawable/ic_nav_calendar"
+                                    android:drawablePadding="6dp"
+                                    android:focusable="true"
+                                    android:paddingHorizontal="12dp"
+                                    android:text="Calendario"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+
+                                <Button
+                                    android:id="@+id/btnStandbyViewResults"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginStart="10dp"
+                                    android:background="@drawable/btn_tab_selector"
+                                    android:focusable="true"
+                                    android:paddingHorizontal="12dp"
+                                    android:text="🏁 Ver Resultados"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+
+                                <Button
+                                    android:id="@+id/btnStandbyConfigureSource"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginStart="10dp"
+                                    android:background="@drawable/btn_tab_selector"
+                                    android:drawableStart="@drawable/ic_nav_settings"
+                                    android:drawablePadding="6dp"
+                                    android:focusable="true"
+                                    android:paddingHorizontal="12dp"
+                                    android:text="Configurar Video"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </FrameLayout>
                 </androidx.cardview.widget.CardView>
 
                 <!-- Team Radio Multi-Driver Channel Selector (Requirement 10) -->
@@ -296,7 +426,7 @@
                             android:layout_weight="1"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="📻 Radio Oficial: Sintoniza canal por piloto"
+                            android:text="Radio no disponible: no hay sesión en directo"
                             android:textColor="@color/text_primary"
                             android:textSize="11sp"
                             android:textStyle="bold" />
@@ -305,8 +435,10 @@
                             android:id="@+id/btnPlayRadio"
                             android:layout_width="wrap_content"
                             android:layout_height="26dp"
+                            android:alpha="0.5"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
+                            android:enabled="false"
                             android:focusable="true"
                             android:paddingHorizontal="10dp"
                             android:text="▶ Reproducir"
@@ -870,223 +1002,382 @@
                     android:layout_marginTop="8dp"
                     android:focusable="true"
                     android:visibility="gone" />
-            </LinearLayout>
-        </LinearLayout>
 
-        <!-- 3. SETTINGS / STREAM CONFIGURATION VIEW -->
-        <LinearLayout
-            android:id="@+id/layoutSettings"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/f1_surface"
-            android:orientation="vertical"
-            android:padding="16dp"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📺 FUENTES DE VIDEO Y BÚSQUEDA INTELIGENTE"
-                android:textColor="@color/f1_red"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Identificación automática del Gran Premio y términos de búsqueda adaptados por sesión:"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
-            <!-- Smart Adaptive Search Card -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#131722"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="2dp">
-
+                <!-- Empty state when no historical results are registered -->
                 <LinearLayout
+                    android:id="@+id/layoutEmptyArchiveResults"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="12dp">
-
-                    <TextView
-                        android:id="@+id/tvDetectedSessionTitle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="🏎️ Evento identificado: GP de Las Vegas 2026 • Práctica 1"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                    android:padding="20dp"
+                    android:visibility="gone">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Términos de búsqueda recomendados para localizar la transmisión autorizada:"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:text="🏁"
+                        android:textSize="28sp" />
 
-                    <!-- Search Queries Chips Flow -->
-                    <LinearLayout
-                        android:id="@+id/llSearchChips"
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:id="@+id/tvEmptyArchiveResults"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/tvSearchChip1"
-                            android:layout_width="wrap_content"
-                            android:layout_height="28dp"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center"
-                            android:paddingHorizontal="10dp"
-                            android:text="GP Las Vegas F1"
-                            android:textColor="@color/text_primary"
-                            android:textSize="11sp" />
-
-                        <TextView
-                            android:id="@+id/tvSearchChip2"
-                            android:layout_width="wrap_content"
-                            android:layout_height="28dp"
-                            android:layout_marginStart="8dp"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center"
-                            android:paddingHorizontal="10dp"
-                            android:text="Gran Premio Las Vegas F1"
-                            android:textColor="@color/text_primary"
-                            android:textSize="11sp" />
-
-                        <TextView
-                            android:id="@+id/tvSearchChip3"
-                            android:layout_width="wrap_content"
-                            android:layout_height="28dp"
-                            android:layout_marginStart="8dp"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center"
-                            android:paddingHorizontal="10dp"
-                            android:text="F1 Las Vegas prácticas"
-                            android:textColor="@color/text_primary"
-                            android:textSize="11sp" />
-
-                        <TextView
-                            android:id="@+id/tvSearchChip4"
-                            android:layout_width="wrap_content"
-                            android:layout_height="28dp"
-                            android:layout_marginStart="8dp"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center"
-                            android:paddingHorizontal="10dp"
-                            android:text="Fórmula 1 en directo"
-                            android:textColor="@color/text_primary"
-                            android:textSize="11sp" />
-                    </LinearLayout>
+                        android:gravity="center"
+                        android:text="Sin resultados oficiales registrados para este Gran Premio todavía"
+                        android:textColor="@color/text_muted"
+                        android:textSize="13sp"
+                        android:textStyle="italic" />
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            </LinearLayout>
+        </LinearLayout>
 
-            <!-- Stream URL Input -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="Enlace directo de video (HLS .m3u8 / DASH .mpd / MP4):"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <EditText
-                android:id="@+id/etStreamUrl"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/card_focus_selector"
-                android:focusable="true"
-                android:hint="https://tu-servidor/stream.m3u8"
-                android:paddingHorizontal="12dp"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_muted"
-                android:textSize="12sp" />
+        <!-- 3. SETTINGS / STREAM CONFIGURATION VIEW -->
+        <ScrollView
+            android:id="@+id/layoutSettings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/f1_surface"
+            android:fillViewport="true"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:padding="16dp">
 
-                <Button
-                    android:id="@+id/btnApplyStream"
+                <TextView
                     android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="14dp"
-                    android:text="⚡ Aplicar Señal de Video"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:layout_height="wrap_content"
+                    android:text="📺 FUENTES DE VIDEO Y BÚSQUEDA INTELIGENTE"
+                    android:textColor="@color/f1_red"
+                    android:textSize="18sp"
                     android:textStyle="bold" />
 
-                <Button
-                    android:id="@+id/btnPresetDemo1"
+                <TextView
                     android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:text="HLS Demo 1"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Configura tus enlaces directos de transmisión o utiliza términos de búsqueda adaptados por sesión:"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
 
-                <Button
-                    android:id="@+id/btnPresetDemo2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:text="MP4 Backup"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp" />
+                <!-- Smart Adaptive Search Card -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    app:cardBackgroundColor="#131722"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="2dp">
 
-                <Button
-                    android:id="@+id/btnReloadGitSources"
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:id="@+id/tvDetectedSessionTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="🏎️ Evento identificado: GP de Las Vegas 2026 • Práctica 1"
+                            android:textColor="@color/text_primary"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Términos de búsqueda recomendados para localizar la transmisión autorizada:"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <!-- Search Queries Chips Flow -->
+                        <LinearLayout
+                            android:id="@+id/llSearchChips"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvSearchChip1"
+                                android:layout_width="wrap_content"
+                                android:layout_height="28dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center"
+                                android:paddingHorizontal="10dp"
+                                android:text="GP Las Vegas F1"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/tvSearchChip2"
+                                android:layout_width="wrap_content"
+                                android:layout_height="28dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center"
+                                android:paddingHorizontal="10dp"
+                                android:text="Gran Premio Las Vegas F1"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/tvSearchChip3"
+                                android:layout_width="wrap_content"
+                                android:layout_height="28dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center"
+                                android:paddingHorizontal="10dp"
+                                android:text="F1 Las Vegas prácticas"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/tvSearchChip4"
+                                android:layout_width="wrap_content"
+                                android:layout_height="28dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center"
+                                android:paddingHorizontal="10dp"
+                                android:text="Fórmula 1 en directo"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Source Configuration Form -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    app:cardBackgroundColor="#131722"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="2dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="➕ AÑADIR O EDITAR FUENTE DE VIDEO"
+                            android:textColor="@color/f1_red"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <!-- Stream Name Input -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="0.38"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Nombre o Etiqueta:"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+
+                                <EditText
+                                    android:id="@+id/etStreamName"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="40dp"
+                                    android:layout_marginTop="4dp"
+                                    android:background="@drawable/card_focus_selector"
+                                    android:focusable="true"
+                                    android:hint="Ej. Señal Principal F1"
+                                    android:paddingHorizontal="10dp"
+                                    android:singleLine="true"
+                                    android:textColor="@color/text_primary"
+                                    android:textColorHint="@color/text_muted"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <!-- Stream URL Input -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="10dp"
+                                android:layout_weight="0.62"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="URL de Transmisión (HLS / DASH / MP4):"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+
+                                <EditText
+                                    android:id="@+id/etStreamUrl"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="40dp"
+                                    android:layout_marginTop="4dp"
+                                    android:background="@drawable/card_focus_selector"
+                                    android:focusable="true"
+                                    android:hint="https://tu-servidor/stream.m3u8"
+                                    android:paddingHorizontal="10dp"
+                                    android:singleLine="true"
+                                    android:textColor="@color/text_primary"
+                                    android:textColorHint="@color/text_muted"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Protocol Pills + Action Buttons -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:text="Tipo:"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+
+                            <Button
+                                android:id="@+id/btnTypeHls"
+                                android:layout_width="wrap_content"
+                                android:layout_height="32dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="12dp"
+                                android:text="HLS (.m3u8)"
+                                android:textColor="@color/text_primary"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnTypeDash"
+                                android:layout_width="wrap_content"
+                                android:layout_height="32dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="12dp"
+                                android:text="DASH (.mpd)"
+                                android:textColor="@color/text_primary"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnTypeMp4"
+                                android:layout_width="wrap_content"
+                                android:layout_height="32dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="12dp"
+                                android:text="MP4 (.mp4)"
+                                android:textColor="@color/text_primary"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <Button
+                                android:id="@+id/btnSaveStream"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="14dp"
+                                android:text="💾 Guardar Fuente"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnTestStream"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="14dp"
+                                android:text="▶ Probar Señal"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Configured Sources List -->
+                <TextView
                     android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="📋 FUENTES DE VIDEO GUARDADAS"
+                    android:textColor="@color/f1_red"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvEmptySourcesNotice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="#151A24"
+                    android:gravity="center"
+                    android:padding="20dp"
+                    android:text="No hay fuentes de video configuradas. Añade una arriba para ver transmisiones en el Muro de Pits."
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp"
+                    android:textStyle="italic"
+                    android:visibility="visible" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvConfiguredSources"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:text="🔄 Recargar Fuentes Git"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp" />
+                    android:visibility="gone" />
+
             </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:lineSpacingExtra="3dp"
-                android:text="📁 Control de Fuentes vía Git: Puedes añadir, cambiar proveedores o actualizar enlaces desde tu computadora editando 'app/src/main/assets/video_sources.json' y 'season_config.json'. Al hacer commit de los cambios, la aplicación los adoptará de forma nativa."
-                android:textColor="@color/text_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
+        </ScrollView>
     </FrameLayout>
 </LinearLayout>

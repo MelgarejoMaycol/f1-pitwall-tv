@@ -14,12 +14,16 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.AppConfig
+import com.f1pitwall.tv.core.config.VideoProviderItem
 import com.f1pitwall.tv.core.config.VideoSourcesConfig
+import com.f1pitwall.tv.core.storage.PreferencesManager
 import com.f1pitwall.tv.core.util.TimeUtils
+import com.f1pitwall.tv.data.model.CircuitCardItem
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
 import com.f1pitwall.tv.ui.home.HomeViewManager
+import com.f1pitwall.tv.ui.settings.VideoSourcesAdapter
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -40,11 +44,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var layoutHome: View
     private lateinit var layoutPitWall: LinearLayout
     private lateinit var layoutArchive: LinearLayout
-    private lateinit var layoutSettings: LinearLayout
+    private lateinit var layoutSettings: View
 
     // F1 Repository & Home Manager
     private val api = OpenF1ApiClient()
     private val repository by lazy { F1Repository(api) }
+    private val preferencesManager by lazy { PreferencesManager(this) }
     private lateinit var homeViewManager: HomeViewManager
 
     // Pit Wall UI
@@ -56,6 +61,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var leaderboardAdapter: LeaderboardAdapter
     private lateinit var tvRadioTitle: TextView
     private lateinit var btnPlayRadio: Button
+
+    // Standby Muro de Pits Container & Elements
+    private lateinit var layoutPitWallStandby: LinearLayout
+    private lateinit var tvStandbyBadge: TextView
+    private lateinit var tvStandbyTitle: TextView
+    private lateinit var tvStandbyNextSession: TextView
+    private lateinit var tvStandbyLastRace: TextView
+    private lateinit var btnStandbyViewSchedule: Button
+    private lateinit var btnStandbyViewResults: Button
+    private lateinit var btnStandbyConfigureSource: Button
 
     // F1 Content Space Controls (Off-Race Hub)
     private lateinit var btnContentPreview: Button
@@ -108,28 +123,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sessionScheduleAdapter: SessionScheduleAdapter
     private lateinit var rvArchiveResults: RecyclerView
     private lateinit var archiveResultsAdapter: LeaderboardAdapter
+    private lateinit var layoutEmptyArchiveResults: LinearLayout
+    private lateinit var tvEmptyArchiveResults: TextView
 
-    // Settings UI & Smart Search
+    // Settings UI & Custom Video Sources
     private lateinit var tvDetectedSessionTitle: TextView
     private lateinit var tvSearchChip1: TextView
     private lateinit var tvSearchChip2: TextView
     private lateinit var tvSearchChip3: TextView
     private lateinit var tvSearchChip4: TextView
+    private lateinit var etStreamName: EditText
     private lateinit var etStreamUrl: EditText
-    private lateinit var btnApplyStream: Button
-    private lateinit var btnPresetDemo1: Button
-    private lateinit var btnPresetDemo2: Button
-    private lateinit var btnReloadGitSources: Button
+    private lateinit var btnTypeHls: Button
+    private lateinit var btnTypeDash: Button
+    private lateinit var btnTypeMp4: Button
+    private lateinit var btnSaveStream: Button
+    private lateinit var btnTestStream: Button
+    private lateinit var tvEmptySourcesNotice: TextView
+    private lateinit var rvConfiguredSources: RecyclerView
+    private lateinit var videoSourcesAdapter: VideoSourcesAdapter
+    private var selectedStreamType: String = "HLS"
 
     private var currentSessionKey: Long? = null
     private var latestRadioUrl: String? = null
     private var selectedMeeting: Meeting? = null
     private var selectedYear: Int = AppConfig.DEFAULT_SEASON // 2026 por defecto
     private var isLiveSessionActive: Boolean = false
-
-    // Demo stream presets
-    private val demoHlsUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
-    private val demoMp4Url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -192,6 +211,23 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, "Sección '$hubId' disponible", Toast.LENGTH_SHORT).show()
                     }
                 }
+            },
+            onOpenCircuit = { circuit: CircuitCardItem ->
+                btnTabArchive.performClick()
+                lifecycleScope.launch {
+                    val meetings = repository.getMeetings(selectedYear)
+                    val match = meetings.find { it.circuitKey == circuit.circuitKey }
+                        ?: meetings.find { it.location.equals(circuit.location, ignoreCase = true) }
+                        ?: meetings.find { it.countryName.equals(circuit.country, ignoreCase = true) }
+                    if (match != null) {
+                        displayMeetingDetails(match)
+                        val index = meetings.indexOfFirst { it.meetingKey == match.meetingKey }
+                        if (index >= 0) {
+                            rvMeetings.scrollToPosition(index)
+                        }
+                    }
+                    btnViewResults.performClick()
+                }
             }
         )
 
@@ -203,6 +239,28 @@ class MainActivity : AppCompatActivity() {
         rvLeaderboard = findViewById(R.id.rvLeaderboard)
         tvRadioTitle = findViewById(R.id.tvRadioTitle)
         btnPlayRadio = findViewById(R.id.btnPlayRadio)
+
+        // Standby Screen Container & Buttons
+        layoutPitWallStandby = findViewById(R.id.layoutPitWallStandby)
+        tvStandbyBadge = findViewById(R.id.tvStandbyBadge)
+        tvStandbyTitle = findViewById(R.id.tvStandbyTitle)
+        tvStandbyNextSession = findViewById(R.id.tvStandbyNextSession)
+        tvStandbyLastRace = findViewById(R.id.tvStandbyLastRace)
+        btnStandbyViewSchedule = findViewById(R.id.btnStandbyViewSchedule)
+        btnStandbyViewResults = findViewById(R.id.btnStandbyViewResults)
+        btnStandbyConfigureSource = findViewById(R.id.btnStandbyConfigureSource)
+
+        btnStandbyViewSchedule.setOnClickListener {
+            btnTabArchive.performClick()
+            btnViewSchedule.performClick()
+        }
+        btnStandbyViewResults.setOnClickListener {
+            btnTabArchive.performClick()
+            btnViewResults.performClick()
+        }
+        btnStandbyConfigureSource.setOnClickListener {
+            btnTabSettings.performClick()
+        }
 
         // F1 Content Hub Controls
         btnContentPreview = findViewById(R.id.btnContentPreview)
@@ -223,6 +281,13 @@ class MainActivity : AppCompatActivity() {
         layoutLiveSessionAlert = findViewById(R.id.layoutLiveSessionAlert)
         tvLiveSessionAlertTitle = findViewById(R.id.tvLiveSessionAlertTitle)
         btnLiveSessionAction = findViewById(R.id.btnLiveSessionAction)
+
+        layoutLiveSessionAlert.setOnClickListener {
+            btnTabSettings.performClick()
+        }
+        btnLiveSessionAction.setOnClickListener {
+            btnTabSettings.performClick()
+        }
 
         // Telemetry
         btnMetricsTiming = findViewById(R.id.btnMetricsTiming)
@@ -253,6 +318,8 @@ class MainActivity : AppCompatActivity() {
         btnViewResults = findViewById(R.id.btnViewResults)
         rvSessionsSchedule = findViewById(R.id.rvSessionsSchedule)
         rvArchiveResults = findViewById(R.id.rvArchiveResults)
+        layoutEmptyArchiveResults = findViewById(R.id.layoutEmptyArchiveResults)
+        tvEmptyArchiveResults = findViewById(R.id.tvEmptyArchiveResults)
 
         // Settings & Smart Search
         tvDetectedSessionTitle = findViewById(R.id.tvDetectedSessionTitle)
@@ -260,11 +327,17 @@ class MainActivity : AppCompatActivity() {
         tvSearchChip2 = findViewById(R.id.tvSearchChip2)
         tvSearchChip3 = findViewById(R.id.tvSearchChip3)
         tvSearchChip4 = findViewById(R.id.tvSearchChip4)
+        etStreamName = findViewById(R.id.etStreamName)
         etStreamUrl = findViewById(R.id.etStreamUrl)
-        btnApplyStream = findViewById(R.id.btnApplyStream)
-        btnPresetDemo1 = findViewById(R.id.btnPresetDemo1)
-        btnPresetDemo2 = findViewById(R.id.btnPresetDemo2)
-        btnReloadGitSources = findViewById(R.id.btnReloadGitSources)
+        btnTypeHls = findViewById(R.id.btnTypeHls)
+        btnTypeDash = findViewById(R.id.btnTypeDash)
+        btnTypeMp4 = findViewById(R.id.btnTypeMp4)
+        btnSaveStream = findViewById(R.id.btnSaveStream)
+        btnTestStream = findViewById(R.id.btnTestStream)
+        tvEmptySourcesNotice = findViewById(R.id.tvEmptySourcesNotice)
+        rvConfiguredSources = findViewById(R.id.rvConfiguredSources)
+
+        setupSettingsSourcesView()
 
         btnLiveSessionAction.setOnClickListener {
             btnTabSettings.performClick()
@@ -354,6 +427,10 @@ class MainActivity : AppCompatActivity() {
         radioPlayer = ExoPlayer.Builder(this).build()
 
         btnPlayRadio.setOnClickListener {
+            if (!isLiveSessionActive) {
+                Toast.makeText(this, "Radio no disponible: no hay sesión en directo", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             latestRadioUrl?.let { url ->
                 val mediaItem = MediaItem.fromUri(url)
                 radioPlayer?.setMediaItem(mediaItem)
@@ -372,30 +449,31 @@ class MainActivity : AppCompatActivity() {
             player.setMediaItem(mediaItem)
             player.prepare()
             player.playWhenReady = true
+            playerView.visibility = View.VISIBLE
+            layoutPitWallStandby.visibility = View.GONE
         }
     }
 
     private fun setupContentHubAndRadios() {
         // 1. Off-race F1 Content Hub
         btnContentPreview.setOnClickListener {
-            playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")
-            tvLiveSessionAlertTitle.text = "🏎️ F1 PitWall: Previa Oficial GP Las Vegas 2026 (Ronda 21)"
-            Toast.makeText(this, "Cargando Previa GP Las Vegas 2026", Toast.LENGTH_SHORT).show()
+            btnTabArchive.performClick()
+            btnViewSchedule.performClick()
+            Toast.makeText(this, "Cronograma oficial del Gran Premio", Toast.LENGTH_SHORT).show()
         }
 
         btnContentRecap.setOnClickListener {
-            playStream("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4")
-            tvLiveSessionAlertTitle.text = "🏁 F1 PitWall: Resumen Oficial GP São Paulo (Norris 1º, Verstappen 2º)"
-            Toast.makeText(this, "Cargando Resumen GP São Paulo", Toast.LENGTH_SHORT).show()
+            btnTabArchive.performClick()
+            btnViewResults.performClick()
+            Toast.makeText(this, "Resultados oficiales del último Gran Premio", Toast.LENGTH_SHORT).show()
         }
 
         btnContentBoxes.setOnClickListener {
-            playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")
-            tvLiveSessionAlertTitle.text = "📡 F1 PitWall: Feed Técnico de Boxes y Telemetría en Vivo"
-            Toast.makeText(this, "Cargando Feed Técnico de Pista", Toast.LENGTH_SHORT).show()
+            btnMetricsTelemetry.performClick()
+            Toast.makeText(this, "Telemetría y datos técnicos de pista", Toast.LENGTH_SHORT).show()
         }
 
-        // 2. Team Radio Multi-Driver Selector (Requirement 10)
+        // 2. Team Radio Multi-Driver Selector
         btnRadioVer.setOnClickListener { tuneRadioDriver(1, "Max Verstappen") }
         btnRadioNor.setOnClickListener { tuneRadioDriver(4, "Lando Norris") }
         btnRadioLec.setOnClickListener { tuneRadioDriver(16, "Charles Leclerc") }
@@ -409,8 +487,10 @@ class MainActivity : AppCompatActivity() {
         if (!isLiveSessionActive || currentSessionKey == null) {
             latestRadioUrl = null
             radioPlayer?.stop()
-            tvRadioTitle.text = "Radio desconectada: no hay sesión en directo"
-            Toast.makeText(this, "La radio solo está disponible durante una sesión en directo.", Toast.LENGTH_SHORT).show()
+            tvRadioTitle.text = "Radio no disponible: no hay sesión en directo"
+            btnPlayRadio.isEnabled = false
+            btnPlayRadio.alpha = 0.5f
+            Toast.makeText(this, "Radio no disponible: no hay sesión en directo", Toast.LENGTH_SHORT).show()
             return
         }
         tvRadioTitle.text = "📻 Sintonizando Radio: $driverName (#$driverNumber)..."
@@ -421,6 +501,8 @@ class MainActivity : AppCompatActivity() {
                 if (radio != null && !radio.recordingUrl.isNullOrEmpty()) {
                     latestRadioUrl = radio.recordingUrl
                     tvRadioTitle.text = "📻 Radio Oficial: $driverName (#$driverNumber) • Conectado"
+                    btnPlayRadio.isEnabled = true
+                    btnPlayRadio.alpha = 1.0f
                     val mediaItem = MediaItem.fromUri(radio.recordingUrl)
                     radioPlayer?.setMediaItem(mediaItem)
                     radioPlayer?.prepare()
@@ -428,11 +510,98 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this@MainActivity, "Reproduciendo radio de $driverName", Toast.LENGTH_SHORT).show()
                 } else {
                     tvRadioTitle.text = "📻 Radio: $driverName (#$driverNumber) [Canal en espera]"
+                    btnPlayRadio.isEnabled = false
+                    btnPlayRadio.alpha = 0.5f
                     Toast.makeText(this@MainActivity, "Sin transmisión de radio activa para $driverName", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    private fun setupSettingsSourcesView() {
+        btnTypeHls.setOnClickListener { updateStreamTypeSelection("HLS") }
+        btnTypeDash.setOnClickListener { updateStreamTypeSelection("DASH") }
+        btnTypeMp4.setOnClickListener { updateStreamTypeSelection("MP4") }
+        updateStreamTypeSelection("HLS")
+
+        videoSourcesAdapter = VideoSourcesAdapter(
+            activeId = preferencesManager.activeVideoProvider,
+            onSelectActive = { source ->
+                preferencesManager.activeVideoProvider = source.id
+                refreshConfiguredSourcesList()
+                Toast.makeText(this, "Fuente seleccionada: ${source.name}", Toast.LENGTH_SHORT).show()
+            },
+            onDelete = { source ->
+                preferencesManager.deleteCustomSource(source.id)
+                refreshConfiguredSourcesList()
+                Toast.makeText(this, "Fuente eliminada: ${source.name}", Toast.LENGTH_SHORT).show()
+            }
+        )
+        rvConfiguredSources.layoutManager = LinearLayoutManager(this)
+        rvConfiguredSources.adapter = videoSourcesAdapter
+        refreshConfiguredSourcesList()
+
+        btnSaveStream.setOnClickListener {
+            val name = etStreamName.text.toString().trim().ifEmpty { "Transmisión F1" }
+            val url = etStreamUrl.text.toString().trim()
+            if (url.isEmpty()) {
+                Toast.makeText(this, "Introduce un enlace de video válido", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val newSource = VideoProviderItem(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                streamUrl = url,
+                type = selectedStreamType,
+                isDefault = preferencesManager.getCustomSources().isEmpty()
+            )
+            preferencesManager.saveCustomSource(newSource)
+            if (preferencesManager.activeVideoProvider.isEmpty()) {
+                preferencesManager.activeVideoProvider = newSource.id
+            }
+            etStreamName.setText("")
+            etStreamUrl.setText("")
+            refreshConfiguredSourcesList()
+            Toast.makeText(this, "Fuente guardada con éxito", Toast.LENGTH_SHORT).show()
+        }
+
+        btnTestStream.setOnClickListener {
+            val url = etStreamUrl.text.toString().trim()
+            if (url.isNotEmpty()) {
+                playStream(url)
+                btnTabPitWall.performClick()
+                Toast.makeText(this, "Probando señal...", Toast.LENGTH_SHORT).show()
+            } else {
+                val active = preferencesManager.getSelectedSource()
+                if (active != null) {
+                    playStream(active.streamUrl)
+                    btnTabPitWall.performClick()
+                    Toast.makeText(this, "Probando fuente activa: ${active.name}", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Introduce una URL o selecciona una fuente guardada", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun updateStreamTypeSelection(type: String) {
+        selectedStreamType = type
+        btnTypeHls.isSelected = type == "HLS"
+        btnTypeDash.isSelected = type == "DASH"
+        btnTypeMp4.isSelected = type == "MP4"
+    }
+
+    private fun refreshConfiguredSourcesList() {
+        val sources = preferencesManager.getCustomSources()
+        if (sources.isEmpty()) {
+            tvEmptySourcesNotice.visibility = View.VISIBLE
+            rvConfiguredSources.visibility = View.GONE
+        } else {
+            tvEmptySourcesNotice.visibility = View.GONE
+            rvConfiguredSources.visibility = View.VISIBLE
+            videoSourcesAdapter.updateData(sources, preferencesManager.activeVideoProvider)
         }
     }
 
@@ -452,9 +621,9 @@ class MainActivity : AppCompatActivity() {
             btnTabArchive.isSelected = false
             btnTabSettings.isSelected = false
 
-            if (!isLiveSessionActive) {
-                tvLiveSessionAlertTitle.text = "⏸️ Sin carrera en vivo • Próxima: GP Las Vegas (Jue 19 nov, 7:30 PM Col)"
-                btnLiveSessionAction.text = "⚡ Señal y Demostración"
+            if (!isLiveSessionActive && exoPlayer?.isPlaying != true) {
+                playerView.visibility = View.GONE
+                layoutPitWallStandby.visibility = View.VISIBLE
             }
         }
 
@@ -464,7 +633,9 @@ class MainActivity : AppCompatActivity() {
             btnTabPitWall.isSelected = false
             btnTabArchive.isSelected = true
             btnTabSettings.isSelected = false
-            loadCalendar(selectedYear)
+            if (meetingAdapter.itemCount == 0) {
+                loadCalendar(selectedYear)
+            }
         }
 
         btnTabSettings.setOnClickListener {
@@ -473,32 +644,8 @@ class MainActivity : AppCompatActivity() {
             btnTabPitWall.isSelected = false
             btnTabArchive.isSelected = false
             btnTabSettings.isSelected = true
-        }
-
-        btnApplyStream.setOnClickListener {
-            val url = etStreamUrl.text.toString().trim()
-            if (url.isNotEmpty()) {
-                playStream(url)
-                Toast.makeText(this, "Señal actualizada", Toast.LENGTH_SHORT).show()
-                btnTabPitWall.performClick()
-            }
-        }
-
-        btnPresetDemo1.setOnClickListener {
-            etStreamUrl.setText(demoHlsUrl)
-            playStream(demoHlsUrl)
-            Toast.makeText(this, "Cargado Demo 1 (HLS)", Toast.LENGTH_SHORT).show()
-        }
-
-        btnPresetDemo2.setOnClickListener {
-            etStreamUrl.setText(demoMp4Url)
-            playStream(demoMp4Url)
-            Toast.makeText(this, "Cargado Demo 2 (MP4)", Toast.LENGTH_SHORT).show()
-        }
-
-        btnReloadGitSources.setOnClickListener {
-            val providers = VideoSourcesConfig.loadProviders(this)
-            Toast.makeText(this, "Fuentes Git recargadas (${providers.size} proveedores disponibles)", Toast.LENGTH_SHORT).show()
+            refreshConfiguredSourcesList()
+            etStreamName.requestFocus()
         }
 
         btnRefreshLive.setOnClickListener {
@@ -515,15 +662,22 @@ class MainActivity : AppCompatActivity() {
         btnViewSchedule.setOnClickListener {
             rvSessionsSchedule.visibility = View.VISIBLE
             rvArchiveResults.visibility = View.GONE
+            layoutEmptyArchiveResults.visibility = View.GONE
             btnViewSchedule.isSelected = true
             btnViewResults.isSelected = false
         }
 
         btnViewResults.setOnClickListener {
             rvSessionsSchedule.visibility = View.GONE
-            rvArchiveResults.visibility = View.VISIBLE
             btnViewSchedule.isSelected = false
             btnViewResults.isSelected = true
+            if (archiveResultsAdapter.itemCount == 0) {
+                rvArchiveResults.visibility = View.GONE
+                layoutEmptyArchiveResults.visibility = View.VISIBLE
+            } else {
+                rvArchiveResults.visibility = View.VISIBLE
+                layoutEmptyArchiveResults.visibility = View.GONE
+            }
         }
         btnViewSchedule.isSelected = true
 
@@ -658,45 +812,92 @@ class MainActivity : AppCompatActivity() {
                     if (isLive) {
                         tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: ${session.circuitShortName} - ${session.sessionName}"
                         btnLiveSessionAction.text = "⚡ Ver Señal en Vivo"
+                        btnLiveSessionAction.setOnClickListener {
+                            val active = preferencesManager.getSelectedSource()
+                            if (active != null) {
+                                playStream(active.streamUrl)
+                            } else {
+                                Toast.makeText(this@MainActivity, "Configura una señal en Ajustes para ver la transmisión", Toast.LENGTH_SHORT).show()
+                                btnTabSettings.performClick()
+                            }
+                        }
                     } else {
-                        tvLiveSessionAlertTitle.text = "⏸️ Sin sesión en curso • Datos oficiales disponibles"
-                        btnLiveSessionAction.text = "⚡ Señal de Prueba"
+                        tvLiveSessionAlertTitle.text = "⏸️ Sin sesión en curso • Muro de Pits en Standby"
+                        btnLiveSessionAction.text = "📺 Configurar Video"
+                        btnLiveSessionAction.setOnClickListener {
+                            btnTabSettings.performClick()
+                        }
+                        layoutPitWallStandby.visibility = View.VISIBLE
+                        playerView.visibility = View.GONE
+                        exoPlayer?.stop()
                     }
+
+                    // Standby Information
+                    tvStandbyNextSession.text = "Próximo evento: ${session.circuitShortName ?: "Gran Premio"} (${session.sessionName ?: "Sesión"})"
+                    tvStandbyLastRace.text = "🏆 Temporada Oficial de Fórmula 1 • OpenF1 Live Telemetry"
 
                     val drivers = api.getDrivers(session.sessionKey)
                     val positions = api.getLatestPositions(session.sessionKey)
                     val intervals = api.getLatestIntervals(session.sessionKey)
                     val laps = api.getLatestLaps(session.sessionKey)
                     val stints = api.getStints(session.sessionKey)
-                    val radios = api.getTeamRadios(session.sessionKey)
-                    val weather = api.getLatestWeather(session.sessionKey)
-                    val raceControl = api.getLatestRaceControl(session.sessionKey)
+                    val radios = if (isLive) api.getTeamRadios(session.sessionKey) else emptyList()
+                    val weather = if (isLive) api.getLatestWeather(session.sessionKey) else null
+                    val raceControl = if (isLive) api.getLatestRaceControl(session.sessionKey) else null
 
-                    weather?.let { w ->
-                        tvWeather.text = "⛅ Pista: ${w.trackTemp ?: 0}°C | Aire: ${w.airTemp ?: 0}°C"
+                    if (isLive && weather != null && weather.trackTemp != null) {
+                        tvWeather.visibility = View.VISIBLE
+                        tvWeather.text = "⛅ Pista: ${weather.trackTemp}°C | Aire: ${weather.airTemp ?: 0}°C"
+                    } else {
+                        tvWeather.visibility = View.GONE
                     }
-                    raceControl?.let { rc ->
-                        tvRaceFlag.text = "🏁 ${rc.flag ?: "ESTADO"}: ${rc.message ?: "NORMAL"}"
-                        if (rc.flag.equals("YELLOW", true)) {
-                            tvRaceFlag.setTextColor(Color.parseColor("#EAB308"))
-                        } else if (rc.flag.equals("RED", true)) {
-                            tvRaceFlag.setTextColor(Color.parseColor("#EF4444"))
-                        } else {
-                            tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
+
+                    if (isLive && raceControl != null && !raceControl.flag.isNullOrBlank()) {
+                        tvRaceFlag.visibility = View.VISIBLE
+                        tvRaceFlag.text = "🏁 BANDERA ${raceControl.flag.uppercase()}"
+                        when {
+                            raceControl.flag.equals("YELLOW", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EAB308"))
+                            raceControl.flag.equals("RED", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EF4444"))
+                            else -> tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
                         }
+                    } else {
+                        tvRaceFlag.visibility = View.GONE
                     }
 
-                    radios.firstOrNull()?.let { r ->
+                    if (isLive && radios.isNotEmpty()) {
+                        val r = radios.first()
                         latestRadioUrl = r.recordingUrl
                         val driver = drivers.find { it.driverNumber == r.driverNumber }
                         tvRadioTitle.text = "📻 Radio: #${r.driverNumber} ${driver?.broadcastName ?: "Piloto"}"
+                        btnPlayRadio.isEnabled = true
+                        btnPlayRadio.alpha = 1.0f
+                    } else {
+                        latestRadioUrl = null
+                        tvRadioTitle.text = "Radio no disponible: no hay sesión en directo"
+                        btnPlayRadio.isEnabled = false
+                        btnPlayRadio.alpha = 0.5f
                     }
 
                     val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
                     leaderboardAdapter.updateData(items)
+                } else {
+                    tvWeather.visibility = View.GONE
+                    tvRaceFlag.visibility = View.GONE
+                    tvRadioTitle.text = "Radio no disponible: no hay sesión en directo"
+                    btnPlayRadio.isEnabled = false
+                    btnPlayRadio.alpha = 0.5f
+                    layoutPitWallStandby.visibility = View.VISIBLE
+                    playerView.visibility = View.GONE
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                tvWeather.visibility = View.GONE
+                tvRaceFlag.visibility = View.GONE
+                tvRadioTitle.text = "Radio no disponible: no hay sesión en directo"
+                btnPlayRadio.isEnabled = false
+                btnPlayRadio.alpha = 0.5f
+                layoutPitWallStandby.visibility = View.VISIBLE
+                playerView.visibility = View.GONE
             } finally {
                 btnRefreshLive.text = "🔄"
             }
@@ -815,8 +1016,22 @@ class MainActivity : AppCompatActivity() {
 
                 val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
                 archiveResultsAdapter.updateData(items)
+
+                if (btnViewResults.isSelected) {
+                    if (items.isEmpty()) {
+                        rvArchiveResults.visibility = View.GONE
+                        layoutEmptyArchiveResults.visibility = View.VISIBLE
+                    } else {
+                        rvArchiveResults.visibility = View.VISIBLE
+                        layoutEmptyArchiveResults.visibility = View.GONE
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
+                if (btnViewResults.isSelected) {
+                    rvArchiveResults.visibility = View.GONE
+                    layoutEmptyArchiveResults.visibility = View.VISIBLE
+                }
             }
         }
     }
