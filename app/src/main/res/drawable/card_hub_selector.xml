@@ -1,21 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focused: Electric Cyan & Holographic Violet Glow -->
     <item android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="#3300F0FF" />
+                    <corners android:radius="16dp" />
+                </shape>
+            </item>
+            <item android:top="1dp" android:bottom="1dp" android:left="1dp" android:right="1dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:type="linear"
+                        android:angle="135"
+                        android:startColor="#F226385A"
+                        android:centerColor="#E61C2A44"
+                        android:endColor="#E6141F34" />
+                    <stroke android:width="2.5dp" android:color="#00F0FF" />
+                    <corners android:radius="15dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Default Floating Glass Surface -->
+    <item>
         <shape android:shape="rectangle">
             <gradient
                 android:type="linear"
                 android:angle="135"
-                android:startColor="#331A20"
-                android:endColor="#1E283A" />
-            <stroke android:width="3dp" android:color="#00F0FF" />
-            <corners android:radius="14dp" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#141924" />
-            <stroke android:width="1dp" android:color="#242C3D" />
-            <corners android:radius="14dp" />
+                android:startColor="#B3152238"
+                android:centerColor="#99101A2C"
+                android:endColor="#8C0B1220" />
+            <stroke android:width="1dp" android:color="#2AFFFFFF" />
+            <corners android:radius="16dp" />
         </shape>
     </item>
 </selector>

@@ -1,23 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focused on TV Remote -->
     <item android:state_focused="true">
-        <shape android:shape="rectangle">
-            <solid android:color="#263146" />
-            <stroke android:width="2.5dp" android:color="#00F0FF" />
-            <corners android:radius="20dp" />
-        </shape>
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="#3300F0FF" />
+                    <corners android:radius="20dp" />
+                </shape>
+            </item>
+            <item android:top="1dp" android:bottom="1dp" android:left="1dp" android:right="1dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:type="linear"
+                        android:angle="270"
+                        android:startColor="#F0243656"
+                        android:endColor="#E615223A" />
+                    <stroke android:width="2.5dp" android:color="#00F0FF" />
+                    <corners android:radius="19dp" />
+                </shape>
+            </item>
+        </layer-list>
     </item>
+
+    <!-- Selected Tab State -->
     <item android:state_selected="true">
         <shape android:shape="rectangle">
-            <solid android:color="#2A161A" />
-            <stroke android:width="2dp" android:color="#E10600" />
+            <gradient
+                android:type="linear"
+                android:angle="270"
+                android:startColor="#E62C1217"
+                android:endColor="#D91A0B0E" />
+            <stroke android:width="2dp" android:color="#FF2A24" />
             <corners android:radius="20dp" />
         </shape>
     </item>
+
+    <!-- Default Floating Glass State -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#141926" />
-            <stroke android:width="1dp" android:color="#222B3D" />
+            <gradient
+                android:type="linear"
+                android:angle="270"
+                android:startColor="#99142138"
+                android:endColor="#800C1628" />
+            <stroke android:width="1dp" android:color="#28FFFFFF" />
             <corners android:radius="20dp" />
         </shape>
     </item>

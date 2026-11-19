@@ -3,31 +3,32 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/f1_dark"
+    android:background="@drawable/bg_tv_gradient"
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- TOP HEADER & NAVIGATION TABS -->
+    <!-- TOP FLOATING GLASS DOCK & NAVIGATION -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="52dp"
+        android:background="@drawable/bg_glass_dock"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="8dp">
+        android:paddingHorizontal="12dp">
 
         <!-- Original Motorsport Logo (Telemetry + Apex Curve) & PitWall TV Brand -->
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:background="#151A24"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_glass_hud_badge"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingHorizontal="10dp">
 
             <ImageView
                 android:id="@+id/ivPitWallLogo"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
                 android:src="@drawable/ic_pitwall_logo" />
 
             <TextView
@@ -36,7 +37,7 @@
                 android:layout_marginStart="8dp"
                 android:text="PITWALL"
                 android:textColor="#FFFFFF"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -48,16 +49,16 @@
                 android:paddingVertical="1dp"
                 android:text="TV"
                 android:textColor="#FFFFFF"
-                android:textSize="10sp"
+                android:textSize="9.5sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Navigation Tabs (Optimized for TV D-Pad) -->
+        <!-- Navigation Tabs (Floating Glass Controls) -->
         <Button
             android:id="@+id/btnTabHome"
             android:layout_width="wrap_content"
             android:layout_height="38dp"
-            android:layout_marginStart="16dp"
+            android:layout_marginStart="14dp"
             android:background="@drawable/btn_tab_selector"
             android:focusable="true"
             android:paddingHorizontal="14dp"
@@ -111,27 +112,30 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
-        <!-- Status Badges (Flag & Weather) -->
+        <!-- Status Badges (Flag & Weather in Glass HUD Badges) -->
         <TextView
             android:id="@+id/tvRaceFlag"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="12dp"
-            android:background="@drawable/card_focus_selector"
+            android:layout_height="32dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/bg_glass_hud_badge"
+            android:gravity="center"
             android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp"
             android:text="🏁 BANDERA VERDE"
             android:textColor="@color/flag_green"
-            android:textSize="12sp"
+            android:textSize="11.5sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvWeather"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_glass_hud_badge"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
             android:text="⛅ Pista: 32°C | Aire: 24°C"
             android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+            android:textSize="11.5sp" />
     </LinearLayout>
 
     <!-- MAIN BODY: VIEW SWITCHER -->
@@ -541,7 +545,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="0.35"
-                android:background="@color/f1_surface"
+                android:background="@drawable/card_focus_selector"
                 android:orientation="vertical"
                 android:padding="8dp">
 
@@ -665,7 +669,7 @@
                             android:layout_width="0dp"
                             android:layout_height="72dp"
                             android:layout_weight="1"
-                            android:background="#161B26"
+                            android:background="@drawable/bg_glass_hud_badge"
                             android:gravity="center"
                             android:orientation="vertical">
 
@@ -692,7 +696,7 @@
                             android:layout_width="72dp"
                             android:layout_height="72dp"
                             android:layout_marginStart="6dp"
-                            android:background="#161B26"
+                            android:background="@drawable/bg_glass_hud_badge"
                             android:gravity="center"
                             android:orientation="vertical">
 
@@ -807,7 +811,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="0.45"
-                android:background="@color/f1_surface"
+                android:background="@drawable/bg_glass_panel"
                 android:orientation="vertical"
                 android:padding="8dp">
 
@@ -874,7 +878,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="0.55"
                 android:layout_marginStart="8dp"
-                android:background="@color/f1_surface"
+                android:background="@drawable/bg_glass_panel"
                 android:orientation="vertical"
                 android:padding="10dp">
 
@@ -925,7 +929,7 @@
                         android:id="@+id/ivCircuitTrackMap"
                         android:layout_width="110dp"
                         android:layout_height="70dp"
-                        android:background="#151821"
+                        android:background="@drawable/bg_glass_hud_badge"
                         android:padding="4dp"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
@@ -990,7 +994,6 @@
             android:id="@+id/layoutSettings"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/f1_surface"
             android:orientation="vertical"
             android:padding="16dp"
             android:visibility="gone">
@@ -1016,9 +1019,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#131722"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="2dp">
+                app:cardBackgroundColor="@color/glass_surface_dock"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"

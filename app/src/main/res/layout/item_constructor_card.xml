@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="210dp"
-    android:layout_height="175dp"
+    android:layout_width="215dp"
+    android:layout_height="185dp"
     android:layout_marginHorizontal="6dp"
     android:layout_marginVertical="6dp"
     android:background="@drawable/card_focus_selector"
@@ -19,7 +19,7 @@
 
         <View
             android:id="@+id/viewConstructorColor"
-            android:layout_width="4dp"
+            android:layout_width="3.5dp"
             android:layout_height="18dp"
             android:background="@color/f1_red" />
 
@@ -28,7 +28,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:background="#1E2738"
+            android:background="@drawable/bg_glass_hud_badge"
             android:gravity="center"
             android:paddingHorizontal="8dp"
             android:paddingVertical="2dp"
@@ -46,21 +46,30 @@
             android:id="@+id/tvConstructorWins"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_glass_hud_badge"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
             android:text="🏆 12 Vict."
             android:textColor="@color/text_secondary"
-            android:textSize="11sp"
+            android:textSize="10.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Team Official Logo Emblem -->
-    <ImageView
-        android:id="@+id/ivConstructorLogo"
+    <!-- Center: Team Official Logo Emblem on Frosted Pedestal -->
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="38dp"
+        android:layout_height="52dp"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="4dp"
-        android:scaleType="fitStart"
-        android:src="@drawable/ic_team_mercedes" />
+        android:layout_marginBottom="4dp">
+
+        <ImageView
+            android:id="@+id/ivConstructorLogo"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_gravity="center"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_team_mercedes" />
+    </FrameLayout>
 
     <View
         android:layout_width="0dp"
@@ -76,7 +85,7 @@
         android:maxLines="1"
         android:text="Mercedes-AMG F1"
         android:textColor="@color/text_primary"
-        android:textSize="15sp"
+        android:textSize="14.5sp"
         android:textStyle="bold" />
 
     <!-- Drivers -->
@@ -114,7 +123,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="LÍDER"
-            android:textColor="#22C55E"
+            android:textColor="#10B981"
             android:textSize="11sp"
             android:textStyle="bold" />
     </LinearLayout>

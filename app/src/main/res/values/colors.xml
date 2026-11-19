@@ -1,40 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Brand Motorsport Accents -->
     <color name="f1_red">#E10600</color>
-    <color name="f1_dark">#0F1115</color>
-    <color name="f1_surface">#181B22</color>
-    <color name="f1_surface_card">#202530</color>
-    <color name="f1_focused">#FF2A24</color>
-    <color name="f1_focused_bg">#2C3345</color>
+    <color name="f1_red_bright">#FF2A24</color>
+    <color name="f1_dark">#070B16</color>
+    <color name="f1_surface">#0E1729</color>
+    <color name="f1_surface_card">#142038</color>
+    <color name="f1_focused">#00F0FF</color>
+    <color name="f1_focused_bg">#243352</color>
+
+    <!-- Text Hierarchy (Optimized for High Legibility on Glass Surfaces) -->
     <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#9DA4B5</color>
-    <color name="text_muted">#687082</color>
+    <color name="text_secondary">#A3B3CF</color>
+    <color name="text_muted">#687B9E</color>
+    <color name="text_cyan">#00F0FF</color>
+    <color name="text_violet">#A78BFA</color>
+    <color name="text_gold">#FFB800</color>
 
-    <!-- Sector timing colors -->
-    <color name="sector_purple">#A855F7</color>
-    <color name="sector_green">#22C55E</color>
-    <color name="sector_yellow">#EAB308</color>
+    <!-- Liquid Glass / Glassmorphism Surfaces -->
+    <color name="glass_surface_dock">#CC0E182B</color>
+    <color name="glass_surface_card">#B3121E34</color>
+    <color name="glass_surface_card_focused">#E61A2B4A</color>
+    <color name="glass_surface_card_selected">#CC221626</color>
+    <color name="glass_surface_hero">#D90A1222</color>
+    <color name="glass_surface_hud">#800D1628</color>
 
-    <!-- Tyre compound colors -->
+    <!-- Glass Borders & Specular Highlights -->
+    <color name="glass_border_default">#26FFFFFF</color>
+    <color name="glass_border_subtle">#1AFFFFFF</color>
+    <color name="glass_border_specular">#66FFFFFF</color>
+    <color name="glass_border_focused">#00F0FF</color>
+    <color name="glass_border_selected">#FF2A24</color>
+
+    <!-- Ambient Glows & Neon Lasers -->
+    <color name="neon_cyan">#00F0FF</color>
+    <color name="neon_cyan_soft">#2600F0FF</color>
+    <color name="neon_violet">#8B5CF6</color>
+    <color name="neon_violet_soft">#268B5CF6</color>
+    <color name="neon_magenta">#EC4899</color>
+    <color name="gold_accent">#FFB800</color>
+    <color name="gold_accent_soft">#26FFB800</color>
+
+    <!-- Sector timing & Live Flags -->
+    <color name="sector_purple">#C084FC</color>
+    <color name="sector_green">#10B981</color>
+    <color name="sector_yellow">#F59E0B</color>
+    <color name="flag_green">#10B981</color>
+    <color name="flag_yellow">#F59E0B</color>
+    <color name="flag_safety_car">#F97316</color>
+    <color name="flag_red">#EF4444</color>
+
+    <!-- Tyre Compounds -->
     <color name="tyre_soft">#EF4444</color>
     <color name="tyre_medium">#FACC15</color>
     <color name="tyre_hard">#FFFFFF</color>
     <color name="tyre_inter">#10B981</color>
     <color name="tyre_wet">#0EA5E9</color>
 
-    <!-- Race Flags -->
-    <color name="flag_green">#22C55E</color>
-    <color name="flag_yellow">#EAB308</color>
-    <color name="flag_safety_car">#F97316</color>
-    <color name="flag_red">#EF4444</color>
-
-    <!-- TV Design Colors -->
-    <color name="bg_dark_start">#0E1118</color>
-    <color name="bg_dark_end">#06080C</color>
-    <color name="neon_cyan">#00F0FF</color>
-    <color name="gold_accent">#FFB800</color>
-    <color name="card_glass_bg">#141924</color>
-    <color name="card_glass_border">#252E3E</color>
-    <color name="card_focus_stroke">#FF2A24</color>
-    <color name="card_focus_bg">#252C3D</color>
-    <color name="tab_selected_bg">#2A181C</color>
+    <!-- TV Background Canvas (Multidimensional Midnight Petrol Gradient) -->
+    <color name="bg_dark_start">#0B1324</color>
+    <color name="bg_dark_mid">#070D1A</color>
+    <color name="bg_dark_end">#04070E</color>
+    <color name="card_glass_bg">#B3121E34</color>
+    <color name="card_glass_border">#26FFFFFF</color>
+    <color name="card_focus_stroke">#00F0FF</color>
+    <color name="card_focus_bg">#E61A2B4A</color>
+    <color name="tab_selected_bg">#D92A131A</color>
 </resources>
