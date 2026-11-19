@@ -177,7 +177,10 @@ class HomeViewManager(
 
     private fun bindHero(hero: HeroBannerData) {
         tvHeroTitle.text = hero.grandPrixName
-        tvHeroSubtitle.text = "${hero.circuitName} • ${hero.location}"
+        tvHeroSubtitle.text = listOf(hero.circuitName, hero.countryName)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(" • ")
         tvHeroColombiaTime.text = hero.timingDisplay
         tvHeroCountdown.text = hero.countdownText
 
