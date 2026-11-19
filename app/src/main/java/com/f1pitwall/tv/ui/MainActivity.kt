@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSearchChip4: TextView
     private lateinit var etStreamName: EditText
     private lateinit var etStreamUrl: EditText
+    private lateinit var btnTypeWeb: Button
     private lateinit var btnTypeHls: Button
     private lateinit var btnTypeDash: Button
     private lateinit var btnTypeMp4: Button
@@ -330,6 +331,7 @@ class MainActivity : AppCompatActivity() {
         tvSearchChip4 = findViewById(R.id.tvSearchChip4)
         etStreamName = findViewById(R.id.etStreamName)
         etStreamUrl = findViewById(R.id.etStreamUrl)
+        btnTypeWeb = findViewById(R.id.btnTypeWeb)
         btnTypeHls = findViewById(R.id.btnTypeHls)
         btnTypeDash = findViewById(R.id.btnTypeDash)
         btnTypeMp4 = findViewById(R.id.btnTypeMp4)
@@ -522,6 +524,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSettingsSourcesView() {
+        btnTypeWeb.setOnClickListener { updateStreamTypeSelection("WEB") }
         btnTypeHls.setOnClickListener { updateStreamTypeSelection("HLS") }
         btnTypeDash.setOnClickListener { updateStreamTypeSelection("DASH") }
         btnTypeMp4.setOnClickListener { updateStreamTypeSelection("MP4") }
@@ -589,6 +592,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStreamTypeSelection(type: String) {
         selectedStreamType = type
+        btnTypeWeb.isSelected = type == "WEB"
         btnTypeHls.isSelected = type == "HLS"
         btnTypeDash.isSelected = type == "DASH"
         btnTypeMp4.isSelected = type == "MP4"
