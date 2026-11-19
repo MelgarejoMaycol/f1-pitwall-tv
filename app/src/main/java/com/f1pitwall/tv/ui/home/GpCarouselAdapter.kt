@@ -51,6 +51,16 @@ class GpCarouselAdapter(
         private val tvGpCircuit: TextView = itemView.findViewById(R.id.tvGpCircuit)
         private val tvGpDates: TextView = itemView.findViewById(R.id.tvGpDates)
 
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
+
         fun bind(meeting: Meeting, position: Int) {
             val isTesting = meeting.meetingName?.contains("Testing", true) == true
             if (isTesting) {

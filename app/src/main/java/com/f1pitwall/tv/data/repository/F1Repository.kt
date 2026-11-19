@@ -247,7 +247,7 @@ class F1Repository(
                 val teamColor = getTeamColor(teamName)
                 val num = driverObj?.permanentNumber?.toIntOrNull() ?: (index + 1)
 
-                val headshot = "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/${driverObj?.familyName?.firstOrNull() ?: 'A'}/${driverObj?.code ?: "F1"}/${driverObj?.familyName?.lowercase() ?: ""}.png"
+                val headshot = getOfficialDriverHeadshot(driverObj?.code, driverObj?.driverId, driverObj?.familyName)
 
                 DriverCardItem(
                     driverNumber = num,
@@ -278,13 +278,14 @@ class F1Repository(
         if (cachedDrivers.isNotEmpty()) return@withContext cachedDrivers
         val apiDrivers = openF1Api.getDrivers(sessionKey)
         val items = apiDrivers.map { d ->
+            val headshot = d.headshotUrl ?: getOfficialDriverHeadshot(d.acronym, null, d.broadcastName)
             DriverCardItem(
                 driverNumber = d.driverNumber,
                 acronym = d.acronym ?: "#${d.driverNumber}",
                 fullName = d.fullName ?: d.broadcastName ?: "Piloto ${d.driverNumber}",
                 teamName = d.teamName ?: "Escudería F1",
                 teamColor = d.teamColour ?: getTeamColor(d.teamName ?: ""),
-                headshotUrl = d.headshotUrl
+                headshotUrl = headshot
             )
         }
         cachedDrivers = items
@@ -312,6 +313,7 @@ class F1Repository(
                 }
                 val teamName = item.constructor?.name ?: "Escudería"
                 val teamColor = getTeamColor(teamName)
+                val logoRes = getConstructorLogoRes(teamName)
 
                 ConstructorCardItem(
                     teamName = teamName,
@@ -320,7 +322,8 @@ class F1Repository(
                     position = item.position?.toIntOrNull() ?: (index + 1),
                     points = pts,
                     wins = item.wins?.toIntOrNull() ?: 0,
-                    gapToLeader = gap
+                    gapToLeader = gap,
+                    logoResId = logoRes
                 )
             }
         } catch (e: Exception) {
@@ -380,18 +383,102 @@ class F1Repository(
 
     private fun getFallbackConstructors(): List<ConstructorCardItem> {
         return listOf(
-            ConstructorCardItem("Mercedes", "27F4D2", listOf("Andrea Kimi Antonelli", "George Russell"), position = 1, points = "652", wins = 12, gapToLeader = "LÍDER"),
-            ConstructorCardItem("Ferrari", "E80020", listOf("Lewis Hamilton", "Charles Leclerc"), position = 2, points = "510", wins = 2, gapToLeader = "-142 pts"),
-            ConstructorCardItem("Red Bull Racing", "3671C6", listOf("Max Verstappen", "Isack Hadjar"), position = 3, points = "415", wins = 3, gapToLeader = "-237 pts"),
-            ConstructorCardItem("McLaren", "FF8000", listOf("Lando Norris", "Oscar Piastri"), position = 4, points = "384", wins = 3, gapToLeader = "-268 pts"),
-            ConstructorCardItem("Aston Martin", "229971", listOf("Fernando Alonso", "Lance Stroll"), position = 5, points = "86", wins = 0, gapToLeader = "-566 pts"),
-            ConstructorCardItem("Alpine", "0093CC", listOf("Pierre Gasly", "Jack Doohan"), position = 6, points = "54", wins = 0, gapToLeader = "-598 pts"),
-            ConstructorCardItem("Williams", "64C4FF", listOf("Alexander Albon", "Carlos Sainz"), position = 7, points = "48", wins = 0, gapToLeader = "-604 pts"),
-            ConstructorCardItem("Racing Bulls", "6692FF", listOf("Yuki Tsunoda", "Liam Lawson"), position = 8, points = "32", wins = 0, gapToLeader = "-620 pts"),
-            ConstructorCardItem("Haas F1 Team", "B6BABD", listOf("Esteban Ocon", "Oliver Bearman"), position = 9, points = "26", wins = 0, gapToLeader = "-626 pts"),
-            ConstructorCardItem("Audi F1 Team", "52E252", listOf("Nico Hülkenberg", "Gabriel Bortoleto"), position = 10, points = "12", wins = 0, gapToLeader = "-640 pts"),
-            ConstructorCardItem("Cadillac F1", "C5A059", listOf("Valtteri Bottas", "Sergio Pérez"), position = 11, points = "4", wins = 0, gapToLeader = "-648 pts")
+            ConstructorCardItem("Mercedes", "27F4D2", listOf("Andrea Kimi Antonelli", "George Russell"), position = 1, points = "652", wins = 12, gapToLeader = "LÍDER", logoResId = com.f1pitwall.tv.R.drawable.ic_team_mercedes),
+            ConstructorCardItem("Ferrari", "E80020", listOf("Lewis Hamilton", "Charles Leclerc"), position = 2, points = "510", wins = 2, gapToLeader = "-142 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_ferrari),
+            ConstructorCardItem("Red Bull Racing", "3671C6", listOf("Max Verstappen", "Isack Hadjar"), position = 3, points = "415", wins = 3, gapToLeader = "-237 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_redbull),
+            ConstructorCardItem("McLaren", "FF8000", listOf("Lando Norris", "Oscar Piastri"), position = 4, points = "384", wins = 3, gapToLeader = "-268 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_mclaren),
+            ConstructorCardItem("Aston Martin", "229971", listOf("Fernando Alonso", "Lance Stroll"), position = 5, points = "86", wins = 0, gapToLeader = "-566 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_astonmartin),
+            ConstructorCardItem("Alpine", "0093CC", listOf("Pierre Gasly", "Jack Doohan"), position = 6, points = "54", wins = 0, gapToLeader = "-598 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_alpine),
+            ConstructorCardItem("Williams", "64C4FF", listOf("Alexander Albon", "Carlos Sainz"), position = 7, points = "48", wins = 0, gapToLeader = "-604 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_williams),
+            ConstructorCardItem("Racing Bulls", "6692FF", listOf("Yuki Tsunoda", "Liam Lawson"), position = 8, points = "32", wins = 0, gapToLeader = "-620 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_rb),
+            ConstructorCardItem("Haas F1 Team", "B6BABD", listOf("Esteban Ocon", "Oliver Bearman"), position = 9, points = "26", wins = 0, gapToLeader = "-626 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_haas),
+            ConstructorCardItem("Audi F1 Team", "52E252", listOf("Nico Hülkenberg", "Gabriel Bortoleto"), position = 10, points = "12", wins = 0, gapToLeader = "-640 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_audi),
+            ConstructorCardItem("Cadillac F1", "C5A059", listOf("Valtteri Bottas", "Sergio Pérez"), position = 11, points = "4", wins = 0, gapToLeader = "-648 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_cadillac)
         )
+    }
+
+    fun getConstructorLogoRes(teamName: String): Int {
+        val lower = teamName.lowercase()
+        return when {
+            lower.contains("mercedes") -> com.f1pitwall.tv.R.drawable.ic_team_mercedes
+            lower.contains("ferrari") -> com.f1pitwall.tv.R.drawable.ic_team_ferrari
+            lower.contains("red bull") -> com.f1pitwall.tv.R.drawable.ic_team_redbull
+            lower.contains("mclaren") -> com.f1pitwall.tv.R.drawable.ic_team_mclaren
+            lower.contains("aston") -> com.f1pitwall.tv.R.drawable.ic_team_astonmartin
+            lower.contains("alpine") -> com.f1pitwall.tv.R.drawable.ic_team_alpine
+            lower.contains("williams") -> com.f1pitwall.tv.R.drawable.ic_team_williams
+            lower.contains("haas") -> com.f1pitwall.tv.R.drawable.ic_team_haas
+            lower.contains("bulls") || lower.contains("rb") -> com.f1pitwall.tv.R.drawable.ic_team_rb
+            lower.contains("audi") || lower.contains("sauber") || lower.contains("kick") -> com.f1pitwall.tv.R.drawable.ic_team_audi
+            lower.contains("cadillac") -> com.f1pitwall.tv.R.drawable.ic_team_cadillac
+            else -> com.f1pitwall.tv.R.drawable.ic_pitwall_logo
+        }
+    }
+
+    fun getOfficialDriverHeadshot(code: String?, driverId: String?, familyName: String?): String {
+        val c = code?.uppercase() ?: ""
+        val fid = driverId?.lowercase() ?: ""
+        val fam = familyName?.lowercase() ?: ""
+
+        return when {
+            c == "ANT" || fid.contains("antonelli") || fam.contains("antonelli") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/K/ANDANT01_Kimi_Antonelli/andant01.png.transform/1col/image.png"
+            c == "VER" || fid.contains("verstappen") || fam.contains("verstappen") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/1col/image.png"
+            c == "RUS" || fid.contains("russell") || fam.contains("russell") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png.transform/1col/image.png"
+            c == "HAM" || fid.contains("hamilton") || fam.contains("hamilton") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png.transform/1col/image.png"
+            c == "LEC" || fid.contains("leclerc") || fam.contains("leclerc") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png.transform/1col/image.png"
+            c == "NOR" || fid.contains("norris") || fam.contains("norris") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png.transform/1col/image.png"
+            c == "PIA" || fid.contains("piastri") || fam.contains("piastri") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png.transform/1col/image.png"
+            c == "HAD" || fid.contains("hadjar") || fam.contains("hadjar") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png.transform/1col/image.png"
+            c == "LAW" || fid.contains("lawson") || fam.contains("lawson") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LIALAW01_Liam_Lawson/lialaw01.png.transform/1col/image.png"
+            c == "GAS" || fid.contains("gasly") || fam.contains("gasly") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/P/PIEGAS01_Pierre_Gasly/piegas01.png.transform/1col/image.png"
+            c == "LIN" || fid.contains("lindblad") || fam.contains("lindblad") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ARVLIN01_Arvid_Lindblad/arvlin01.png.transform/1col/image.png"
+            c == "COL" || fid.contains("colapinto") || fam.contains("colapinto") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FRACOL01_Franco_Colapinto/fracol01.png.transform/1col/image.png"
+            c == "BEA" || fid.contains("bearman") || fam.contains("bearman") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png.transform/1col/image.png"
+            c == "BOR" || fid.contains("bortoleto") || fam.contains("bortoleto") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png.transform/1col/image.png"
+            c == "HUL" || fid.contains("hulkenberg") || fam.contains("hulkenberg") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png.transform/1col/image.png"
+            c == "OCO" || fid.contains("ocon") || fam.contains("ocon") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png.transform/1col/image.png"
+            c == "ALO" || fid.contains("alonso") || fam.contains("alonso") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png.transform/1col/image.png"
+            c == "SAI" || fid.contains("sainz") || fam.contains("sainz") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png.transform/1col/image.png"
+            c == "ALB" || fid.contains("albon") || fam.contains("albon") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ALEALB01_Alexander_Albon/alealb01.png.transform/1col/image.png"
+            c == "TSU" || fid.contains("tsunoda") || fam.contains("tsunoda") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/Y/YUKTSU01_Yuki_Tsunoda/yuktsu01.png.transform/1col/image.png"
+            c == "STR" || fid.contains("stroll") || fam.contains("stroll") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANSTR01_Lance_Stroll/lanstr01.png.transform/1col/image.png"
+            c == "BOT" || fid.contains("bottas") || fam.contains("bottas") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/V/VALBOT01_Valtteri_Bottas/valbot01.png.transform/1col/image.png"
+            c == "PER" || fid.contains("perez") || fam.contains("perez") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png.transform/1col/image.png"
+            c == "DOO" || fid.contains("doohan") || fam.contains("doohan") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/J/JACDOO01_Jack_Doohan/jacdoo01.png.transform/1col/image.png"
+            c == "MAG" || fid.contains("magnussen") || fam.contains("magnussen") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/K/KEVMAG01_Kevin_Magnussen/kevmag01.png.transform/1col/image.png"
+            c == "ZHO" || fid.contains("zhou") || fam.contains("zhou") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GUAZHO01_Guanyu_Zhou/guazho01.png.transform/1col/image.png"
+            c == "SAR" || fid.contains("sargeant") || fam.contains("sargeant") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LOGSAR01_Logan_Sargeant/logsar01.png.transform/1col/image.png"
+            c == "RIC" || fid.contains("ricciardo") || fam.contains("ricciardo") ->
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/D/DANRIC01_Daniel_Ricciardo/danric01.png.transform/1col/image.png"
+            else -> "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/fallback.png"
+        }
     }
 
     private fun getTeamDrivers(team: String): List<String> {

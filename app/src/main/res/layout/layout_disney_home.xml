@@ -23,6 +23,7 @@
             android:layout_width="match_parent"
             android:layout_height="275dp"
             android:layout_margin="10dp"
+            android:focusable="false"
             app:cardBackgroundColor="#0D111A"
             app:cardCornerRadius="16dp"
             app:cardElevation="6dp">
@@ -200,6 +201,7 @@
             android:layout_marginHorizontal="10dp"
             android:layout_marginTop="2dp"
             android:layout_marginBottom="10dp"
+            android:focusable="false"
             app:cardBackgroundColor="#111622"
             app:cardCornerRadius="14dp"
             app:cardElevation="3dp">
@@ -315,7 +317,7 @@
                                 android:id="@+id/tvPodium1Team"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="McLaren • Ganador (25 pts)"
+                                android:text="McLaren • Ganador (25 pts) 🏆"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
@@ -428,7 +430,7 @@
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCircularHubs"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -473,7 +475,7 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCarouselGp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -521,7 +523,7 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCarouselDrivers"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -569,7 +571,7 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCarouselConstructors"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -600,7 +602,7 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCarouselCircuits"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

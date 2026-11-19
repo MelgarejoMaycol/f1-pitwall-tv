@@ -52,7 +52,8 @@ data class ConstructorCardItem(
     val position: Int = 0,
     val points: String = "0",
     val wins: Int = 0,
-    val gapToLeader: String? = null
+    val gapToLeader: String? = null,
+    val logoResId: Int = 0
 )
 
 data class CircuitCardItem(

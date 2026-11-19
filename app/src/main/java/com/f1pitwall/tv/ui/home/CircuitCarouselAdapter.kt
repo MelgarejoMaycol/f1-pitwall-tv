@@ -37,6 +37,16 @@ class CircuitCarouselAdapter(
         private val tvCircuitCardName: TextView = itemView.findViewById(R.id.tvCircuitCardName)
         private val tvCircuitCardLocation: TextView = itemView.findViewById(R.id.tvCircuitCardLocation)
 
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
+
         fun bind(circuit: CircuitCardItem) {
             tvCircuitCardName.text = circuit.circuitName
             tvCircuitCardLocation.text = "${circuit.location} • ${circuit.country}"

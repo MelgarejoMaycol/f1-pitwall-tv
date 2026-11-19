@@ -42,6 +42,16 @@ class DriverCarouselAdapter(
         private val tvDriverName: TextView = itemView.findViewById(R.id.tvDriverName)
         private val tvDriverTeam: TextView = itemView.findViewById(R.id.tvDriverTeam)
 
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
+
         fun bind(driver: DriverCardItem, position: Int) {
             val rankPos = if (driver.position > 0) driver.position else (position + 1)
             tvDriverRank.text = "${rankPos}º"
@@ -80,11 +90,11 @@ class DriverCarouselAdapter(
             if (!driver.headshotUrl.isNullOrEmpty()) {
                 ivDriverPhoto.load(driver.headshotUrl) {
                     crossfade(true)
-                    placeholder(R.drawable.ic_pitwall_logo)
-                    error(R.drawable.ic_pitwall_logo)
+                    placeholder(R.drawable.ic_driver_helmet)
+                    error(R.drawable.ic_driver_helmet)
                 }
             } else {
-                ivDriverPhoto.setImageResource(R.drawable.ic_pitwall_logo)
+                ivDriverPhoto.setImageResource(R.drawable.ic_driver_helmet)
             }
 
             itemView.setOnClickListener {

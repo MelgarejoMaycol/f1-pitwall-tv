@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
@@ -35,10 +36,21 @@ class ConstructorCarouselAdapter(
         private val viewConstructorColor: View = itemView.findViewById(R.id.viewConstructorColor)
         private val tvConstructorRank: TextView = itemView.findViewById(R.id.tvConstructorRank)
         private val tvConstructorWins: TextView = itemView.findViewById(R.id.tvConstructorWins)
+        private val ivConstructorLogo: ImageView = itemView.findViewById(R.id.ivConstructorLogo)
         private val tvConstructorName: TextView = itemView.findViewById(R.id.tvConstructorName)
         private val tvConstructorDrivers: TextView = itemView.findViewById(R.id.tvConstructorDrivers)
         private val tvConstructorPoints: TextView = itemView.findViewById(R.id.tvConstructorPoints)
         private val tvConstructorGap: TextView = itemView.findViewById(R.id.tvConstructorGap)
+
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
 
         fun bind(item: ConstructorCardItem, position: Int) {
             val rankPos = if (item.position > 0) item.position else (position + 1)
@@ -57,6 +69,14 @@ class ConstructorCarouselAdapter(
             tvConstructorPoints.text = "${item.points} pts"
             tvConstructorGap.text = item.gapToLeader ?: if (rankPos == 1) "LÍDER" else ""
 
+            // Team Logo Emblem
+            val logoRes = if (item.logoResId != 0) {
+                item.logoResId
+            } else {
+                resolveTeamLogo(item.teamName)
+            }
+            ivConstructorLogo.setImageResource(logoRes)
+
             try {
                 val hex = if (item.teamColor.startsWith("#")) item.teamColor else "#${item.teamColor}"
                 viewConstructorColor.setBackgroundColor(Color.parseColor(hex))
@@ -66,6 +86,24 @@ class ConstructorCarouselAdapter(
 
             itemView.setOnClickListener {
                 onTeamClick(item)
+            }
+        }
+
+        private fun resolveTeamLogo(teamName: String): Int {
+            val lower = teamName.lowercase()
+            return when {
+                lower.contains("mercedes") -> R.drawable.ic_team_mercedes
+                lower.contains("ferrari") -> R.drawable.ic_team_ferrari
+                lower.contains("red bull") -> R.drawable.ic_team_redbull
+                lower.contains("mclaren") -> R.drawable.ic_team_mclaren
+                lower.contains("aston") -> R.drawable.ic_team_astonmartin
+                lower.contains("alpine") -> R.drawable.ic_team_alpine
+                lower.contains("williams") -> R.drawable.ic_team_williams
+                lower.contains("haas") -> R.drawable.ic_team_haas
+                lower.contains("bulls") || lower.contains("rb") -> R.drawable.ic_team_rb
+                lower.contains("audi") || lower.contains("sauber") || lower.contains("kick") -> R.drawable.ic_team_audi
+                lower.contains("cadillac") -> R.drawable.ic_team_cadillac
+                else -> R.drawable.ic_pitwall_logo
             }
         }
     }

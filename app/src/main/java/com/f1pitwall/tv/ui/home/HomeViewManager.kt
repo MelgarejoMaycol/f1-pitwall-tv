@@ -1,11 +1,13 @@
 package com.f1pitwall.tv.ui.home
 
 import android.graphics.Color
+import android.graphics.Rect
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -27,6 +29,10 @@ class HomeViewManager(
     private val onOpenGpDetail: (Meeting) -> Unit,
     private val onOpenHubSection: (String) -> Unit
 ) {
+
+    private val scrollHome: NestedScrollView? = rootView.findViewById(R.id.scrollHome)
+    private var savedScrollY: Int = 0
+    private var lastFocusedViewId: Int = R.id.btnHeroWatchLive
 
     // Hero Elements
     private val tvHeroStateBadge: TextView = rootView.findViewById(R.id.tvHeroStateBadge)
@@ -72,34 +78,75 @@ class HomeViewManager(
     init {
         setupCarousels()
         setupActionButtons()
+        setupFocusSmoothScroll()
         loadHomeData(AppConfig.DEFAULT_SEASON)
+    }
+
+    private fun setupFocusSmoothScroll() {
+        scrollHome?.viewTreeObserver?.addOnGlobalFocusChangeListener { _, newFocus ->
+            if (newFocus != null && scrollHome != null && isChildOf(scrollHome, newFocus)) {
+                val rect = Rect()
+                newFocus.getDrawingRect(rect)
+                scrollHome.offsetDescendantRectToMyCoords(newFocus, rect)
+                val targetY = (scrollHome.scrollY + rect.top - 140).coerceAtLeast(0)
+                scrollHome.smoothScrollTo(0, targetY)
+                if (newFocus.id != View.NO_ID) {
+                    lastFocusedViewId = newFocus.id
+                }
+            }
+        }
+    }
+
+    private fun isChildOf(parent: View, child: View): Boolean {
+        var p = child.parent
+        while (p != null) {
+            if (p == parent) return true
+            p = p.parent
+        }
+        return false
+    }
+
+    fun saveFocusAndScroll() {
+        savedScrollY = scrollHome?.scrollY ?: 0
+        val current = rootView.findFocus()
+        if (current != null && current.id != View.NO_ID) {
+            lastFocusedViewId = current.id
+        }
+    }
+
+    fun restoreFocusAndScroll() {
+        scrollHome?.post {
+            scrollHome.smoothScrollTo(0, savedScrollY)
+            val target = rootView.findViewById<View>(lastFocusedViewId) ?: btnHeroWatchLive
+            target.requestFocus()
+        }
     }
 
     private fun setupCarousels() {
         val context = rootView.context
 
-        // 1. Navigation Hub Cards (Reemplazo moderno de círculos genéricos)
+        // 1. Navigation Hub Cards
         rvCircularHubs.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         circularHubAdapter = CircularHubAdapter(repository.getCircularHubItems()) { hub ->
             onOpenHubSection(hub.id)
         }
         rvCircularHubs.adapter = circularHubAdapter
 
-        // 2. Grandes Premios de la Temporada (Selección dinámica)
+        // 2. Grandes Premios de la Temporada
         rvCarouselGp.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         gpCarouselAdapter = GpCarouselAdapter { meeting ->
             onOpenGpDetail(meeting)
         }
         rvCarouselGp.adapter = gpCarouselAdapter
 
-        // 3. Mundial de Pilotos (Puntuaciones y posiciones oficiales)
+        // 3. Mundial de Pilotos
         rvCarouselDrivers.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         driverCarouselAdapter = DriverCarouselAdapter { driver ->
             Toast.makeText(context, "${driver.position}º ${driver.fullName} (${driver.points} pts)", Toast.LENGTH_SHORT).show()
         }
         rvCarouselDrivers.adapter = driverCarouselAdapter
 
-        // 4. Mundial de Constructores (Puntuaciones oficiales)
+        // 4. Mundial de Constructores
         rvCarouselConstructors.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         constructorCarouselAdapter = ConstructorCarouselAdapter { team ->
             Toast.makeText(context, "${team.position}º ${team.teamName} (${team.points} pts)", Toast.LENGTH_SHORT).show()
