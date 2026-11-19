@@ -1297,6 +1297,19 @@
                                 android:textSize="11sp" />
 
                             <Button
+                                android:id="@+id/btnTypeWeb"
+                                android:layout_width="wrap_content"
+                                android:layout_height="32dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="12dp"
+                                android:text="WEB"
+                                android:textColor="@color/text_primary"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+
+                            <Button
                                 android:id="@+id/btnTypeHls"
                                 android:layout_width="wrap_content"
                                 android:layout_height="32dp"
