@@ -47,16 +47,8 @@ object VideoSourcesConfig {
             val parsed = Gson().fromJson(json, VideoSourcesFile::class.java)
             parsed.providers ?: emptyList()
         } catch (e: Exception) {
-            e.printStackTrace()
-            listOf(
-                VideoProviderItem(
-                    id = "hls_stream_1",
-                    name = "Señal HLS Principal",
-                    streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                    type = "HLS",
-                    isDefault = true
-                )
-            )
+            // Sin una fuente configurada por el usuario, no cargar ningún stream genérico.
+            emptyList()
         }
     }
 
