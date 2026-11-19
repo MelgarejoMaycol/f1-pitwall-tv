@@ -349,7 +349,7 @@ class MainActivity : AppCompatActivity() {
     private fun initExoPlayer() {
         exoPlayer = ExoPlayer.Builder(this).build()
         playerView.player = exoPlayer
-        playStream(demoHlsUrl)
+        // El reproductor inicia vacío: solo debe reproducir una fuente configurada por el usuario.
 
         radioPlayer = ExoPlayer.Builder(this).build()
 
