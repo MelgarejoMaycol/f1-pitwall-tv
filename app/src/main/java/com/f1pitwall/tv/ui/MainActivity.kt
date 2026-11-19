@@ -574,14 +574,23 @@ class MainActivity : AppCompatActivity() {
         btnTestStream.setOnClickListener {
             val url = etStreamUrl.text.toString().trim()
             if (url.isNotEmpty()) {
-                playStream(url)
-                btnTabPitWall.performClick()
-                Toast.makeText(this, "Probando señal...", Toast.LENGTH_SHORT).show()
+                if (selectedStreamType == "WEB") {
+                    startActivity(android.content.Intent(this, PitWallTvActivity::class.java)
+                        .putExtra("preview_url", url)
+                        .putExtra("preview_name", etStreamName.text.toString().trim().ifEmpty { "Vista previa WEB" }))
+                } else {
+                    playStream(url)
+                    btnTabPitWall.performClick()
+                }
             } else {
                 val active = preferencesManager.getSelectedSource()
                 if (active != null) {
-                    playStream(active.streamUrl)
-                    btnTabPitWall.performClick()
+                    if (active.type.equals("WEB", ignoreCase = true)) {
+                        startActivity(android.content.Intent(this, PitWallTvActivity::class.java))
+                    } else {
+                        playStream(active.streamUrl)
+                        btnTabPitWall.performClick()
+                    }
                     Toast.makeText(this, "Probando fuente activa: ${active.name}", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, "Introduce una URL o selecciona una fuente guardada", Toast.LENGTH_SHORT).show()
