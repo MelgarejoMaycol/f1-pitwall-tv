@@ -14,11 +14,20 @@ import com.f1pitwall.tv.model.Meeting
 
 class GpCarouselAdapter(
     private var items: List<Meeting> = emptyList(),
+    private var selectedMeetingKey: Long? = null,
     private val onGpClick: (Meeting) -> Unit
 ) : RecyclerView.Adapter<GpCarouselAdapter.ViewHolder>() {
 
-    fun updateData(newItems: List<Meeting>) {
+    fun updateData(newItems: List<Meeting>, selectKey: Long? = null) {
         items = newItems
+        if (selectKey != null) {
+            selectedMeetingKey = selectKey
+        }
+        notifyDataSetChanged()
+    }
+
+    fun setSelectedKey(key: Long) {
+        selectedMeetingKey = key
         notifyDataSetChanged()
     }
 
@@ -63,19 +72,30 @@ class GpCarouselAdapter(
                 ivGpFlag.visibility = View.GONE
             }
 
+            val isSelected = (selectedMeetingKey != null && meeting.meetingKey == selectedMeetingKey)
+
             // Status Badge
             if (TimeUtils.isCurrentlyLive(meeting.dateStart, meeting.dateEnd)) {
                 tvGpStatus.text = "🔴 EN VIVO"
                 tvGpStatus.setBackgroundColor(Color.parseColor("#E10600"))
             } else if (TimeUtils.isCompleted(meeting.dateEnd)) {
-                tvGpStatus.text = "COMPLETADA"
+                tvGpStatus.text = "🏁 COMPLETADA"
                 tvGpStatus.setBackgroundColor(Color.parseColor("#15803D"))
             } else {
-                tvGpStatus.text = "PRÓXIMA"
-                tvGpStatus.setBackgroundColor(Color.parseColor("#2563EB"))
+                if (isSelected) {
+                    tvGpStatus.text = "⭐ SIGUIENTE GP"
+                    tvGpStatus.setBackgroundColor(Color.parseColor("#0284C7"))
+                } else {
+                    tvGpStatus.text = "PRÓXIMA"
+                    tvGpStatus.setBackgroundColor(Color.parseColor("#2563EB"))
+                }
             }
 
+            itemView.isSelected = isSelected
+
             itemView.setOnClickListener {
+                selectedMeetingKey = meeting.meetingKey
+                notifyDataSetChanged()
                 onGpClick(meeting)
             }
         }

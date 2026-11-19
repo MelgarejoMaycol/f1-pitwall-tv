@@ -57,6 +57,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvRadioTitle: TextView
     private lateinit var btnPlayRadio: Button
 
+    // F1 Content Space Controls (Off-Race Hub)
+    private lateinit var btnContentPreview: Button
+    private lateinit var btnContentRecap: Button
+    private lateinit var btnContentBoxes: Button
+
+    // Team Radio Driver Selector
+    private lateinit var btnRadioVer: Button
+    private lateinit var btnRadioNor: Button
+    private lateinit var btnRadioLec: Button
+    private lateinit var btnRadioHam: Button
+    private lateinit var btnRadioRus: Button
+    private lateinit var btnRadioPia: Button
+    private lateinit var btnRadioAlo: Button
+
     // Live Alert Banner (desacoplado y legítimo)
     private lateinit var layoutLiveSessionAlert: LinearLayout
     private lateinit var tvLiveSessionAlertTitle: TextView
@@ -155,6 +169,15 @@ class MainActivity : AppCompatActivity() {
             },
             onOpenHubSection = { hubId ->
                 when (hubId) {
+                    "mundial" -> {
+                        val scroll = findViewById<androidx.core.widget.NestedScrollView>(R.id.scrollHome)
+                        val target = findViewById<View>(R.id.sectionDrivers)
+                        if (scroll != null && target != null) {
+                            scroll.smoothScrollTo(0, target.top)
+                            target.requestFocus()
+                        }
+                    }
+                    "muro_pits" -> btnTabPitWall.performClick()
                     "calendario" -> btnTabArchive.performClick()
                     "resultados" -> {
                         btnTabArchive.performClick()
@@ -166,7 +189,7 @@ class MainActivity : AppCompatActivity() {
                         btnMetricsTelemetry.performClick()
                     }
                     else -> {
-                        Toast.makeText(this, "Sección '$hubId' disponible en las siguientes fases", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Sección '$hubId' disponible", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -180,6 +203,22 @@ class MainActivity : AppCompatActivity() {
         rvLeaderboard = findViewById(R.id.rvLeaderboard)
         tvRadioTitle = findViewById(R.id.tvRadioTitle)
         btnPlayRadio = findViewById(R.id.btnPlayRadio)
+
+        // F1 Content Hub Controls
+        btnContentPreview = findViewById(R.id.btnContentPreview)
+        btnContentRecap = findViewById(R.id.btnContentRecap)
+        btnContentBoxes = findViewById(R.id.btnContentBoxes)
+
+        // Team Radio Driver Selector
+        btnRadioVer = findViewById(R.id.btnRadioVer)
+        btnRadioNor = findViewById(R.id.btnRadioNor)
+        btnRadioLec = findViewById(R.id.btnRadioLec)
+        btnRadioHam = findViewById(R.id.btnRadioHam)
+        btnRadioRus = findViewById(R.id.btnRadioRus)
+        btnRadioPia = findViewById(R.id.btnRadioPia)
+        btnRadioAlo = findViewById(R.id.btnRadioAlo)
+
+        setupContentHubAndRadios()
 
         layoutLiveSessionAlert = findViewById(R.id.layoutLiveSessionAlert)
         tvLiveSessionAlertTitle = findViewById(R.id.tvLiveSessionAlertTitle)
@@ -333,6 +372,60 @@ class MainActivity : AppCompatActivity() {
             player.setMediaItem(mediaItem)
             player.prepare()
             player.playWhenReady = true
+        }
+    }
+
+    private fun setupContentHubAndRadios() {
+        // 1. Off-race F1 Content Hub
+        btnContentPreview.setOnClickListener {
+            playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")
+            tvLiveSessionAlertTitle.text = "🏎️ F1 PitWall: Previa Oficial GP Las Vegas 2026 (Ronda 21)"
+            Toast.makeText(this, "Cargando Previa GP Las Vegas 2026", Toast.LENGTH_SHORT).show()
+        }
+
+        btnContentRecap.setOnClickListener {
+            playStream("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4")
+            tvLiveSessionAlertTitle.text = "🏁 F1 PitWall: Resumen Oficial GP São Paulo (Norris 1º, Verstappen 2º)"
+            Toast.makeText(this, "Cargando Resumen GP São Paulo", Toast.LENGTH_SHORT).show()
+        }
+
+        btnContentBoxes.setOnClickListener {
+            playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")
+            tvLiveSessionAlertTitle.text = "📡 F1 PitWall: Feed Técnico de Boxes y Telemetría en Vivo"
+            Toast.makeText(this, "Cargando Feed Técnico de Pista", Toast.LENGTH_SHORT).show()
+        }
+
+        // 2. Team Radio Multi-Driver Selector (Requirement 10)
+        btnRadioVer.setOnClickListener { tuneRadioDriver(1, "Max Verstappen") }
+        btnRadioNor.setOnClickListener { tuneRadioDriver(4, "Lando Norris") }
+        btnRadioLec.setOnClickListener { tuneRadioDriver(16, "Charles Leclerc") }
+        btnRadioHam.setOnClickListener { tuneRadioDriver(44, "Lewis Hamilton") }
+        btnRadioRus.setOnClickListener { tuneRadioDriver(63, "George Russell") }
+        btnRadioPia.setOnClickListener { tuneRadioDriver(81, "Oscar Piastri") }
+        btnRadioAlo.setOnClickListener { tuneRadioDriver(14, "Fernando Alonso") }
+    }
+
+    private fun tuneRadioDriver(driverNumber: Int, driverName: String) {
+        tvRadioTitle.text = "📻 Sintonizando Radio: $driverName (#$driverNumber)..."
+        lifecycleScope.launch {
+            try {
+                val key = currentSessionKey ?: 9472L
+                val radio = repository.getDriverTeamRadio(key, driverNumber)
+                if (radio != null && !radio.recordingUrl.isNullOrEmpty()) {
+                    latestRadioUrl = radio.recordingUrl
+                    tvRadioTitle.text = "📻 Radio Oficial: $driverName (#$driverNumber) • Conectado"
+                    val mediaItem = MediaItem.fromUri(radio.recordingUrl)
+                    radioPlayer?.setMediaItem(mediaItem)
+                    radioPlayer?.prepare()
+                    radioPlayer?.play()
+                    Toast.makeText(this@MainActivity, "Reproduciendo radio de $driverName", Toast.LENGTH_SHORT).show()
+                } else {
+                    tvRadioTitle.text = "📻 Radio: $driverName (#$driverNumber) [Canal en espera]"
+                    Toast.makeText(this@MainActivity, "Sin transmisión de radio activa para $driverName", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -724,6 +817,15 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         exoPlayer?.pause()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (layoutHome.visibility != View.VISIBLE) {
+            btnTabHome.performClick()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     override fun onDestroy() {

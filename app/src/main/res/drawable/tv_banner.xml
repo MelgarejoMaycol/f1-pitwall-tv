@@ -1,12 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dark Sports Carbon Base -->
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:angle="0"
-                android:endColor="#8A0000"
-                android:startColor="#E10600" />
-            <corners android:radius="8dp" />
+                android:angle="135"
+                android:startColor="#1E2433"
+                android:centerColor="#10141D"
+                android:endColor="#0A0C12" />
+            <corners android:radius="12dp" />
+            <stroke android:width="1.5dp" android:color="#2C364B" />
         </shape>
     </item>
+
+    <!-- Racing Red Bottom Trim -->
+    <item android:top="80dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#E10600" />
+            <corners
+                android:bottomLeftRadius="12dp"
+                android:bottomRightRadius="12dp" />
+        </shape>
+    </item>
+
+    <!-- Original Motorsport Logo Centered -->
+    <item
+        android:gravity="center"
+        android:drawable="@drawable/ic_pitwall_logo"
+        android:width="64dp"
+        android:height="64dp" />
 </layer-list>

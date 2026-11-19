@@ -9,9 +9,14 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.model.CircularHubItem
 
 class CircularHubAdapter(
-    private val items: List<CircularHubItem>,
+    private var items: List<CircularHubItem> = emptyList(),
     private val onHubClick: (CircularHubItem) -> Unit
 ) : RecyclerView.Adapter<CircularHubAdapter.ViewHolder>() {
+
+    fun updateData(newItems: List<CircularHubItem>) {
+        items = newItems
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -28,10 +33,14 @@ class CircularHubAdapter(
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvHubIcon: TextView = itemView.findViewById(R.id.tvHubIcon)
         private val tvHubTitle: TextView = itemView.findViewById(R.id.tvHubTitle)
+        private val tvHubSubtitle: TextView = itemView.findViewById(R.id.tvHubSubtitle)
+        private val tvHubBadge: TextView = itemView.findViewById(R.id.tvHubBadge)
 
         fun bind(item: CircularHubItem) {
             tvHubIcon.text = item.iconEmoji
             tvHubTitle.text = item.title
+            tvHubSubtitle.text = item.subtitle
+            tvHubBadge.text = item.badgeText ?: "OFICIAL"
 
             itemView.setOnClickListener {
                 onHubClick(item)

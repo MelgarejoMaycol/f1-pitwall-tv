@@ -103,3 +103,37 @@ data class PodiumDriver(
     val teamName: String,
     val code: String
 )
+
+data class StandingsTableContainer(
+    @SerializedName("StandingsTable") val standingsTable: StandingsTable?
+)
+
+data class StandingsTable(
+    @SerializedName("season") val season: String?,
+    @SerializedName("round") val round: String?,
+    @SerializedName("StandingsLists") val standingsLists: List<StandingsList>?
+)
+
+data class StandingsList(
+    @SerializedName("season") val season: String?,
+    @SerializedName("round") val round: String?,
+    @SerializedName("DriverStandings") val driverStandings: List<JolpicaDriverStanding>?,
+    @SerializedName("ConstructorStandings") val constructorStandings: List<JolpicaConstructorStanding>?
+)
+
+data class JolpicaDriverStanding(
+    @SerializedName("position") val position: String?,
+    @SerializedName("positionText") val positionText: String?,
+    @SerializedName("points") val points: String?,
+    @SerializedName("wins") val wins: String?,
+    @SerializedName("Driver") val driver: JolpicaDriver?,
+    @SerializedName("Constructors") val constructors: List<JolpicaConstructor>?
+)
+
+data class JolpicaConstructorStanding(
+    @SerializedName("position") val position: String?,
+    @SerializedName("positionText") val positionText: String?,
+    @SerializedName("points") val points: String?,
+    @SerializedName("wins") val wins: String?,
+    @SerializedName("Constructor") val constructor: JolpicaConstructor?
+)

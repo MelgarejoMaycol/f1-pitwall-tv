@@ -26,7 +26,9 @@ data class CircularHubItem(
     val id: String,
     val title: String,
     val iconEmoji: String,
-    val badgeText: String? = null
+    val badgeText: String? = null,
+    val subtitle: String = "",
+    val isAvailable: Boolean = true
 )
 
 data class DriverCardItem(
@@ -35,14 +37,22 @@ data class DriverCardItem(
     val fullName: String,
     val teamName: String,
     val teamColor: String,
-    val headshotUrl: String?
+    val headshotUrl: String?,
+    val position: Int = 0,
+    val points: String = "0",
+    val gapToLeader: String? = null,
+    val wins: Int = 0
 )
 
 data class ConstructorCardItem(
     val teamName: String,
     val teamColor: String,
-    val drivers: List<String>,
-    val pointsText: String? = null
+    val drivers: List<String> = emptyList(),
+    val pointsText: String? = null,
+    val position: Int = 0,
+    val points: String = "0",
+    val wins: Int = 0,
+    val gapToLeader: String? = null
 )
 
 data class CircuitCardItem(

@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Aerodynamic Speed Wave 1: Racing Red Apex Slash -->
+    <path
+        android:fillColor="#E10600"
+        android:pathData="M 18,82 L 32,18 L 46,18 L 32,82 Z" />
+
+    <!-- Aerodynamic Speed Wave 2: Telemetry Waveform Slash (Electric Cyan) -->
+    <path
+        android:fillColor="#00F0FF"
+        android:pathData="M 42,82 L 56,18 L 66,18 L 52,82 Z" />
+
+    <!-- Aerodynamic Speed Wave 3: Wing Endplate Slash (Pure White) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 62,82 L 76,18 L 84,18 L 70,82 Z" />
+
+    <!-- Apex Kerb Pulse: Racing Speed Indicator (Gold / Amber) -->
+    <path
+        android:fillColor="#FFB800"
+        android:pathData="M 14,88 L 88,88 L 84,82 L 18,82 Z" />
+
+    <!-- Telemetry Data Pulse Dot -->
+    <path
+        android:fillColor="#00F0FF"
+        android:pathData="M 88,24 A 6,6 0 1,1 88,12 A 6,6 0 1,1 88,24 Z" />
+</vector>

@@ -1,40 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="100dp"
-    android:layout_height="wrap_content"
+    android:id="@+id/cardCategoryHub"
+    android:layout_width="180dp"
+    android:layout_height="88dp"
     android:layout_marginHorizontal="6dp"
-    android:focusable="true"
+    android:layout_marginVertical="4dp"
+    android:background="@drawable/card_hub_selector"
     android:clickable="true"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="6dp">
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="10dp">
 
-    <!-- Circle Icon Frame with selector -->
+    <!-- Icon Badge -->
     <FrameLayout
         android:id="@+id/frameCircle"
-        android:layout_width="68dp"
-        android:layout_height="68dp"
-        android:duplicateParentState="true"
-        android:background="@drawable/circle_hub_selector">
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="#1E283A"
+        android:duplicateParentState="true">
 
         <TextView
             android:id="@+id/tvHubIcon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="🏎️"
-            android:textSize="26sp" />
+            android:text="🏆"
+            android:textSize="22sp" />
     </FrameLayout>
 
-    <TextView
-        android:id="@+id/tvHubTitle"
-        android:layout_width="wrap_content"
+    <!-- Info Column -->
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="Pilotos"
-        android:textColor="@color/text_primary"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvHubTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Mundial 2026"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvHubSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Pilotos &amp; Equipos"
+            android:textColor="@color/text_secondary"
+            android:textSize="10sp" />
+
+        <TextView
+            android:id="@+id/tvHubBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="#202A3C"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:text="OFICIAL"
+            android:textColor="#00F0FF"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 </LinearLayout>

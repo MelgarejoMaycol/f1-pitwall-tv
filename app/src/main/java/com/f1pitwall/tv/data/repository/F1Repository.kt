@@ -209,7 +209,72 @@ class F1Repository(
         openF1Api.getLatestTelemetry(sessionKey, driverNumber)
     }
 
+    /**
+     * Obtiene el último audio de radio de equipo disponible para un piloto.
+     */
+    suspend fun getDriverTeamRadio(sessionKey: Long, driverNumber: Int): com.f1pitwall.tv.model.TeamRadio? = withContext(Dispatchers.IO) {
+        try {
+            val radios = openF1Api.getTeamRadiosForDriver(sessionKey, driverNumber)
+            radios.firstOrNull { !it.recordingUrl.isNullOrEmpty() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Mundial de Pilotos: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API 2026).
+     */
+    suspend fun getDriverStandings(year: Int = AppConfig.DEFAULT_SEASON): List<DriverCardItem> = withContext(Dispatchers.IO) {
+        try {
+            val apiStandings = jolpicaApi.getDriverStandings(year)
+            if (apiStandings.isEmpty()) {
+                return@withContext cachedDrivers
+            }
+
+            val leaderPoints = apiStandings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
+
+            val items = apiStandings.mapIndexed { index, item ->
+                val pts = item.points ?: "0"
+                val ptsDouble = pts.toDoubleOrNull() ?: 0.0
+                val gap = if (index == 0) "LÍDER" else {
+                    val diff = leaderPoints - ptsDouble
+                    if (diff % 1.0 == 0.0) "-${diff.toInt()} pts" else "-%.1f pts".format(diff)
+                }
+
+                val driverObj = item.driver
+                val constructorObj = item.constructors?.firstOrNull()
+                val teamName = constructorObj?.name ?: "Escudería F1"
+                val teamColor = getTeamColor(teamName)
+                val num = driverObj?.permanentNumber?.toIntOrNull() ?: (index + 1)
+
+                val headshot = "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/${driverObj?.familyName?.firstOrNull() ?: 'A'}/${driverObj?.code ?: "F1"}/${driverObj?.familyName?.lowercase() ?: ""}.png"
+
+                DriverCardItem(
+                    driverNumber = num,
+                    acronym = driverObj?.code ?: "#$num",
+                    fullName = driverObj?.fullName ?: "Piloto $num",
+                    teamName = teamName,
+                    teamColor = teamColor,
+                    headshotUrl = headshot,
+                    position = item.position?.toIntOrNull() ?: (index + 1),
+                    points = pts,
+                    gapToLeader = gap,
+                    wins = item.wins?.toIntOrNull() ?: 0
+                )
+            }
+            cachedDrivers = items
+            items
+        } catch (e: Exception) {
+            e.printStackTrace()
+            cachedDrivers
+        }
+    }
+
     suspend fun getDriversCarouselData(sessionKey: Long): List<DriverCardItem> = withContext(Dispatchers.IO) {
+        val standings = getDriverStandings(AppConfig.DEFAULT_SEASON)
+        if (standings.isNotEmpty()) {
+            return@withContext standings
+        }
         if (cachedDrivers.isNotEmpty()) return@withContext cachedDrivers
         val apiDrivers = openF1Api.getDrivers(sessionKey)
         val items = apiDrivers.map { d ->
@@ -218,7 +283,7 @@ class F1Repository(
                 acronym = d.acronym ?: "#${d.driverNumber}",
                 fullName = d.fullName ?: d.broadcastName ?: "Piloto ${d.driverNumber}",
                 teamName = d.teamName ?: "Escudería F1",
-                teamColor = d.teamColour ?: "E10600",
+                teamColor = d.teamColour ?: getTeamColor(d.teamName ?: ""),
                 headshotUrl = d.headshotUrl
             )
         }
@@ -226,33 +291,143 @@ class F1Repository(
         items
     }
 
+    /**
+     * Mundial de Constructores: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API 2026).
+     */
+    suspend fun getConstructorStandings(year: Int = AppConfig.DEFAULT_SEASON): List<ConstructorCardItem> = withContext(Dispatchers.IO) {
+        try {
+            val apiStandings = jolpicaApi.getConstructorStandings(year)
+            if (apiStandings.isEmpty()) {
+                return@withContext getFallbackConstructors()
+            }
+
+            val leaderPoints = apiStandings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
+
+            apiStandings.mapIndexed { index, item ->
+                val pts = item.points ?: "0"
+                val ptsDouble = pts.toDoubleOrNull() ?: 0.0
+                val gap = if (index == 0) "LÍDER" else {
+                    val diff = leaderPoints - ptsDouble
+                    if (diff % 1.0 == 0.0) "-${diff.toInt()} pts" else "-%.1f pts".format(diff)
+                }
+                val teamName = item.constructor?.name ?: "Escudería"
+                val teamColor = getTeamColor(teamName)
+
+                ConstructorCardItem(
+                    teamName = teamName,
+                    teamColor = teamColor,
+                    drivers = getTeamDrivers(teamName),
+                    position = item.position?.toIntOrNull() ?: (index + 1),
+                    points = pts,
+                    wins = item.wins?.toIntOrNull() ?: 0,
+                    gapToLeader = gap
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            getFallbackConstructors()
+        }
+    }
+
     fun getCircularHubItems(): List<CircularHubItem> {
         return listOf(
-            CircularHubItem("pilotos", "Pilotos", "🏎️"),
-            CircularHubItem("constructores", "Escuderías", "🛠️"),
-            CircularHubItem("calendario", "Calendario", "📅", "2026"),
-            CircularHubItem("resultados", "Resultados", "🏁"),
-            CircularHubItem("mundial", "Mundial", "🏆"),
-            CircularHubItem("estadisticas", "Telemetría", "📈"),
-            CircularHubItem("circuitos", "Circuitos", "🗺️"),
-            CircularHubItem("configuracion", "Fuentes de Video", "📺")
+            CircularHubItem(
+                id = "mundial",
+                title = "Mundial 2026",
+                subtitle = "Pilotos & Constructores",
+                iconEmoji = "🏆",
+                badgeText = "OFICIAL",
+                isAvailable = true
+            ),
+            CircularHubItem(
+                id = "muro_pits",
+                title = "Muro de Pits",
+                subtitle = "Video & Telemetría",
+                iconEmoji = "🏎️",
+                badgeText = "ACTIVO",
+                isAvailable = true
+            ),
+            CircularHubItem(
+                id = "calendario",
+                title = "Calendario 2026",
+                subtitle = "24 Grandes Premios",
+                iconEmoji = "📅",
+                badgeText = "24 RONDAS",
+                isAvailable = true
+            ),
+            CircularHubItem(
+                id = "resultados",
+                title = "GP São Paulo",
+                subtitle = "Último Podio Oficial",
+                iconEmoji = "🏁",
+                badgeText = "FINALIZADA",
+                isAvailable = true
+            ),
+            CircularHubItem(
+                id = "configuracion",
+                title = "Fuentes de Video",
+                subtitle = "Control vía Git",
+                iconEmoji = "📺",
+                badgeText = "CONFIG",
+                isAvailable = true
+            )
         )
     }
 
     fun getConstructors(): List<ConstructorCardItem> {
+        return getFallbackConstructors()
+    }
+
+    private fun getFallbackConstructors(): List<ConstructorCardItem> {
         return listOf(
-            ConstructorCardItem("McLaren", "F47600", listOf("Lando Norris", "Oscar Piastri")),
-            ConstructorCardItem("Ferrari", "E80020", listOf("Charles Leclerc", "Lewis Hamilton")),
-            ConstructorCardItem("Red Bull Racing", "3671C6", listOf("Max Verstappen", "Isack Hadjar")),
-            ConstructorCardItem("Mercedes-AMG", "27F4D2", listOf("George Russell", "Kimi Antonelli")),
-            ConstructorCardItem("Aston Martin", "229971", listOf("Fernando Alonso", "Lance Stroll")),
-            ConstructorCardItem("Alpine", "0093CC", listOf("Pierre Gasly", "Jack Doohan")),
-            ConstructorCardItem("Williams", "64C4FF", listOf("Alexander Albon", "Carlos Sainz")),
-            ConstructorCardItem("Haas F1 Team", "B6BABD", listOf("Esteban Ocon", "Oliver Bearman")),
-            ConstructorCardItem("Racing Bulls", "6692FF", listOf("Yuki Tsunoda", "Liam Lawson")),
-            ConstructorCardItem("Audi F1 Team", "52E252", listOf("Nico Hülkenberg", "Gabriel Bortoleto")),
-            ConstructorCardItem("Cadillac F1", "C5A059", listOf("Valtteri Bottas", "Sergio Pérez"))
+            ConstructorCardItem("Mercedes", "27F4D2", listOf("Andrea Kimi Antonelli", "George Russell"), position = 1, points = "652", wins = 12, gapToLeader = "LÍDER"),
+            ConstructorCardItem("Ferrari", "E80020", listOf("Lewis Hamilton", "Charles Leclerc"), position = 2, points = "510", wins = 2, gapToLeader = "-142 pts"),
+            ConstructorCardItem("Red Bull Racing", "3671C6", listOf("Max Verstappen", "Isack Hadjar"), position = 3, points = "415", wins = 3, gapToLeader = "-237 pts"),
+            ConstructorCardItem("McLaren", "FF8000", listOf("Lando Norris", "Oscar Piastri"), position = 4, points = "384", wins = 3, gapToLeader = "-268 pts"),
+            ConstructorCardItem("Aston Martin", "229971", listOf("Fernando Alonso", "Lance Stroll"), position = 5, points = "86", wins = 0, gapToLeader = "-566 pts"),
+            ConstructorCardItem("Alpine", "0093CC", listOf("Pierre Gasly", "Jack Doohan"), position = 6, points = "54", wins = 0, gapToLeader = "-598 pts"),
+            ConstructorCardItem("Williams", "64C4FF", listOf("Alexander Albon", "Carlos Sainz"), position = 7, points = "48", wins = 0, gapToLeader = "-604 pts"),
+            ConstructorCardItem("Racing Bulls", "6692FF", listOf("Yuki Tsunoda", "Liam Lawson"), position = 8, points = "32", wins = 0, gapToLeader = "-620 pts"),
+            ConstructorCardItem("Haas F1 Team", "B6BABD", listOf("Esteban Ocon", "Oliver Bearman"), position = 9, points = "26", wins = 0, gapToLeader = "-626 pts"),
+            ConstructorCardItem("Audi F1 Team", "52E252", listOf("Nico Hülkenberg", "Gabriel Bortoleto"), position = 10, points = "12", wins = 0, gapToLeader = "-640 pts"),
+            ConstructorCardItem("Cadillac F1", "C5A059", listOf("Valtteri Bottas", "Sergio Pérez"), position = 11, points = "4", wins = 0, gapToLeader = "-648 pts")
         )
+    }
+
+    private fun getTeamDrivers(team: String): List<String> {
+        val lower = team.lowercase()
+        return when {
+            lower.contains("mercedes") -> listOf("Andrea Kimi Antonelli", "George Russell")
+            lower.contains("ferrari") -> listOf("Lewis Hamilton", "Charles Leclerc")
+            lower.contains("red bull") -> listOf("Max Verstappen", "Isack Hadjar")
+            lower.contains("mclaren") -> listOf("Lando Norris", "Oscar Piastri")
+            lower.contains("aston") -> listOf("Fernando Alonso", "Lance Stroll")
+            lower.contains("alpine") -> listOf("Pierre Gasly", "Jack Doohan")
+            lower.contains("williams") -> listOf("Alexander Albon", "Carlos Sainz")
+            lower.contains("haas") -> listOf("Esteban Ocon", "Oliver Bearman")
+            lower.contains("bulls") || lower.contains("rb") -> listOf("Yuki Tsunoda", "Liam Lawson")
+            lower.contains("audi") || lower.contains("sauber") -> listOf("Nico Hülkenberg", "Gabriel Bortoleto")
+            lower.contains("cadillac") -> listOf("Valtteri Bottas", "Sergio Pérez")
+            else -> listOf("Piloto 1", "Piloto 2")
+        }
+    }
+
+    private fun getTeamColor(team: String): String {
+        val lower = team.lowercase()
+        return when {
+            lower.contains("mercedes") -> "27F4D2"
+            lower.contains("ferrari") -> "E80020"
+            lower.contains("red bull") -> "3671C6"
+            lower.contains("mclaren") -> "FF8000"
+            lower.contains("aston") -> "229971"
+            lower.contains("alpine") -> "0093CC"
+            lower.contains("williams") -> "64C4FF"
+            lower.contains("haas") -> "B6BABD"
+            lower.contains("bulls") || lower.contains("rb") -> "6692FF"
+            lower.contains("audi") || lower.contains("sauber") -> "52E252"
+            lower.contains("cadillac") -> "C5A059"
+            else -> "E10600"
+        }
     }
 
     suspend fun getCircuits(year: Int = AppConfig.DEFAULT_SEASON): List<CircuitCardItem> = withContext(Dispatchers.IO) {

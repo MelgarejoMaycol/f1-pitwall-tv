@@ -127,6 +127,12 @@ class OpenF1ApiClient {
         return all.takeLast(10).reversed()
     }
 
+    suspend fun getTeamRadiosForDriver(sessionKey: Long, driverNumber: Int): List<TeamRadio> {
+        val type = object : TypeToken<List<TeamRadio>>() {}
+        val all = get("$baseUrl/team_radio?session_key=$sessionKey&driver_number=$driverNumber", type, useCache = true) ?: emptyList()
+        return all.reversed()
+    }
+
     suspend fun getLatestRaceControl(sessionKey: Long): RaceControl? {
         val type = object : TypeToken<List<RaceControl>>() {}
         val all = get("$baseUrl/race_control?session_key=$sessionKey", type, useCache = false) ?: emptyList()

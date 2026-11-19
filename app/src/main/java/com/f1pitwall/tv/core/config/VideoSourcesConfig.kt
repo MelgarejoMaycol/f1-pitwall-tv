@@ -12,12 +12,34 @@ data class VideoProviderItem(
     @SerializedName("isDefault") val isDefault: Boolean = false
 )
 
+data class F1ContentItem(
+    @SerializedName("id") val id: String,
+    @SerializedName("title") val title: String,
+    @SerializedName("description") val description: String,
+    @SerializedName("streamUrl") val streamUrl: String,
+    @SerializedName("type") val type: String = "HLS",
+    @SerializedName("badge") val badge: String = "CONTENIDO OFICIAL",
+    @SerializedName("isAvailable") val isAvailable: Boolean = true
+)
+
 data class VideoSourcesFile(
     @SerializedName("providers") val providers: List<VideoProviderItem>?,
+    @SerializedName("contentHub") val contentHub: List<F1ContentItem>?,
     @SerializedName("searchTemplates") val searchTemplates: List<String>?
 )
 
 object VideoSourcesConfig {
+
+    fun loadContentHub(context: Context): List<F1ContentItem> {
+        return try {
+            val json = context.assets.open("video_sources.json").bufferedReader().use { it.readText() }
+            val parsed = Gson().fromJson(json, VideoSourcesFile::class.java)
+            parsed.contentHub ?: emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 
     fun loadProviders(context: Context): List<VideoProviderItem> {
         return try {

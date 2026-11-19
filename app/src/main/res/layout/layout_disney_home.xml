@@ -4,11 +4,11 @@
     android:id="@+id/scrollHome"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/f1_dark"
+    android:background="@drawable/bg_tv_gradient"
     android:clipToPadding="false"
     android:descendantFocusability="afterDescendants"
     android:fillViewport="true"
-    android:paddingBottom="40dp">
+    android:paddingBottom="48dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -16,44 +16,43 @@
         android:orientation="vertical">
 
         <!-- ============================================== -->
-        <!-- 1. HERO PRINCIPAL (DISNEY+ / F1 TV STYLE)     -->
+        <!-- 1. HERO PRINCIPAL: PRÓXIMO GRAN PREMIO CINEMATOGRÁFICO -->
         <!-- ============================================== -->
         <androidx.cardview.widget.CardView
             android:id="@+id/cardHero"
             android:layout_width="match_parent"
-            android:layout_height="270dp"
+            android:layout_height="275dp"
             android:layout_margin="10dp"
-            app:cardBackgroundColor="#131722"
+            app:cardBackgroundColor="#0D111A"
             app:cardCornerRadius="16dp"
-            app:cardElevation="4dp">
+            app:cardElevation="6dp">
 
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
-                <!-- Background Subtle Glow/Gradient -->
+                <!-- Cinematic Backdrop with Racing Red Stripe -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="@drawable/tv_banner"
-                    android:alpha="0.12" />
+                    android:background="@drawable/bg_hero_cinematic" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingHorizontal="28dp"
-                    android:paddingVertical="16dp">
+                    android:paddingHorizontal="32dp"
+                    android:paddingVertical="18dp">
 
-                    <!-- Hero Left Metadata & Action Buttons -->
+                    <!-- Left: Metadata & Contextual Action Buttons -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
-                        <!-- Live/Upcoming/Completed Pill Badge -->
+                        <!-- Status Badge + Countdown -->
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -63,11 +62,11 @@
                             <TextView
                                 android:id="@+id/tvHeroStateBadge"
                                 android:layout_width="wrap_content"
-                                android:layout_height="24dp"
-                                android:background="#E10600"
+                                android:layout_height="26dp"
+                                android:background="#2563EB"
                                 android:gravity="center"
-                                android:paddingHorizontal="10dp"
-                                android:text="🔴 EN DIRECTO"
+                                android:paddingHorizontal="12dp"
+                                android:text="⏳ PRÓXIMO GRAN PREMIO"
                                 android:textColor="#FFFFFF"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
@@ -76,10 +75,10 @@
                                 android:id="@+id/tvHeroCountdown"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="10dp"
-                                android:text="Cuenta regresiva"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp"
+                                android:layout_marginStart="12dp"
+                                android:text="En 2 días"
+                                android:textColor="#00F0FF"
+                                android:textSize="13sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -91,18 +90,18 @@
                             android:layout_marginTop="8dp"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="FORMULA 1 BAHRAIN GRAND PRIX"
+                            android:text="FORMULA 1 HEINEKEN SILVER LAS VEGAS GRAND PRIX 2026"
                             android:textColor="@color/text_primary"
                             android:textSize="26sp"
                             android:textStyle="bold" />
 
-                        <!-- Subtitle (Circuit & Location) -->
+                        <!-- Subtitle: Circuit & Location -->
                         <TextView
                             android:id="@+id/tvHeroSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="3dp"
-                            android:text="Bahrain International Circuit • Sakhir, Bahréin"
+                            android:text="Las Vegas Strip Circuit • Nevada, Estados Unidos"
                             android:textColor="@color/text_secondary"
                             android:textSize="14sp" />
 
@@ -112,12 +111,12 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
-                            android:text="📅 Domingo, 2 de marzo • 10:00 AM (Hora Colombia)"
+                            android:text="📅 Próxima Sesión • Hora Colombia (GMT-5)"
                             android:textColor="@color/f1_red"
                             android:textSize="13sp"
                             android:textStyle="bold" />
 
-                        <!-- Action Buttons Row -->
+                        <!-- Action Buttons Row (TV D-Pad optimized) -->
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -129,9 +128,10 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="42dp"
                                 android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
                                 android:focusable="true"
                                 android:paddingHorizontal="18dp"
-                                android:text="🏎️ Ver en Directo (Muro de Pits)"
+                                android:text="🏎️ Muro de Pits &amp; Previa"
                                 android:textColor="@color/text_primary"
                                 android:textSize="13sp"
                                 android:textStyle="bold" />
@@ -142,9 +142,10 @@
                                 android:layout_height="42dp"
                                 android:layout_marginStart="12dp"
                                 android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
                                 android:focusable="true"
                                 android:paddingHorizontal="16dp"
-                                android:text="📅 Detalle del GP"
+                                android:text="📅 Horarios y Circuito"
                                 android:textColor="@color/text_primary"
                                 android:textSize="13sp" />
 
@@ -154,15 +155,16 @@
                                 android:layout_height="42dp"
                                 android:layout_marginStart="12dp"
                                 android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
                                 android:focusable="true"
                                 android:paddingHorizontal="16dp"
-                                android:text="📊 Resultados Oficiales"
+                                android:text="📊 Resultados São Paulo"
                                 android:textColor="@color/text_primary"
                                 android:textSize="13sp" />
                         </LinearLayout>
                     </LinearLayout>
 
-                    <!-- Hero Right Visuals: Circuit Map + Flag -->
+                    <!-- Right Visuals: Circuit Map + National Flag -->
                     <LinearLayout
                         android:layout_width="220dp"
                         android:layout_height="match_parent"
@@ -178,9 +180,10 @@
 
                         <ImageView
                             android:id="@+id/ivHeroCircuitMap"
-                            android:layout_width="190dp"
-                            android:layout_height="140dp"
-                            android:padding="6dp"
+                            android:layout_width="200dp"
+                            android:layout_height="145dp"
+                            android:background="#121722"
+                            android:padding="8dp"
                             android:scaleType="fitCenter" />
                     </LinearLayout>
                 </LinearLayout>
@@ -188,7 +191,7 @@
         </androidx.cardview.widget.CardView>
 
         <!-- ============================================== -->
-        <!-- 1.5. RESULTADOS DISPONIBLES (ÚLTIMO GP FINALIZADO) -->
+        <!-- 2. RESULTADOS OFICIALES INTEGRADOS (GP SÃO PAULO) -->
         <!-- ============================================== -->
         <androidx.cardview.widget.CardView
             android:id="@+id/cardRecentResults"
@@ -196,16 +199,16 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="10dp"
             android:layout_marginTop="2dp"
-            android:layout_marginBottom="8dp"
-            app:cardBackgroundColor="#131722"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            android:layout_marginBottom="10dp"
+            app:cardBackgroundColor="#111622"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="3dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="16dp">
 
                 <!-- Header Row -->
                 <LinearLayout
@@ -217,63 +220,64 @@
                     <TextView
                         android:id="@+id/tvRecentResultsBadge"
                         android:layout_width="wrap_content"
-                        android:layout_height="22dp"
+                        android:layout_height="24dp"
                         android:background="#15803D"
                         android:gravity="center"
-                        android:paddingHorizontal="8dp"
-                        android:text="🏁 RESULTADOS DISPONIBLES"
+                        android:paddingHorizontal="10dp"
+                        android:text="🏁 ÚLTIMO GP FINALIZADO"
                         android:textColor="#FFFFFF"
-                        android:textSize="10sp"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvRecentResultsDate"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginStart="12dp"
                         android:layout_weight="1"
-                        android:text="8 de noviembre de 2026"
+                        android:text="Fecha oficial: 8 de noviembre de 2026"
                         android:textColor="@color/text_secondary"
                         android:textSize="12sp" />
 
                     <Button
                         android:id="@+id/btnViewFullResults"
                         android:layout_width="wrap_content"
-                        android:layout_height="32dp"
+                        android:layout_height="34dp"
                         android:background="@drawable/btn_tab_selector"
                         android:clickable="true"
                         android:focusable="true"
-                        android:paddingHorizontal="12dp"
+                        android:paddingHorizontal="14dp"
                         android:text="📊 Ver Clasificación Oficial"
                         android:textColor="@color/text_primary"
                         android:textSize="11sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- Race Name & Circuit -->
+                <!-- Race Title & Circuit -->
                 <TextView
                     android:id="@+id/tvRecentResultsGpTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="8dp"
                     android:text="Grande Prêmio de São Paulo 2026"
                     android:textColor="@color/text_primary"
-                    android:textSize="18sp"
+                    android:textSize="20sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvRecentResultsCircuit"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:text="Autódromo José Carlos Pace (Interlagos) • São Paulo, Brasil"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
 
-                <!-- Podium Bar -->
+                <!-- Official Podium Cards Row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:orientation="horizontal">
 
                     <!-- P1 Winner -->
@@ -281,21 +285,21 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:background="#1E2433"
+                        android:background="#1A2232"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="8dp">
+                        android:padding="10dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="🥇"
-                            android:textSize="18sp" />
+                            android:textSize="22sp" />
 
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="10dp"
                             android:orientation="vertical">
 
                             <TextView
@@ -303,17 +307,17 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Lando Norris"
-                                android:textColor="#F47600"
-                                android:textSize="13sp"
+                                android:textColor="#FF8000"
+                                android:textSize="14sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:id="@+id/tvPodium1Team"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="McLaren • Ganador"
+                                android:text="McLaren • Ganador (25 pts)"
                                 android:textColor="@color/text_secondary"
-                                android:textSize="10sp" />
+                                android:textSize="11sp" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -321,23 +325,23 @@
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:layout_weight="1"
-                        android:background="#1E2433"
+                        android:background="#1A2232"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="8dp">
+                        android:padding="10dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="🥈"
-                            android:textSize="18sp" />
+                            android:textSize="22sp" />
 
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="10dp"
                             android:orientation="vertical">
 
                             <TextView
@@ -346,16 +350,16 @@
                                 android:layout_height="wrap_content"
                                 android:text="Max Verstappen"
                                 android:textColor="@color/text_primary"
-                                android:textSize="13sp"
+                                android:textSize="14sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:id="@+id/tvPodium2Team"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Red Bull Racing"
+                                android:text="Red Bull Racing • 2º (18 pts)"
                                 android:textColor="@color/text_secondary"
-                                android:textSize="10sp" />
+                                android:textSize="11sp" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -363,23 +367,23 @@
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:layout_weight="1"
-                        android:background="#1E2433"
+                        android:background="#1A2232"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="8dp">
+                        android:padding="10dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="🥉"
-                            android:textSize="18sp" />
+                            android:textSize="22sp" />
 
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="10dp"
                             android:orientation="vertical">
 
                             <TextView
@@ -388,16 +392,16 @@
                                 android:layout_height="wrap_content"
                                 android:text="Isack Hadjar"
                                 android:textColor="@color/text_primary"
-                                android:textSize="13sp"
+                                android:textSize="14sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:id="@+id/tvPodium3Team"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Red Bull Racing"
+                                android:text="Red Bull Racing • 3º (15 pts)"
                                 android:textColor="@color/text_secondary"
-                                android:textSize="10sp" />
+                                android:textSize="11sp" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -405,12 +409,12 @@
         </androidx.cardview.widget.CardView>
 
         <!-- ============================================== -->
-        <!-- 2. ACCESOS CIRCULARES (DISNEY+ HUB PILLS)      -->
+        <!-- 3. ACCESOS DE NAVEGACIÓN Y CATEGORÍAS         -->
         <!-- ============================================== -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
@@ -418,7 +422,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:layout_marginBottom="6dp"
+                android:layout_marginBottom="8dp"
                 android:text="EXPLORAR PLATAFORMA"
                 android:textColor="@color/f1_red"
                 android:textSize="13sp"
@@ -429,108 +433,160 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
-                android:focusable="false"
                 android:descendantFocusability="afterDescendants"
+                android:focusable="false"
                 android:orientation="horizontal" />
         </LinearLayout>
 
         <!-- ============================================== -->
-        <!-- 3. CARRUSEL: GRANDES PREMIOS DE LA TEMPORADA  -->
+        <!-- 4. CARRUSEL: GRANDES PREMIOS DE LA TEMPORADA  -->
         <!-- ============================================== -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_marginBottom="6dp"
-                android:text="🏁 GRANDES PREMIOS DE LA TEMPORADA"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="🏁 GRANDES PREMIOS DE LA TEMPORADA 2026"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="← Pasadas | Siguiente: Las Vegas | Próximas →"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvCarouselGp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
                 android:clipToPadding="false"
-                android:focusable="false"
                 android:descendantFocusability="afterDescendants"
+                android:focusable="false"
                 android:orientation="horizontal" />
         </LinearLayout>
 
         <!-- ============================================== -->
-        <!-- 4. CARRUSEL: PILOTOS DESTACADOS                -->
+        <!-- 5. CARRUSEL: MUNDIAL DE PILOTOS (STANDINGS REAL) -->
         <!-- ============================================== -->
         <LinearLayout
+            android:id="@+id/sectionDrivers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_marginBottom="6dp"
-                android:text="🏎️ PILOTOS DE LA PARRILLA"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="🏆 CAMPEONATO MUNDIAL DE PILOTOS 2026"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="Líder: A. Kimi Antonelli (390 pts) • Orden Oficial"
+                    android:textColor="#00F0FF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvCarouselDrivers"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
                 android:clipToPadding="false"
-                android:focusable="false"
                 android:descendantFocusability="afterDescendants"
+                android:focusable="false"
                 android:orientation="horizontal" />
         </LinearLayout>
 
         <!-- ============================================== -->
-        <!-- 5. CARRUSEL: ESCUDERÍAS Y CONSTRUCTORES       -->
+        <!-- 6. CARRUSEL: MUNDIAL DE CONSTRUCTORES         -->
         <!-- ============================================== -->
         <LinearLayout
+            android:id="@+id/sectionConstructors"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_marginBottom="6dp"
-                android:text="🛠️ ESCUDERÍAS Y CONSTRUCTORES"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="🛠️ CAMPEONATO MUNDIAL DE CONSTRUCTORES 2026"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="Líder: Mercedes (652 pts) • Orden Oficial"
+                    android:textColor="#27F4D2"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvCarouselConstructors"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
                 android:clipToPadding="false"
-                android:focusable="false"
                 android:descendantFocusability="afterDescendants"
+                android:focusable="false"
                 android:orientation="horizontal" />
         </LinearLayout>
 
         <!-- ============================================== -->
-        <!-- 6. CARRUSEL: CIRCUITOS EMBLEMÁTICOS           -->
+        <!-- 7. CARRUSEL: CIRCUITOS DEL MUNDIAL            -->
         <!-- ============================================== -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
@@ -539,7 +595,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="6dp"
-                android:text="🗺️ CIRCUITOS DEL MUNDIAL"
+                android:text="🗺️ CIRCUITOS Y TRAZADOS OFICIALES"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -549,8 +605,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
-                android:focusable="false"
                 android:descendantFocusability="afterDescendants"
+                android:focusable="false"
                 android:orientation="horizontal" />
         </LinearLayout>
     </LinearLayout>

@@ -15,11 +15,41 @@
       "isDefault": false
     }
   ],
+  "contentHub": [
+    {
+      "id": "las_vegas_preview",
+      "title": "Previa Oficial: Gran Premio de Las Vegas 2026",
+      "description": "Análisis del circuito nocturno y novedades para la Ronda 21",
+      "streamUrl": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+      "type": "HLS",
+      "badge": "PREVIA OFICIAL",
+      "isAvailable": true
+    },
+    {
+      "id": "sao_paulo_recap",
+      "title": "Resumen Oficial: Gran Premio de São Paulo 2026",
+      "description": "Highlights y podio: 1º Norris, 2º Verstappen, 3º Hadjar en Interlagos",
+      "streamUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
+      "type": "MP4",
+      "badge": "RESUMEN CARRERA",
+      "isAvailable": true
+    },
+    {
+      "id": "telemetry_pitwall_feed",
+      "title": "Feed Oficial de Telemetría y Muro de Pits",
+      "description": "Datos técnicos en vivo y cámaras de boxes OpenF1",
+      "streamUrl": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+      "type": "HLS",
+      "badge": "TELEMETRÍA EN VIVO",
+      "isAvailable": true
+    }
+  ],
   "searchTemplates": [
     "GP {gpName} F1",
     "Gran Premio de {gpName} Fórmula 1",
     "Fórmula 1 {gpName} en directo",
     "F1 {gpName} {sessionType}",
+    "F1 {gpName} clasificación",
     "Carrera Fórmula 1 {gpName}"
   ]
 }
