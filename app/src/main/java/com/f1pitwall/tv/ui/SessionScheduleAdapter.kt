@@ -8,6 +8,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.model.Session
+import com.f1pitwall.tv.core.util.TimeUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -66,18 +67,7 @@ class SessionScheduleAdapter(
         }
 
         private fun formatSessionDateTime(dateIso: String?): String {
-            if (dateIso == null) return "Horario pendiente"
-            return try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-                inputFormat.timeZone = TimeZone.getTimeZone("UTC")
-
-                val date = inputFormat.parse(dateIso.substring(0, 19)) ?: return dateIso
-                val outFormat = SimpleDateFormat("EEEE, d MMMM • hh:mm a", Locale("es", "ES"))
-                outFormat.timeZone = TimeZone.getDefault()
-                outFormat.format(date).replaceFirstChar { it.uppercase() }
-            } catch (e: Exception) {
-                dateIso
-            }
+            return TimeUtils.formatToColombiaTime(dateIso)
         }
     }
 }
