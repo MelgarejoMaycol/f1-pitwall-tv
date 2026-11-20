@@ -2,31 +2,28 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="2dp"
-    android:layout_marginVertical="4dp"
+    android:layout_marginVertical="3dp"
     android:background="@drawable/card_focus_selector"
-    android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="10dp"
-    android:stateListAnimator="@animator/tv_card_elevation">
+    android:padding="8dp">
 
     <TextView
         android:id="@+id/tvSessionTypeTag"
-        android:layout_width="56dp"
-        android:layout_height="30dp"
-        android:background="#223044"
+        android:layout_width="54dp"
+        android:layout_height="28dp"
+        android:background="#2E3748"
         android:gravity="center"
         android:text="FP1"
         android:textColor="@color/text_primary"
-        android:textSize="11.5sp"
+        android:textSize="11sp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="10dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -36,14 +33,13 @@
             android:layout_height="wrap_content"
             android:text="Práctica Libre 1"
             android:textColor="@color/text_primary"
-            android:textSize="13.5sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvSessionTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
             android:text="Viernes, 29 de febrero • 08:30 AM"
             android:textColor="@color/text_secondary"
             android:textSize="11sp" />
@@ -54,11 +50,9 @@
         android:layout_width="wrap_content"
         android:layout_height="32dp"
         android:background="@drawable/btn_tab_selector"
-        android:clickable="false"
-        android:focusable="false"
-        android:paddingHorizontal="12dp"
-        android:text="Ver Clasificación"
+        android:focusable="true"
+        android:paddingHorizontal="10dp"
+        android:text="Ver Tiempos"
         android:textColor="@color/text_primary"
-        android:textSize="10.5sp"
-        android:textStyle="bold" />
+        android:textSize="10sp" />
 </LinearLayout>

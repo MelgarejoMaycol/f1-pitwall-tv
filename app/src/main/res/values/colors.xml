@@ -1,57 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base Dark & Graphite Palette -->
-    <color name="f1_dark">#070A11</color>
-    <color name="f1_navy_deep">#0A101C</color>
-    <color name="f1_surface">#111A28</color>
-    <color name="f1_surface_card">#142032</color>
-    <color name="f1_glass_bg">#D9111B2B</color>
-    <color name="f1_glass_border">#202E42</color>
-    <color name="f1_glass_border_subtle">#162232</color>
-
-    <!-- Brand & Accent Colors -->
+    <!-- Brand Motorsport Accents -->
     <color name="f1_red">#E10600</color>
-    <color name="f1_red_subtle">#99E10600</color>
-    <color name="f1_cyan">#00F0FF</color>
-    <color name="f1_cyan_soft">#38BDF8</color>
-    <color name="f1_blue_accent">#2563EB</color>
-    <color name="neon_cyan">#38BDF8</color>
-    <color name="gold_accent">#FFD700</color>
-    <color name="silver_accent">#E2E8F0</color>
-    <color name="bronze_accent">#CD7F32</color>
-
-    <!-- Typography Colors -->
-    <color name="text_primary">#F8FAFC</color>
-    <color name="text_secondary">#94A3B8</color>
-    <color name="text_muted">#64748B</color>
-
-    <!-- Focus & State Colors -->
+    <color name="f1_red_bright">#FF2A24</color>
+    <color name="f1_dark">#070B16</color>
+    <color name="f1_surface">#0E1729</color>
+    <color name="f1_surface_card">#142038</color>
     <color name="f1_focused">#00F0FF</color>
-    <color name="f1_focused_bg">#F01B2E42</color>
-    <color name="card_glass_bg">#C9142032</color>
-    <color name="card_glass_border">#223348</color>
-    <color name="card_focus_stroke">#00F0FF</color>
-    <color name="card_focus_bg">#F022374E</color>
-    <color name="tab_selected_bg">#D9182A40</color>
+    <color name="f1_focused_bg">#243352</color>
 
-    <!-- F1 Sectors & Telemetry -->
-    <color name="sector_purple">#A855F7</color>
-    <color name="sector_green">#22C55E</color>
-    <color name="sector_yellow">#EAB308</color>
+    <!-- Text Hierarchy (Optimized for High Legibility on Glass Surfaces) -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#A3B3CF</color>
+    <color name="text_muted">#687B9E</color>
+    <color name="text_cyan">#00F0FF</color>
+    <color name="text_violet">#A78BFA</color>
+    <color name="text_gold">#FFB800</color>
 
-    <!-- Tyres -->
+    <!-- Liquid Glass / Glassmorphism Surfaces -->
+    <color name="glass_surface_dock">#CC0E182B</color>
+    <color name="glass_surface_card">#B3121E34</color>
+    <color name="glass_surface_card_focused">#E61A2B4A</color>
+    <color name="glass_surface_card_selected">#CC221626</color>
+    <color name="glass_surface_hero">#D90A1222</color>
+    <color name="glass_surface_hud">#800D1628</color>
+
+    <!-- Glass Borders & Specular Highlights -->
+    <color name="glass_border_default">#26FFFFFF</color>
+    <color name="glass_border_subtle">#1AFFFFFF</color>
+    <color name="glass_border_specular">#66FFFFFF</color>
+    <color name="glass_border_focused">#00F0FF</color>
+    <color name="glass_border_selected">#FF2A24</color>
+
+    <!-- Ambient Glows & Neon Lasers -->
+    <color name="neon_cyan">#00F0FF</color>
+    <color name="neon_cyan_soft">#2600F0FF</color>
+    <color name="neon_violet">#8B5CF6</color>
+    <color name="neon_violet_soft">#268B5CF6</color>
+    <color name="neon_magenta">#EC4899</color>
+    <color name="gold_accent">#FFB800</color>
+    <color name="gold_accent_soft">#26FFB800</color>
+
+    <!-- Sector timing & Live Flags -->
+    <color name="sector_purple">#C084FC</color>
+    <color name="sector_green">#10B981</color>
+    <color name="sector_yellow">#F59E0B</color>
+    <color name="flag_green">#10B981</color>
+    <color name="flag_yellow">#F59E0B</color>
+    <color name="flag_safety_car">#F97316</color>
+    <color name="flag_red">#EF4444</color>
+
+    <!-- Tyre Compounds -->
     <color name="tyre_soft">#EF4444</color>
     <color name="tyre_medium">#FACC15</color>
     <color name="tyre_hard">#FFFFFF</color>
     <color name="tyre_inter">#10B981</color>
     <color name="tyre_wet">#0EA5E9</color>
 
-    <!-- Race Flags -->
-    <color name="flag_green">#22C55E</color>
-    <color name="flag_yellow">#EAB308</color>
-    <color name="flag_safety_car">#F97316</color>
-    <color name="flag_red">#EF4444</color>
-
-    <!-- Gradients -->
-    <color name="bg_dark_start">#0E1726</color>
-    <color name="bg_dark_end">#06080E</color>
+    <!-- TV Background Canvas (Multidimensional Midnight Petrol Gradient) -->
+    <color name="bg_dark_start">#0B1324</color>
+    <color name="bg_dark_mid">#070D1A</color>
+    <color name="bg_dark_end">#04070E</color>
+    <color name="card_glass_bg">#B3121E34</color>
+    <color name="card_glass_border">#26FFFFFF</color>
+    <color name="card_focus_stroke">#00F0FF</color>
+    <color name="card_focus_bg">#E61A2B4A</color>
+    <color name="tab_selected_bg">#D92A131A</color>
 </resources>

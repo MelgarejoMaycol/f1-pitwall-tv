@@ -1,26 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="2dp"
-    android:layout_marginVertical="3dp"
+    android:layout_marginVertical="2dp"
     android:background="@drawable/card_focus_selector"
-    android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="8dp"
-    android:stateListAnimator="@animator/tv_card_elevation">
+    android:padding="6dp">
 
     <!-- Position Badge -->
     <TextView
         android:id="@+id/tvPosition"
-        android:layout_width="28dp"
+        android:layout_width="26dp"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text=""
-        tools:text="1"
+        android:text="1"
         android:textColor="@color/text_primary"
         android:textSize="14sp"
         android:textStyle="bold" />
@@ -29,17 +24,16 @@
     <View
         android:id="@+id/viewTeamColor"
         android:layout_width="4dp"
-        android:layout_height="24dp"
-        android:layout_marginHorizontal="6dp"
+        android:layout_height="22dp"
+        android:layout_marginHorizontal="4dp"
         android:background="@color/f1_red" />
 
     <!-- Driver Acronym -->
     <TextView
         android:id="@+id/tvDriverAcronym"
-        android:layout_width="48dp"
+        android:layout_width="45dp"
         android:layout_height="wrap_content"
-        android:text=""
-        tools:text="VER"
+        android:text="VER"
         android:textColor="@color/text_primary"
         android:textSize="14sp"
         android:textStyle="bold" />
@@ -47,17 +41,15 @@
     <!-- Tyre Badge -->
     <TextView
         android:id="@+id/tvTyreBadge"
-        android:layout_width="34dp"
-        android:layout_height="20dp"
-        android:layout_marginEnd="8dp"
+        android:layout_width="32dp"
+        android:layout_height="18dp"
+        android:layout_marginEnd="6dp"
         android:background="#EF4444"
         android:gravity="center"
-        android:text=""
-        tools:text="S 14"
+        android:text="S 14"
         android:textColor="#000000"
-        android:textSize="10.5sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:textSize="10sp"
+        android:textStyle="bold" />
 
     <!-- Interval / Gap -->
     <LinearLayout
@@ -71,63 +63,57 @@
             android:id="@+id/tvGap"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text=""
-            tools:text="LÍDER"
+            android:text="LÍDER"
             android:textColor="@color/text_primary"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvLastLap"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:text=""
-            tools:text="1:32.450"
+            android:text="1:32.450"
             android:textColor="@color/text_secondary"
-            android:textSize="10.5sp" />
+            android:textSize="10sp" />
     </LinearLayout>
 
     <!-- Sectors S1, S2, S3 mini badges -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="6dp"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/tvS1"
-            android:layout_width="15dp"
-            android:layout_height="15dp"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
             android:layout_marginEnd="2dp"
             android:background="@color/sector_purple"
             android:gravity="center"
-            android:text=""
-            tools:text="1"
+            android:text="1"
             android:textColor="#FFFFFF"
-            android:textSize="8.5sp" />
+            android:textSize="8sp" />
 
         <TextView
             android:id="@+id/tvS2"
-            android:layout_width="15dp"
-            android:layout_height="15dp"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
             android:layout_marginEnd="2dp"
             android:background="@color/sector_green"
             android:gravity="center"
-            android:text=""
-            tools:text="2"
+            android:text="2"
             android:textColor="#FFFFFF"
-            android:textSize="8.5sp" />
+            android:textSize="8sp" />
 
         <TextView
             android:id="@+id/tvS3"
-            android:layout_width="15dp"
-            android:layout_height="15dp"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
             android:background="@color/sector_yellow"
             android:gravity="center"
-            android:text=""
-            tools:text="3"
+            android:text="3"
             android:textColor="#FFFFFF"
-            android:textSize="8.5sp" />
+            android:textSize="8sp" />
     </LinearLayout>
 </LinearLayout>

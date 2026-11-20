@@ -4,89 +4,28 @@
     android:viewportWidth="100"
     android:viewportHeight="100">
 
-    <!-- 1. Front Tyres (Left and Right) -->
-    <!-- Left Tyre Carcass -->
+    <!-- Aerodynamic Speed Wave 1: Racing Red Apex Slash -->
     <path
-        android:fillColor="#1C2331"
-        android:pathData="M 8,50 L 22,50 C 23.5,50 24,51 24,53 L 24,85 C 24,87 23.5,88 22,88 L 8,88 C 6.5,88 6,87 6,85 L 6,53 C 6,51 6.5,50 8,50 Z" />
-    <!-- Left Wheel Rim Aero Cover -->
+        android:fillColor="#E10600"
+        android:pathData="M 18,82 L 32,18 L 46,18 L 32,82 Z" />
+
+    <!-- Aerodynamic Speed Wave 2: Telemetry Waveform Slash (Electric Cyan) -->
     <path
         android:fillColor="#00F0FF"
-        android:pathData="M 11,58 L 19,58 C 20,58 20.5,58.5 20.5,59.5 L 20.5,78.5 C 20.5,79.5 20,80 19,80 L 11,80 C 10,80 9.5,79.5 9.5,78.5 L 9.5,59.5 C 9.5,58.5 10,58 11,58 Z" />
+        android:pathData="M 42,82 L 56,18 L 66,18 L 52,82 Z" />
 
-    <!-- Right Tyre Carcass -->
+    <!-- Aerodynamic Speed Wave 3: Wing Endplate Slash (Pure White) -->
     <path
-        android:fillColor="#1C2331"
-        android:pathData="M 78,50 L 92,50 C 93.5,50 94,51 94,53 L 94,85 C 94,87 93.5,88 92,88 L 78,88 C 76.5,88 76,87 76,85 L 76,53 C 76,51 76.5,50 78,50 Z" />
-    <!-- Right Wheel Rim Aero Cover -->
-    <path
-        android:fillColor="#00F0FF"
-        android:pathData="M 81,58 L 89,58 C 90,58 90.5,58.5 90.5,59.5 L 90.5,78.5 C 90.5,79.5 90,80 89,80 L 81,80 C 80,80 79.5,79.5 79.5,78.5 L 79.5,59.5 C 79.5,58.5 80,58 81,58 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M 62,82 L 76,18 L 84,18 L 70,82 Z" />
 
-    <!-- 2. Front Suspension Double Wishbones -->
-    <!-- Left Upper & Lower -->
-    <path
-        android:fillColor="#64748B"
-        android:pathData="M 24,56 L 41,51 L 41,54 L 24,59 Z" />
-    <path
-        android:fillColor="#64748B"
-        android:pathData="M 24,78 L 41,74 L 41,77 L 24,81 Z" />
-    <!-- Right Upper & Lower -->
-    <path
-        android:fillColor="#64748B"
-        android:pathData="M 76,56 L 59,51 L 59,54 L 76,59 Z" />
-    <path
-        android:fillColor="#64748B"
-        android:pathData="M 76,78 L 59,74 L 59,77 L 76,81 Z" />
-
-    <!-- 3. Airbox & T-Cam -->
-    <!-- T-Cam -->
+    <!-- Apex Kerb Pulse: Racing Speed Indicator (Gold / Amber) -->
     <path
         android:fillColor="#FFB800"
-        android:pathData="M 47,12 L 53,12 L 53,16 L 47,16 Z" />
-    <!-- Airbox Roll Hoop -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M 45,16 L 55,16 L 57,26 L 43,26 Z" />
-    <!-- Airbox Intake Hole -->
-    <path
-        android:fillColor="#090D16"
-        android:pathData="M 47,19 L 53,19 L 52,24 L 48,24 Z" />
+        android:pathData="M 14,88 L 88,88 L 84,82 L 18,82 Z" />
 
-    <!-- 4. Halo Titanium Safety Structure -->
-    <!-- Halo Loop -->
+    <!-- Telemetry Data Pulse Dot -->
     <path
         android:fillColor="#00F0FF"
-        android:pathData="M 32,32 C 38,26 62,26 68,32 C 70,34 68,37 65,36 C 59,32 41,32 35,36 C 32,37 30,34 32,32 Z" />
-    <!-- Halo Central Pylon -->
-    <path
-        android:fillColor="#00F0FF"
-        android:pathData="M 48.5,26 L 51.5,26 L 52,44 L 48,44 Z" />
-
-    <!-- 5. Monocoque & Nosecone -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M 42,42 L 58,42 L 55,76 C 54,80 46,80 45,76 Z" />
-    <!-- Central Racing Stripe (Racing Red) -->
-    <path
-        android:fillColor="#E10600"
-        android:pathData="M 48,42 L 52,42 L 51.5,77 L 48.5,77 Z" />
-
-    <!-- 6. Ground-Effect Front Wing -->
-    <!-- Main Plane -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M 4,80 L 96,80 C 97,80 98,81 98,82 L 98,87 C 98,88 97,89 96,89 L 4,89 C 3,89 2,88 2,87 L 2,82 C 2,81 3,80 4,80 Z" />
-    <!-- Left Endplate -->
-    <path
-        android:fillColor="#E10600"
-        android:pathData="M 2,72 L 5,72 L 5,89 L 2,89 Z" />
-    <!-- Right Endplate -->
-    <path
-        android:fillColor="#E10600"
-        android:pathData="M 95,72 L 98,72 L 98,89 L 95,89 Z" />
-    <!-- Under-Wing Vortex Splitter -->
-    <path
-        android:fillColor="#00F0FF"
-        android:pathData="M 36,89 L 64,89 L 58,94 L 42,94 Z" />
+        android:pathData="M 88,24 A 6,6 0 1,1 88,12 A 6,6 0 1,1 88,24 Z" />
 </vector>

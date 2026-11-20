@@ -36,6 +36,16 @@ class CircularHubAdapter(
         private val tvHubSubtitle: TextView = itemView.findViewById(R.id.tvHubSubtitle)
         private val tvHubBadge: TextView = itemView.findViewById(R.id.tvHubBadge)
 
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
+
         fun bind(item: CircularHubItem) {
             tvHubIcon.text = item.iconEmoji
             tvHubTitle.text = item.title

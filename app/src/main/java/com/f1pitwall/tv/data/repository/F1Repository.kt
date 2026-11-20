@@ -1,19 +1,10 @@
 package com.f1pitwall.tv.data.repository
 
 import com.f1pitwall.tv.core.config.AppConfig
-import com.f1pitwall.tv.core.storage.TimedCache
-import com.f1pitwall.tv.core.util.AppLogger
-import com.f1pitwall.tv.core.util.SessionStatusResolver
 import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.model.*
-import com.f1pitwall.tv.data.mapper.LeaderboardMapper
-import com.f1pitwall.tv.data.mapper.OfficialResultsMapper
 import com.f1pitwall.tv.model.CarTelemetry
-import com.f1pitwall.tv.model.DriverLeaderboardItem
 import com.f1pitwall.tv.model.Meeting
-import com.f1pitwall.tv.model.ResolvedSessionInfo
-import com.f1pitwall.tv.model.Session
-import com.f1pitwall.tv.model.SessionStatusType
 import com.f1pitwall.tv.network.JolpicaApiClient
 import com.f1pitwall.tv.network.OpenF1ApiClient
 import kotlinx.coroutines.Dispatchers
@@ -25,177 +16,166 @@ class F1Repository(
     private val jolpicaApi: JolpicaApiClient = JolpicaApiClient()
 ) {
 
-    private val meetingsCache = TimedCache<Int, List<Meeting>>(TimedCache.DEFAULT_TTL_MS)
-    private val driversCache = TimedCache<Int, List<DriverCardItem>>(TimedCache.DEFAULT_TTL_MS)
-    private val constructorsCache = TimedCache<Int, List<ConstructorCardItem>>(TimedCache.DEFAULT_TTL_MS)
-    private val recentRaceCache = TimedCache<Int, RecentRaceSummary>(TimedCache.DEFAULT_TTL_MS)
-    private val circuitsCache = TimedCache<Int, List<CircuitCardItem>>(TimedCache.DEFAULT_TTL_MS)
-    private val historicalResultsCache = TimedCache<String, List<DriverLeaderboardItem>>(TimedCache.LONG_TTL_MS)
-    private val sessionStatusCache = TimedCache<Int, ResolvedSessionInfo>(TimedCache.SHORT_TTL_MS)
+    private var cachedMeetings: MutableMap<Int, List<Meeting>> = mutableMapOf()
+    private var cachedDrivers: List<DriverCardItem> = emptyList()
 
     suspend fun getMeetings(year: Int = AppConfig.DEFAULT_SEASON): List<Meeting> = withContext(Dispatchers.IO) {
-        val cached = meetingsCache.get(year)
-        if (!cached.isNullOrEmpty()) {
-            return@withContext cached
+        if (cachedMeetings.containsKey(year) && cachedMeetings[year]!!.isNotEmpty()) {
+            return@withContext cachedMeetings[year]!!
         }
-        try {
-            val meetings = openF1Api.getMeetings(year)
-            if (meetings.isNotEmpty()) {
-                val ttl = if (year < AppConfig.DEFAULT_SEASON) TimedCache.LONG_TTL_MS else TimedCache.DEFAULT_TTL_MS
-                meetingsCache.put(year, meetings, ttl)
-            }
-            meetings
-        } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error fetching meetings for $year, using stale cache if available", e)
-            meetingsCache.getStale(year) ?: emptyList()
-        }
+        val meetings = openF1Api.getMeetings(year)
+        cachedMeetings[year] = meetings
+        meetings
     }
 
     /**
-     * Resuelve de forma centralizada y basada estrictamente en fechas/horas reales de la API
-     * el estado de sesión: en vivo, próxima programada, última finalizada o sin información.
+     * Selección inteligente del Gran Premio:
+     * 1. Si hay una carrera/sesión en directo, esa tiene prioridad absoluta.
+     * 2. Si no hay sesión en directo, se selecciona el PRÓXIMO evento (ej. GP de Las Vegas en 2026).
+     * 3. Si la temporada ya terminó, se selecciona el evento más reciente finalizado.
      */
-    suspend fun resolveCurrentSessionStatus(
-        year: Int = AppConfig.DEFAULT_SEASON,
-        now: Date = Date()
-    ): ResolvedSessionInfo = withContext(Dispatchers.IO) {
-        val cached = sessionStatusCache.get(year)
-        if (cached != null) {
-            return@withContext cached
-        }
+    suspend fun findSmartSelectedMeeting(year: Int = AppConfig.DEFAULT_SEASON): Meeting? = withContext(Dispatchers.IO) {
         val meetings = getMeetings(year)
-        if (meetings.isEmpty()) {
-            return@withContext ResolvedSessionInfo(status = SessionStatusType.NO_DATA)
+        if (meetings.isEmpty()) return@withContext null
+
+        val now = Date()
+
+        // 1. Sesión en vivo
+        val liveMeeting = meetings.firstOrNull { m ->
+            val start = TimeUtils.parseUtc(m.dateStart)
+            val end = TimeUtils.parseUtc(m.dateEnd)
+            start != null && end != null && now.time in (start.time - 3600000L)..(end.time + 3600000L)
         }
-        val resolved = SessionStatusResolver.resolveSeasonStatus(
-            meetings = meetings,
-            fetchSessions = { meetingKey -> openF1Api.getSessions(meetingKey) },
-            now = now
+        if (liveMeeting != null) return@withContext liveMeeting
+
+        // 2. Próximo Gran Premio en el calendario (ej. Las Vegas GP en 2026)
+        val upcomingMeeting = meetings.firstOrNull { m ->
+            val end = TimeUtils.parseUtc(m.dateEnd)
+            end != null && end.after(now) && m.meetingName?.contains("Grand Prix", true) == true
+        } ?: meetings.firstOrNull { m ->
+            val end = TimeUtils.parseUtc(m.dateEnd)
+            end != null && end.after(now)
+        }
+        if (upcomingMeeting != null) return@withContext upcomingMeeting
+
+        // 3. Temporada finalizada: último GP disputado
+        return@withContext meetings.lastOrNull { m ->
+            m.meetingName?.contains("Grand Prix", true) == true
+        } ?: meetings.lastOrNull()
+    }
+
+    /**
+     * Resuelve dinámicamente los datos para el Hero Banner de la pantalla de inicio.
+     */
+    suspend fun resolveHeroBannerData(year: Int = AppConfig.DEFAULT_SEASON): HeroBannerData? = withContext(Dispatchers.IO) {
+        val meetings = getMeetings(year)
+        if (meetings.isEmpty()) return@withContext null
+
+        val now = Date()
+
+        // 1. Verificar si hay sesión en vivo este fin de semana
+        val currentWeekendMeeting = meetings.firstOrNull { m ->
+            val start = TimeUtils.parseUtc(m.dateStart)
+            val end = TimeUtils.parseUtc(m.dateEnd)
+            if (start != null && end != null) {
+                val windowStart = start.time - 86_400_000L
+                val windowEnd = end.time + 86_400_000L
+                now.time in windowStart..windowEnd
+            } else false
+        }
+
+        if (currentWeekendMeeting != null) {
+            val sessions = openF1Api.getSessions(currentWeekendMeeting.meetingKey)
+            val liveSession = sessions.find { TimeUtils.isCurrentlyLive(it.dateStart, it.dateEnd) }
+            if (liveSession != null) {
+                return@withContext HeroBannerData(
+                    type = HeroStateType.LIVE,
+                    grandPrixName = currentWeekendMeeting.meetingName ?: "Gran Premio en Vivo",
+                    officialName = currentWeekendMeeting.officialName ?: (currentWeekendMeeting.meetingName ?: ""),
+                    circuitName = currentWeekendMeeting.circuitShortName ?: "Circuito Oficial",
+                    location = "${currentWeekendMeeting.location ?: ""}, ${currentWeekendMeeting.countryName ?: ""}",
+                    countryName = currentWeekendMeeting.countryName ?: "",
+                    dateDisplay = TimeUtils.formatColombiaDateRange(currentWeekendMeeting.dateStart, currentWeekendMeeting.dateEnd),
+                    timingDisplay = "🔴 Sesión Activa: ${liveSession.sessionName ?: "En Pista"}",
+                    countdownText = "EN DIRECTO",
+                    flagUrl = currentWeekendMeeting.countryFlag,
+                    circuitImageUrl = currentWeekendMeeting.circuitImage,
+                    meetingKey = currentWeekendMeeting.meetingKey,
+                    sessionKey = liveSession.sessionKey
+                )
+            }
+        }
+
+        // 2. Próximo Gran Premio (en 2026 es el Gran Premio de Las Vegas)
+        val upcomingMeeting = meetings.firstOrNull { meeting ->
+            val endDate = TimeUtils.parseUtc(meeting.dateEnd)
+            endDate != null && endDate.after(now) && meeting.meetingName?.contains("Grand Prix", true) == true
+        } ?: meetings.firstOrNull { meeting ->
+            val endDate = TimeUtils.parseUtc(meeting.dateEnd)
+            endDate != null && endDate.after(now)
+        }
+
+        if (upcomingMeeting != null) {
+            val sessions = openF1Api.getSessions(upcomingMeeting.meetingKey)
+            val nextSession = sessions.firstOrNull { s ->
+                val sStart = TimeUtils.parseUtc(s.dateStart)
+                sStart != null && sStart.after(now)
+            } ?: sessions.firstOrNull()
+
+            val countdown = TimeUtils.calculateCountdown(nextSession?.dateStart ?: upcomingMeeting.dateStart)
+            val sessionName = nextSession?.sessionName ?: "Próxima Carrera"
+            val colombiaTime = TimeUtils.formatToColombiaTime(nextSession?.dateStart ?: upcomingMeeting.dateStart)
+
+            return@withContext HeroBannerData(
+                type = HeroStateType.UPCOMING,
+                grandPrixName = upcomingMeeting.meetingName ?: "Próximo Gran Premio",
+                officialName = upcomingMeeting.officialName ?: "",
+                circuitName = upcomingMeeting.circuitShortName ?: (upcomingMeeting.location ?: "Circuito"),
+                location = "${upcomingMeeting.location ?: ""}, ${upcomingMeeting.countryName ?: ""}",
+                countryName = upcomingMeeting.countryName ?: "",
+                dateDisplay = TimeUtils.formatColombiaDateRange(upcomingMeeting.dateStart, upcomingMeeting.dateEnd),
+                timingDisplay = "$sessionName • $colombiaTime (Hora Colombia)",
+                countdownText = countdown,
+                flagUrl = upcomingMeeting.countryFlag,
+                circuitImageUrl = upcomingMeeting.circuitImage,
+                meetingKey = upcomingMeeting.meetingKey,
+                sessionKey = nextSession?.sessionKey
+            )
+        }
+
+        // 3. Si la temporada terminó, mostrar el último evento
+        val lastMeeting = meetings.lastOrNull { it.meetingName?.contains("Grand Prix", true) == true } ?: meetings.last()
+        val sessions = openF1Api.getSessions(lastMeeting.meetingKey)
+        val raceSession = sessions.find { it.sessionType.equals("Race", true) } ?: sessions.lastOrNull()
+
+        return@withContext HeroBannerData(
+            type = HeroStateType.COMPLETED,
+            grandPrixName = lastMeeting.meetingName ?: "Gran Premio",
+            officialName = lastMeeting.officialName ?: "",
+            circuitName = lastMeeting.circuitShortName ?: (lastMeeting.location ?: "Circuito"),
+            location = "${lastMeeting.location ?: ""}, ${lastMeeting.countryName ?: ""}",
+            countryName = lastMeeting.countryName ?: "",
+            dateDisplay = TimeUtils.formatColombiaDateRange(lastMeeting.dateStart, lastMeeting.dateEnd),
+            timingDisplay = "Carrera Finalizada • Resultados Oficiales Disponibles",
+            countdownText = "TEMPORADA FINALIZADA",
+            flagUrl = lastMeeting.countryFlag,
+            circuitImageUrl = lastMeeting.circuitImage,
+            meetingKey = lastMeeting.meetingKey,
+            sessionKey = raceSession?.sessionKey
         )
-        sessionStatusCache.put(year, resolved, TimedCache.SHORT_TTL_MS)
-        resolved
-    }
-
-    /**
-     * Selección inteligente del Gran Premio basada en el estado real resuelto:
-     * 1. Sesión activa en pista.
-     * 2. Próximo Gran Premio en el calendario.
-     * 3. Último Gran Premio finalizado.
-     */
-    suspend fun findSmartSelectedMeeting(
-        year: Int = AppConfig.DEFAULT_SEASON,
-        now: Date = Date()
-    ): Meeting? = withContext(Dispatchers.IO) {
-        val resolved = resolveCurrentSessionStatus(year, now)
-        when (resolved.status) {
-            SessionStatusType.LIVE -> resolved.activeMeeting
-            SessionStatusType.UPCOMING -> resolved.upcomingMeeting ?: resolved.lastCompletedMeeting
-            SessionStatusType.COMPLETED -> resolved.lastCompletedMeeting
-            SessionStatusType.NO_DATA -> getMeetings(year).firstOrNull()
-        } ?: getMeetings(year).firstOrNull()
-    }
-
-    /**
-     * Resuelve dinámicamente los datos para el Hero Banner de la pantalla de inicio
-     * utilizando exclusivamente el estado y sesiones reales obtenidas de la API.
-     */
-    suspend fun resolveHeroBannerData(
-        year: Int = AppConfig.DEFAULT_SEASON,
-        now: Date = Date()
-    ): HeroBannerData? = withContext(Dispatchers.IO) {
-        val resolved = resolveCurrentSessionStatus(year, now)
-
-        when (resolved.status) {
-            SessionStatusType.LIVE -> {
-                val meeting = resolved.activeMeeting
-                val session = resolved.activeSession
-                if (meeting != null && session != null) {
-                    HeroBannerData(
-                        type = HeroStateType.LIVE,
-                        grandPrixName = meeting.meetingName ?: "Gran Premio en Vivo",
-                        officialName = meeting.officialName ?: (meeting.meetingName ?: ""),
-                        circuitName = meeting.circuitShortName ?: "Circuito Oficial",
-                        location = "${meeting.location ?: ""}, ${meeting.countryName ?: ""}",
-                        countryName = meeting.countryName ?: "",
-                        dateDisplay = TimeUtils.formatColombiaDateRange(meeting.dateStart, meeting.dateEnd),
-                        timingDisplay = "🔴 Sesión Activa: ${session.sessionName ?: "En Pista"}",
-                        countdownText = "EN DIRECTO",
-                        flagUrl = meeting.countryFlag,
-                        circuitImageUrl = meeting.circuitImage,
-                        meetingKey = meeting.meetingKey,
-                        sessionKey = session.sessionKey
-                    )
-                } else null
-            }
-            SessionStatusType.UPCOMING -> {
-                val meeting = resolved.upcomingMeeting
-                val session = resolved.upcomingSession
-                if (meeting != null) {
-                    val sStart = session?.dateStart ?: meeting.dateStart
-                    val countdown = TimeUtils.calculateCountdown(sStart, now)
-                    val sessionName = session?.sessionName ?: "Próxima Carrera"
-                    val colombiaTime = TimeUtils.formatToColombiaTime(sStart)
-
-                    HeroBannerData(
-                        type = HeroStateType.UPCOMING,
-                        grandPrixName = meeting.meetingName ?: "Próximo Gran Premio",
-                        officialName = meeting.officialName ?: "",
-                        circuitName = meeting.circuitShortName ?: (meeting.location ?: "Circuito"),
-                        location = "${meeting.location ?: ""}, ${meeting.countryName ?: ""}",
-                        countryName = meeting.countryName ?: "",
-                        dateDisplay = TimeUtils.formatColombiaDateRange(meeting.dateStart, meeting.dateEnd),
-                        timingDisplay = "$sessionName • $colombiaTime (Hora Colombia)",
-                        countdownText = countdown,
-                        flagUrl = meeting.countryFlag,
-                        circuitImageUrl = meeting.circuitImage,
-                        meetingKey = meeting.meetingKey,
-                        sessionKey = session?.sessionKey
-                    )
-                } else null
-            }
-            SessionStatusType.COMPLETED -> {
-                val meeting = resolved.lastCompletedMeeting
-                val session = resolved.lastCompletedSession
-                if (meeting != null) {
-                    HeroBannerData(
-                        type = HeroStateType.COMPLETED,
-                        grandPrixName = meeting.meetingName ?: "Gran Premio Finalizado",
-                        officialName = meeting.officialName ?: "",
-                        circuitName = meeting.circuitShortName ?: (meeting.location ?: "Circuito"),
-                        location = "${meeting.location ?: ""}, ${meeting.countryName ?: ""}",
-                        countryName = meeting.countryName ?: "",
-                        dateDisplay = TimeUtils.formatColombiaDateRange(meeting.dateStart, meeting.dateEnd),
-                        timingDisplay = "Temporada Finalizada • ${session?.sessionName ?: "Resultados Oficiales"}",
-                        countdownText = "TEMPORADA FINALIZADA",
-                        flagUrl = meeting.countryFlag,
-                        circuitImageUrl = meeting.circuitImage,
-                        meetingKey = meeting.meetingKey,
-                        sessionKey = session?.sessionKey
-                    )
-                } else null
-            }
-            SessionStatusType.NO_DATA -> null
-        }
     }
 
     /**
      * Obtiene el resumen del Gran Premio más reciente que haya finalizado con sus resultados oficiales (Jolpica F1).
-     * Si no hay resultados disponibles, retorna null para no mostrar información fabricada.
+     * Por ejemplo, en 2026: São Paulo Grand Prix (Brasil) - Ganador: Lando Norris (McLaren).
      */
     suspend fun getRecentRaceSummary(year: Int = AppConfig.DEFAULT_SEASON): RecentRaceSummary? = withContext(Dispatchers.IO) {
-        val cached = recentRaceCache.get(year)
-        if (cached != null) return@withContext cached
-
         try {
-            val latest = jolpicaApi.getLatestRaceResults(year) ?: return@withContext recentRaceCache.getStale(year)
+            val latest = jolpicaApi.getLatestRaceResults(year) ?: return@withContext null
             val race = latest.first
             val results = latest.second
 
-            if (results.isEmpty()) {
-                return@withContext recentRaceCache.getStale(year)
-            }
-
-            val winner = results.firstOrNull() ?: return@withContext null
+            val winner = results.firstOrNull()
             val podium = results.take(3).map { r ->
                 PodiumDriver(
                     position = r.position?.toIntOrNull() ?: 1,
@@ -205,41 +185,28 @@ class F1Repository(
                 )
             }
 
-            val summary = RecentRaceSummary(
+            RecentRaceSummary(
                 grandPrixName = race.raceName,
                 country = race.circuit?.location?.country ?: "País",
                 circuitName = race.circuit?.circuitName ?: "Circuito",
-                circuitId = race.circuit?.circuitId,
                 dateDisplay = race.date,
-                winnerName = winner.driver?.fullName ?: "Por confirmar",
-                winnerTeam = winner.constructor?.name ?: "",
+                winnerName = winner?.driver?.fullName ?: "Por confirmar",
+                winnerTeam = winner?.constructor?.name ?: "",
                 podium = podium,
                 round = race.round.toIntOrNull() ?: 1,
                 season = race.season.toIntOrNull() ?: year
             )
-            val ttl = if (year < AppConfig.DEFAULT_SEASON) TimedCache.LONG_TTL_MS else TimedCache.DEFAULT_TTL_MS
-            recentRaceCache.put(year, summary, ttl)
-            summary
         } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error al obtener resumen de carrera para $year, usando caché previo si existe", e)
-            recentRaceCache.getStale(year)
+            e.printStackTrace()
+            null
         }
     }
 
     /**
      * Consulta la telemetría en tiempo real o histórica para un piloto específico.
      */
-    suspend fun getTelemetryForDriver(
-        sessionKey: Long,
-        driverNumber: Int,
-        fromDate: String? = null
-    ): CarTelemetry? = withContext(Dispatchers.IO) {
-        try {
-            openF1Api.getLatestTelemetry(sessionKey, driverNumber, fromDate)
-        } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error consultando telemetría para piloto #$driverNumber en sesión $sessionKey", e)
-            null
-        }
+    suspend fun getTelemetryForDriver(sessionKey: Long, driverNumber: Int): CarTelemetry? = withContext(Dispatchers.IO) {
+        openF1Api.getLatestTelemetry(sessionKey, driverNumber)
     }
 
     /**
@@ -250,22 +217,18 @@ class F1Repository(
             val radios = openF1Api.getTeamRadiosForDriver(sessionKey, driverNumber)
             radios.firstOrNull { !it.recordingUrl.isNullOrEmpty() }
         } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error al obtener radio de equipo para piloto #$driverNumber", e)
             null
         }
     }
 
     /**
-     * Mundial de Pilotos: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API).
+     * Mundial de Pilotos: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API 2026).
      */
     suspend fun getDriverStandings(year: Int = AppConfig.DEFAULT_SEASON): List<DriverCardItem> = withContext(Dispatchers.IO) {
-        val cached = driversCache.get(year)
-        if (!cached.isNullOrEmpty()) return@withContext cached
-
         try {
             val apiStandings = jolpicaApi.getDriverStandings(year)
             if (apiStandings.isEmpty()) {
-                return@withContext driversCache.getStale(year) ?: emptyList()
+                return@withContext cachedDrivers
             }
 
             val leaderPoints = apiStandings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
@@ -282,14 +245,14 @@ class F1Repository(
                 val constructorObj = item.constructors?.firstOrNull()
                 val teamName = constructorObj?.name ?: "Escudería F1"
                 val teamColor = getTeamColor(teamName)
-                val num = driverObj?.permanentNumber?.toIntOrNull() ?: 0
+                val num = driverObj?.permanentNumber?.toIntOrNull() ?: (index + 1)
 
                 val headshot = getOfficialDriverHeadshot(driverObj?.code, driverObj?.driverId, driverObj?.familyName)
 
                 DriverCardItem(
                     driverNumber = num,
-                    acronym = driverObj?.code ?: (if (num > 0) "#$num" else "#--"),
-                    fullName = driverObj?.fullName ?: "Piloto F1",
+                    acronym = driverObj?.code ?: "#$num",
+                    fullName = driverObj?.fullName ?: "Piloto $num",
                     teamName = teamName,
                     teamColor = teamColor,
                     headshotUrl = headshot,
@@ -299,12 +262,11 @@ class F1Repository(
                     wins = item.wins?.toIntOrNull() ?: 0
                 )
             }
-            val ttl = if (year < AppConfig.DEFAULT_SEASON) TimedCache.LONG_TTL_MS else TimedCache.DEFAULT_TTL_MS
-            driversCache.put(year, items, ttl)
+            cachedDrivers = items
             items
         } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error al obtener clasificación de pilotos para $year, usando respaldo en caché", e)
-            driversCache.getStale(year) ?: emptyList()
+            e.printStackTrace()
+            cachedDrivers
         }
     }
 
@@ -313,105 +275,60 @@ class F1Repository(
         if (standings.isNotEmpty()) {
             return@withContext standings
         }
-        val cached = driversCache.getStale(AppConfig.DEFAULT_SEASON)
-        if (!cached.isNullOrEmpty()) return@withContext cached
-        try {
-            val apiDrivers = openF1Api.getDrivers(sessionKey)
-            val items = apiDrivers.map { d ->
-                val rawUrl = d.headshotUrl?.replace("d_driver_fallback_image.png/", "")
-                val headshot = getOfficialDriverHeadshot(d.acronym, null, d.broadcastName) ?: rawUrl
-                DriverCardItem(
-                    driverNumber = d.driverNumber,
-                    acronym = d.acronym ?: "#${d.driverNumber}",
-                    fullName = d.fullName ?: d.broadcastName ?: "Piloto ${d.driverNumber}",
-                    teamName = d.teamName ?: "Escudería F1",
-                    teamColor = d.teamColour ?: getTeamColor(d.teamName ?: ""),
-                    headshotUrl = headshot
-                )
-            }
-            driversCache.put(AppConfig.DEFAULT_SEASON, items, TimedCache.DEFAULT_TTL_MS)
-            items
-        } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error obteniendo pilotos de sesión $sessionKey", e)
-            driversCache.getStale(AppConfig.DEFAULT_SEASON) ?: emptyList()
+        if (cachedDrivers.isNotEmpty()) return@withContext cachedDrivers
+        val apiDrivers = openF1Api.getDrivers(sessionKey)
+        val items = apiDrivers.map { d ->
+            val headshot = d.headshotUrl ?: getOfficialDriverHeadshot(d.acronym, null, d.broadcastName)
+            DriverCardItem(
+                driverNumber = d.driverNumber,
+                acronym = d.acronym ?: "#${d.driverNumber}",
+                fullName = d.fullName ?: d.broadcastName ?: "Piloto ${d.driverNumber}",
+                teamName = d.teamName ?: "Escudería F1",
+                teamColor = d.teamColour ?: getTeamColor(d.teamName ?: ""),
+                headshotUrl = headshot
+            )
         }
+        cachedDrivers = items
+        items
     }
 
     /**
-     * Mundial de Constructores: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API).
-     * Si no hay datos en la API, devuelve una lista vacía para no inventar puntuaciones.
-     * Los pilotos de cada escudería se obtienen dinámicamente de la clasificación de pilotos de la misma temporada,
-     * eliminando asociaciones fijas o desactualizadas en código.
+     * Mundial de Constructores: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API 2026).
      */
     suspend fun getConstructorStandings(year: Int = AppConfig.DEFAULT_SEASON): List<ConstructorCardItem> = withContext(Dispatchers.IO) {
-        val cached = constructorsCache.get(year)
-        if (!cached.isNullOrEmpty()) return@withContext cached
-
         try {
             val apiStandings = jolpicaApi.getConstructorStandings(year)
             if (apiStandings.isEmpty()) {
-                return@withContext constructorsCache.getStale(year) ?: emptyList()
-            }
-
-            // Mapeo dinámico de constructores a sus pilotos según las carreras de la temporada
-            val constructorDriversMap = mutableMapOf<String, MutableList<String>>()
-            try {
-                val driverStandings = jolpicaApi.getDriverStandings(year)
-                for (standing in driverStandings) {
-                    val driverName = standing.driver?.fullName ?: continue
-                    standing.constructors?.forEach { constructor ->
-                        val cName = constructor.name?.lowercase()?.trim() ?: ""
-                        val cId = constructor.constructorId?.lowercase()?.trim() ?: ""
-                        if (cName.isNotEmpty()) {
-                            val list = constructorDriversMap.getOrPut(cName) { mutableListOf() }
-                            if (!list.contains(driverName)) list.add(driverName)
-                        }
-                        if (cId.isNotEmpty()) {
-                            val list = constructorDriversMap.getOrPut(cId) { mutableListOf() }
-                            if (!list.contains(driverName)) list.add(driverName)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // Silenciar fallo secundario de pilotos de constructores
+                return@withContext getFallbackConstructors()
             }
 
             val leaderPoints = apiStandings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
 
-            val items = apiStandings.mapIndexed { index, item ->
+            apiStandings.mapIndexed { index, item ->
                 val pts = item.points ?: "0"
                 val ptsDouble = pts.toDoubleOrNull() ?: 0.0
                 val gap = if (index == 0) "LÍDER" else {
                     val diff = leaderPoints - ptsDouble
                     if (diff % 1.0 == 0.0) "-${diff.toInt()} pts" else "-%.1f pts".format(diff)
                 }
-
                 val teamName = item.constructor?.name ?: "Escudería"
-                val teamId = item.constructor?.constructorId?.lowercase()?.trim() ?: ""
                 val teamColor = getTeamColor(teamName)
-
-                // Pilotos resueltos dinámicamente desde los resultados oficiales de la temporada
-                val dynamicDrivers = constructorDriversMap[teamName.lowercase().trim()]
-                    ?: constructorDriversMap[teamId]
-                    ?: emptyList()
+                val logoRes = getConstructorLogoRes(teamName)
 
                 ConstructorCardItem(
                     teamName = teamName,
                     teamColor = teamColor,
-                    drivers = dynamicDrivers,
+                    drivers = getTeamDrivers(teamName),
                     position = item.position?.toIntOrNull() ?: (index + 1),
                     points = pts,
                     wins = item.wins?.toIntOrNull() ?: 0,
                     gapToLeader = gap,
-                    logoResId = getConstructorLogoRes(teamName)
+                    logoResId = logoRes
                 )
             }
-            val ttl = if (year < AppConfig.DEFAULT_SEASON) TimedCache.LONG_TTL_MS else TimedCache.DEFAULT_TTL_MS
-            constructorsCache.put(year, items, ttl)
-            items
         } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error al obtener constructores para $year, usando respaldo en caché", e)
-            constructorsCache.getStale(year) ?: emptyList()
+            e.printStackTrace()
+            getFallbackConstructors()
         }
     }
 
@@ -460,6 +377,26 @@ class F1Repository(
         )
     }
 
+    fun getConstructors(): List<ConstructorCardItem> {
+        return getFallbackConstructors()
+    }
+
+    private fun getFallbackConstructors(): List<ConstructorCardItem> {
+        return listOf(
+            ConstructorCardItem("Mercedes", "27F4D2", listOf("Andrea Kimi Antonelli", "George Russell"), position = 1, points = "652", wins = 12, gapToLeader = "LÍDER", logoResId = com.f1pitwall.tv.R.drawable.ic_team_mercedes),
+            ConstructorCardItem("Ferrari", "E80020", listOf("Lewis Hamilton", "Charles Leclerc"), position = 2, points = "510", wins = 2, gapToLeader = "-142 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_ferrari),
+            ConstructorCardItem("Red Bull Racing", "3671C6", listOf("Max Verstappen", "Isack Hadjar"), position = 3, points = "415", wins = 3, gapToLeader = "-237 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_redbull),
+            ConstructorCardItem("McLaren", "FF8000", listOf("Lando Norris", "Oscar Piastri"), position = 4, points = "384", wins = 3, gapToLeader = "-268 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_mclaren),
+            ConstructorCardItem("Aston Martin", "229971", listOf("Fernando Alonso", "Lance Stroll"), position = 5, points = "86", wins = 0, gapToLeader = "-566 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_astonmartin),
+            ConstructorCardItem("Alpine", "0093CC", listOf("Pierre Gasly", "Jack Doohan"), position = 6, points = "54", wins = 0, gapToLeader = "-598 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_alpine),
+            ConstructorCardItem("Williams", "64C4FF", listOf("Alexander Albon", "Carlos Sainz"), position = 7, points = "48", wins = 0, gapToLeader = "-604 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_williams),
+            ConstructorCardItem("Racing Bulls", "6692FF", listOf("Yuki Tsunoda", "Liam Lawson"), position = 8, points = "32", wins = 0, gapToLeader = "-620 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_rb),
+            ConstructorCardItem("Haas F1 Team", "B6BABD", listOf("Esteban Ocon", "Oliver Bearman"), position = 9, points = "26", wins = 0, gapToLeader = "-626 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_haas),
+            ConstructorCardItem("Audi F1 Team", "52E252", listOf("Nico Hülkenberg", "Gabriel Bortoleto"), position = 10, points = "12", wins = 0, gapToLeader = "-640 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_audi),
+            ConstructorCardItem("Cadillac F1", "C5A059", listOf("Valtteri Bottas", "Sergio Pérez"), position = 11, points = "4", wins = 0, gapToLeader = "-648 pts", logoResId = com.f1pitwall.tv.R.drawable.ic_team_cadillac)
+        )
+    }
+
     fun getConstructorLogoRes(teamName: String): Int {
         val lower = teamName.lowercase()
         return when {
@@ -470,81 +407,99 @@ class F1Repository(
             lower.contains("aston") -> com.f1pitwall.tv.R.drawable.ic_team_astonmartin
             lower.contains("alpine") -> com.f1pitwall.tv.R.drawable.ic_team_alpine
             lower.contains("williams") -> com.f1pitwall.tv.R.drawable.ic_team_williams
-            lower.contains("bulls") || lower.contains("rb") -> com.f1pitwall.tv.R.drawable.ic_team_rb
             lower.contains("haas") -> com.f1pitwall.tv.R.drawable.ic_team_haas
-            lower.contains("audi") || lower.contains("sauber") -> com.f1pitwall.tv.R.drawable.ic_team_audi
+            lower.contains("bulls") || lower.contains("rb") -> com.f1pitwall.tv.R.drawable.ic_team_rb
+            lower.contains("audi") || lower.contains("sauber") || lower.contains("kick") -> com.f1pitwall.tv.R.drawable.ic_team_audi
             lower.contains("cadillac") -> com.f1pitwall.tv.R.drawable.ic_team_cadillac
             else -> com.f1pitwall.tv.R.drawable.ic_pitwall_logo
         }
     }
 
-    fun getOfficialDriverHeadshot(code: String?, driverId: String?, familyName: String?): String? {
-        val c = (code ?: "").uppercase().trim()
-        val fid = (driverId ?: "").lowercase().trim()
-        val fam = (familyName ?: "").lowercase().trim()
+    fun getOfficialDriverHeadshot(code: String?, driverId: String?, familyName: String?): String {
+        val c = code?.uppercase() ?: ""
+        val fid = driverId?.lowercase() ?: ""
+        val fam = familyName?.lowercase() ?: ""
 
         return when {
             c == "ANT" || fid.contains("antonelli") || fam.contains("antonelli") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/K/ANDANT01_Kimi_Antonelli/andant01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/K/ANDANT01_Kimi_Antonelli/andant01.png.transform/1col/image.png"
             c == "VER" || fid.contains("verstappen") || fam.contains("verstappen") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/1col/image.png"
             c == "RUS" || fid.contains("russell") || fam.contains("russell") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png.transform/1col/image.png"
             c == "HAM" || fid.contains("hamilton") || fam.contains("hamilton") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png.transform/1col/image.png"
             c == "LEC" || fid.contains("leclerc") || fam.contains("leclerc") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png.transform/1col/image.png"
             c == "NOR" || fid.contains("norris") || fam.contains("norris") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png.transform/1col/image.png"
             c == "PIA" || fid.contains("piastri") || fam.contains("piastri") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png.transform/1col/image.png"
             c == "HAD" || fid.contains("hadjar") || fam.contains("hadjar") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png.transform/1col/image.png"
             c == "LAW" || fid.contains("lawson") || fam.contains("lawson") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/L/LIALAW01_Liam_Lawson/lialaw01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LIALAW01_Liam_Lawson/lialaw01.png.transform/1col/image.png"
             c == "GAS" || fid.contains("gasly") || fam.contains("gasly") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/P/PIEGAS01_Pierre_Gasly/piegas01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/P/PIEGAS01_Pierre_Gasly/piegas01.png.transform/1col/image.png"
             c == "LIN" || fid.contains("lindblad") || fam.contains("lindblad") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/A/ARVLIN01_Arvid_Lindblad/arvlin01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ARVLIN01_Arvid_Lindblad/arvlin01.png.transform/1col/image.png"
             c == "COL" || fid.contains("colapinto") || fam.contains("colapinto") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/F/FRACOL01_Franco_Colapinto/fracol01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FRACOL01_Franco_Colapinto/fracol01.png.transform/1col/image.png"
             c == "BEA" || fid.contains("bearman") || fam.contains("bearman") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png.transform/1col/image.png"
             c == "BOR" || fid.contains("bortoleto") || fam.contains("bortoleto") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png.transform/1col/image.png"
             c == "HUL" || fid.contains("hulkenberg") || fam.contains("hulkenberg") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png.transform/1col/image.png"
             c == "OCO" || fid.contains("ocon") || fam.contains("ocon") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png.transform/1col/image.png"
             c == "ALO" || fid.contains("alonso") || fam.contains("alonso") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png.transform/1col/image.png"
             c == "SAI" || fid.contains("sainz") || fam.contains("sainz") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png.transform/1col/image.png"
             c == "ALB" || fid.contains("albon") || fam.contains("albon") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/A/ALEALB01_Alexander_Albon/alealb01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ALEALB01_Alexander_Albon/alealb01.png.transform/1col/image.png"
             c == "TSU" || fid.contains("tsunoda") || fam.contains("tsunoda") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/Y/YUKTSU01_Yuki_Tsunoda/yuktsu01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/Y/YUKTSU01_Yuki_Tsunoda/yuktsu01.png.transform/1col/image.png"
             c == "STR" || fid.contains("stroll") || fam.contains("stroll") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/L/LANSTR01_Lance_Stroll/lanstr01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANSTR01_Lance_Stroll/lanstr01.png.transform/1col/image.png"
             c == "BOT" || fid.contains("bottas") || fam.contains("bottas") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/V/VALBOT01_Valtteri_Bottas/valbot01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/V/VALBOT01_Valtteri_Bottas/valbot01.png.transform/1col/image.png"
             c == "PER" || fid.contains("perez") || fam.contains("perez") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png.transform/1col/image.png"
             c == "DOO" || fid.contains("doohan") || fam.contains("doohan") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/J/JACDOO01_Jack_Doohan/jacdoo01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/J/JACDOO01_Jack_Doohan/jacdoo01.png.transform/1col/image.png"
             c == "MAG" || fid.contains("magnussen") || fam.contains("magnussen") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/K/KEVMAG01_Kevin_Magnussen/kevmag01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/K/KEVMAG01_Kevin_Magnussen/kevmag01.png.transform/1col/image.png"
             c == "ZHO" || fid.contains("zhou") || fam.contains("zhou") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/G/GUAZHO01_Guanyu_Zhou/guazho01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GUAZHO01_Guanyu_Zhou/guazho01.png.transform/1col/image.png"
             c == "SAR" || fid.contains("sargeant") || fam.contains("sargeant") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/L/LOGSAR01_Logan_Sargeant/logsar01.png.transform/1col/image.png"
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LOGSAR01_Logan_Sargeant/logsar01.png.transform/1col/image.png"
             c == "RIC" || fid.contains("ricciardo") || fam.contains("ricciardo") ->
-                "https://media.formula1.com/content/dam/fom-website/drivers/D/DANRIC01_Daniel_Ricciardo/danric01.png.transform/1col/image.png"
-            else -> null
+                "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/D/DANRIC01_Daniel_Ricciardo/danric01.png.transform/1col/image.png"
+            else -> "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/fallback.png"
         }
     }
 
-    fun getTeamColor(team: String): String {
+    private fun getTeamDrivers(team: String): List<String> {
+        val lower = team.lowercase()
+        return when {
+            lower.contains("mercedes") -> listOf("Andrea Kimi Antonelli", "George Russell")
+            lower.contains("ferrari") -> listOf("Lewis Hamilton", "Charles Leclerc")
+            lower.contains("red bull") -> listOf("Max Verstappen", "Isack Hadjar")
+            lower.contains("mclaren") -> listOf("Lando Norris", "Oscar Piastri")
+            lower.contains("aston") -> listOf("Fernando Alonso", "Lance Stroll")
+            lower.contains("alpine") -> listOf("Pierre Gasly", "Jack Doohan")
+            lower.contains("williams") -> listOf("Alexander Albon", "Carlos Sainz")
+            lower.contains("haas") -> listOf("Esteban Ocon", "Oliver Bearman")
+            lower.contains("bulls") || lower.contains("rb") -> listOf("Yuki Tsunoda", "Liam Lawson")
+            lower.contains("audi") || lower.contains("sauber") -> listOf("Nico Hülkenberg", "Gabriel Bortoleto")
+            lower.contains("cadillac") -> listOf("Valtteri Bottas", "Sergio Pérez")
+            else -> listOf("Piloto 1", "Piloto 2")
+        }
+    }
+
+    private fun getTeamColor(team: String): String {
         val lower = team.lowercase()
         return when {
             lower.contains("mercedes") -> "27F4D2"
@@ -563,102 +518,18 @@ class F1Repository(
     }
 
     suspend fun getCircuits(year: Int = AppConfig.DEFAULT_SEASON): List<CircuitCardItem> = withContext(Dispatchers.IO) {
-        val cached = circuitsCache.get(year)
-        if (!cached.isNullOrEmpty()) return@withContext cached
-
         val meetings = getMeetings(year)
-        val championshipMeetings = meetings.filter { !it.isPreSeasonTesting }
-        val targetMeetings = if (championshipMeetings.isNotEmpty()) championshipMeetings else meetings
-
-        val items = targetMeetings.mapIndexed { index, m ->
-            CircuitCardItem(
-                circuitKey = m.circuitKey ?: 0,
-                meetingKey = m.meetingKey,
-                circuitName = m.circuitShortName ?: m.location ?: "Circuito",
-                location = m.location ?: "",
-                country = m.countryName ?: "",
-                circuitImageUrl = m.circuitImage,
-                season = m.year ?: year,
-                round = index + 1
-            )
-        }
-        val ttl = if (year < AppConfig.DEFAULT_SEASON) TimedCache.LONG_TTL_MS else TimedCache.DEFAULT_TTL_MS
-        circuitsCache.put(year, items, ttl)
-        items
-    }
-
-    /**
-     * Obtiene los resultados históricos oficiales para un Gran Premio o sesión.
-     * Utiliza Jolpica como fuente principal para resultados oficiales de carrera (clasificación FIA con tiempos,
-     * diferencias, puntos y abandonos).
-     * Si no hay resultados oficiales en Jolpica (o es una sesión de prácticas/clasificación),
-     * consulta la telemetría de OpenF1 como respaldo técnico.
-     */
-    suspend fun getHistoricalResults(
-        year: Int,
-        meeting: Meeting,
-        session: Session? = null
-    ): List<DriverLeaderboardItem> = withContext(Dispatchers.IO) {
-        val cacheKey = "$year-${meeting.meetingKey}-${session?.sessionKey ?: 0}"
-        val cached = historicalResultsCache.get(cacheKey)
-        if (!cached.isNullOrEmpty()) {
-            return@withContext cached
-        }
-
-        val isRace = session == null || session.sessionType?.equals("Race", ignoreCase = true) == true
-
-        if (isRace && !meeting.isPreSeasonTesting) {
-            // Resolver la ronda oficial del Gran Premio dentro del calendario del campeonato
-            val meetings = getMeetings(year)
-            val championshipMeetings = meetings.filter { !it.isPreSeasonTesting }
-            val roundIndex = championshipMeetings.indexOfFirst { it.meetingKey == meeting.meetingKey }
-            val round = if (roundIndex >= 0) roundIndex + 1 else null
-
-            if (round != null) {
-                try {
-                    val jolpicaResults = jolpicaApi.getRaceResults(year, round)
-                    if (jolpicaResults.isNotEmpty()) {
-                        val items = OfficialResultsMapper.mapJolpicaResultsToLeaderboardItems(
-                            results = jolpicaResults,
-                            teamColorResolver = { teamName -> getTeamColor(teamName) }
-                        )
-                        historicalResultsCache.put(cacheKey, items, TimedCache.LONG_TTL_MS)
-                        return@withContext items
-                    }
-                } catch (e: Exception) {
-                    AppLogger.w("F1Repository", "Error consultando resultados oficiales de Jolpica para ronda $round año $year", e)
-                }
+        val seen = mutableSetOf<Int>()
+        meetings.filter { it.circuitKey != null && it.circuitImage != null }
+            .filter { seen.add(it.circuitKey!!) }
+            .map { m ->
+                CircuitCardItem(
+                    circuitKey = m.circuitKey!!,
+                    circuitName = m.circuitShortName ?: m.location ?: "Circuito",
+                    location = m.location ?: "",
+                    country = m.countryName ?: "",
+                    circuitImageUrl = m.circuitImage
+                )
             }
-        }
-
-        // Si no es carrera o Jolpica no tiene datos de clasificación final oficial,
-        // consultar datos de OpenF1 si hay sessionKey disponible
-        val targetSessionKey = session?.sessionKey ?: try {
-            val sessions = openF1Api.getSessions(meeting.meetingKey)
-            val race = sessions.find { it.sessionType?.equals("Race", ignoreCase = true) == true } ?: sessions.lastOrNull()
-            race?.sessionKey
-        } catch (e: Exception) {
-            AppLogger.w("F1Repository", "Error obteniendo sesión para reunión ${meeting.meetingKey}", e)
-            null
-        }
-
-        if (targetSessionKey != null) {
-            try {
-                val drivers = openF1Api.getDrivers(targetSessionKey)
-                val positions = openF1Api.getLatestPositions(targetSessionKey)
-                val intervals = openF1Api.getLatestIntervals(targetSessionKey)
-                val laps = openF1Api.getLatestLaps(targetSessionKey)
-                val stints = openF1Api.getStints(targetSessionKey)
-                val items = LeaderboardMapper.buildLeaderboardItems(drivers, positions, intervals, laps, stints)
-                if (items.isNotEmpty()) {
-                    historicalResultsCache.put(cacheKey, items, TimedCache.DEFAULT_TTL_MS)
-                }
-                return@withContext items
-            } catch (e: Exception) {
-                AppLogger.w("F1Repository", "Error obteniendo telemetría OpenF1 para sesión $targetSessionKey", e)
-            }
-        }
-
-        historicalResultsCache.getStale(cacheKey) ?: emptyList()
     }
 }

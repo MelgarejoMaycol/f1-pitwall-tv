@@ -1,552 +1,448 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/scrollHome"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_tv_gradient"
-    android:clipChildren="false"
     android:clipToPadding="false"
     android:descendantFocusability="afterDescendants"
     android:fillViewport="true"
-    android:paddingBottom="56dp">
+    android:paddingBottom="48dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
         android:orientation="vertical">
 
         <!-- ============================================== -->
-        <!-- 1. HERO PRINCIPAL: GRAN PREMIO DOMINANTE       -->
+        <!-- 1. HERO PRINCIPAL: COCKPIT CINEMATOGRÁFICO LIQUID GLASS -->
         <!-- ============================================== -->
-        <androidx.cardview.widget.CardView
+        <FrameLayout
             android:id="@+id/cardHero"
             android:layout_width="match_parent"
-            android:layout_height="290dp"
-            android:layout_marginHorizontal="14dp"
+            android:layout_height="275dp"
+            android:layout_marginHorizontal="10dp"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="10dp"
-            app:cardBackgroundColor="#0B111C"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="8dp">
+            android:background="@drawable/bg_hero_cinematic"
+            android:focusable="false">
 
-            <FrameLayout
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="32dp"
+                android:paddingVertical="18dp">
 
-                <!-- Cinematic Ambient Backdrop -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/bg_hero_cinematic" />
-
+                <!-- Left: Metadata & Contextual Liquid Glass Action Buttons -->
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="36dp"
-                    android:paddingVertical="20dp">
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
-                    <!-- Left: Metadata & Contextual Action Buttons (65% width) -->
+                    <!-- Status Badge + Countdown (Floating Glass Capsule) -->
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:background="@drawable/bg_glass_hud_badge"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp">
 
-                        <!-- Eyebrow & Status Badge Row -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:id="@+id/tvHeroStateBadge"
-                                android:layout_width="wrap_content"
-                                android:layout_height="26dp"
-                                android:background="#2563EB"
-                                android:gravity="center"
-                                android:paddingHorizontal="12dp"
-                                android:text=""
-                                tools:text="⏳ PRÓXIMO GRAN PREMIO"
-                                android:textColor="#FFFFFF"
-                                android:textSize="11sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvHeroCountdown"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="12dp"
-                                android:text=""
-                                tools:text="En 2 días"
-                                android:textColor="@color/neon_cyan"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <!-- Grand Prix Main Title -->
                         <TextView
-                            android:id="@+id/tvHeroTitle"
+                            android:id="@+id/tvHeroStateBadge"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text=""
-                            tools:text="Gran Premio de Las Vegas"
-                            android:textColor="@color/text_primary"
-                            android:textSize="28sp"
+                            android:text="⏳ PRÓXIMO GRAN PREMIO"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
 
-                        <!-- Subtitle: Circuit & Location -->
-                        <TextView
-                            android:id="@+id/tvHeroSubtitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:text=""
-                            tools:text="Las Vegas Strip Circuit • Nevada, Estados Unidos"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="14sp" />
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="12dp"
+                            android:layout_marginHorizontal="10dp"
+                            android:background="#40FFFFFF" />
 
-                        <!-- Local Colombia Time Chip -->
                         <TextView
-                            android:id="@+id/tvHeroColombiaTime"
+                            android:id="@+id/tvHeroCountdown"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:background="#50121C2B"
-                            android:paddingHorizontal="10dp"
-                            android:paddingVertical="3dp"
-                            android:text=""
-                            tools:text="📅 Próxima Sesión • Hora Colombia (GMT-5)"
-                            android:textColor="@color/neon_cyan"
-                            android:textSize="12sp"
+                            android:text="En 2 días"
+                            android:textColor="#00F0FF"
+                            android:textSize="12.5sp"
                             android:textStyle="bold" />
-
-                        <!-- Action Buttons Row (Unified single primary action + pitwall access) -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="18dp"
-                            android:orientation="horizontal">
-
-                            <!-- Primary Action Button: Consultar detalles y horarios del GP -->
-                            <Button
-                                android:id="@+id/btnHeroViewGp"
-                                android:layout_width="wrap_content"
-                                android:layout_height="44dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:paddingHorizontal="20dp"
-                                android:text="📅 Ver Detalles y Horarios"
-                                android:textColor="@color/text_primary"
-                                android:textSize="13sp"
-                                android:textStyle="bold"
-                                android:stateListAnimator="@animator/tv_card_elevation" />
-
-                            <!-- Secondary Action Button: Muro de Pits -->
-                            <Button
-                                android:id="@+id/btnHeroWatchLive"
-                                android:layout_width="wrap_content"
-                                android:layout_height="44dp"
-                                android:layout_marginStart="14dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:paddingHorizontal="18dp"
-                                android:text="🏎️ Muro de Pits"
-                                android:textColor="@color/text_primary"
-                                android:textSize="13sp"
-                                android:stateListAnimator="@animator/tv_card_elevation" />
-
-                            <!-- Hidden reference button for programmatic compatibility -->
-                            <Button
-                                android:id="@+id/btnHeroResults"
-                                android:layout_width="0dp"
-                                android:layout_height="0dp"
-                                android:visibility="gone" />
-                        </LinearLayout>
                     </LinearLayout>
 
-                    <!-- Right Visuals: Circuit Map + National Flag (35% width) -->
+                    <!-- Grand Prix Title -->
+                    <TextView
+                        android:id="@+id/tvHeroTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="FORMULA 1 HEINEKEN SILVER LAS VEGAS GRAND PRIX 2026"
+                        android:textColor="@color/text_primary"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <!-- Subtitle: Circuit & Location -->
+                    <TextView
+                        android:id="@+id/tvHeroSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="Las Vegas Strip Circuit • Nevada, Estados Unidos"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp" />
+
+                    <!-- Local Colombia Time HUD Pill -->
+                    <TextView
+                        android:id="@+id/tvHeroColombiaTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_glass_hud_badge"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="📅 Próxima Sesión • Hora Colombia (GMT-5)"
+                        android:textColor="#FF2A24"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <!-- Action Buttons Row (Floating Liquid Glass Pills) -->
                     <LinearLayout
-                        android:layout_width="240dp"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:orientation="vertical">
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="horizontal">
 
-                        <ImageView
-                            android:id="@+id/ivHeroFlag"
-                            android:layout_width="60dp"
-                            android:layout_height="36dp"
-                            android:layout_marginBottom="10dp"
-                            android:scaleType="fitCenter" />
+                        <Button
+                            android:id="@+id/btnHeroWatchLive"
+                            android:layout_width="wrap_content"
+                            android:layout_height="42dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="18dp"
+                            android:text="🏎️ Muro de Pits &amp; Previa"
+                            android:textColor="@color/text_primary"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
 
-                        <ImageView
-                            android:id="@+id/ivHeroCircuitMap"
-                            android:layout_width="220dp"
-                            android:layout_height="150dp"
-                            android:background="#151E2E"
-                            android:padding="10dp"
-                            android:scaleType="fitCenter" />
+                        <Button
+                            android:id="@+id/btnHeroViewGp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="42dp"
+                            android:layout_marginStart="12dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="16dp"
+                            android:text="📅 Horarios y Circuito"
+                            android:textColor="@color/text_primary"
+                            android:textSize="13sp" />
+
+                        <Button
+                            android:id="@+id/btnHeroResults"
+                            android:layout_width="wrap_content"
+                            android:layout_height="42dp"
+                            android:layout_marginStart="12dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="16dp"
+                            android:text="📊 Resultados São Paulo"
+                            android:textColor="@color/text_primary"
+                            android:textSize="13sp" />
                     </LinearLayout>
                 </LinearLayout>
-            </FrameLayout>
-        </androidx.cardview.widget.CardView>
+
+                <!-- Right Visuals: Holographic Circuit Map + National Flag -->
+                <LinearLayout
+                    android:layout_width="220dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/ivHeroFlag"
+                        android:layout_width="54dp"
+                        android:layout_height="34dp"
+                        android:layout_marginBottom="8dp"
+                        android:background="@drawable/bg_glass_hud_badge"
+                        android:padding="2dp"
+                        android:scaleType="fitCenter"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/ivHeroCircuitMap"
+                        android:layout_width="200dp"
+                        android:layout_height="145dp"
+                        android:background="@drawable/bg_glass_hud_badge"
+                        android:padding="8dp"
+                        android:scaleType="fitCenter"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
 
         <!-- ============================================== -->
-        <!-- 2. ÚLTIMA CARRERA: RESULTADOS & PODIO OFICIAL  -->
+        <!-- 2. RESULTADOS OFICIALES: PODIO FLOATING GLASS (GP SÃO PAULO) -->
         <!-- ============================================== -->
-        <androidx.cardview.widget.CardView
+        <LinearLayout
             android:id="@+id/cardRecentResults"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="14dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="14dp"
-            app:cardBackgroundColor="#0F1624"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="4dp">
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/card_focus_selector"
+            android:focusable="false"
+            android:orientation="vertical"
+            android:padding="16dp">
 
+            <!-- Header Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="18dp">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-                <!-- Header Row: Category Badge + Date + Action -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/tvRecentResultsBadge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="24dp"
-                        android:background="#15803D"
-                        android:gravity="center"
-                        android:paddingHorizontal="10dp"
-                        android:text="🏁 ÚLTIMO GP FINALIZADO"
-                        android:textColor="#FFFFFF"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvRecentResultsDate"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:text=""
-                        tools:text="Fecha oficial: 8 de noviembre de 2026"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <Button
-                        android:id="@+id/btnViewFullResults"
-                        android:layout_width="wrap_content"
-                        android:layout_height="36dp"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:paddingHorizontal="16dp"
-                        android:text="📊 Ver Clasificación Oficial"
-                        android:textColor="@color/text_primary"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold"
-                        android:stateListAnimator="@animator/tv_card_elevation" />
-                </LinearLayout>
-
-                <!-- Race Title & Circuit -->
                 <TextView
-                    android:id="@+id/tvRecentResultsGpTitle"
+                    android:id="@+id/tvRecentResultsBadge"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="Último Gran Premio Finalizado"
-                    tools:text="Grande Prêmio de São Paulo 2026"
-                    android:textColor="@color/text_primary"
-                    android:textSize="21sp"
+                    android:layout_height="24dp"
+                    android:background="@drawable/bg_glass_hud_badge"
+                    android:gravity="center"
+                    android:paddingHorizontal="10dp"
+                    android:text="🏁 ÚLTIMO GP FINALIZADO"
+                    android:textColor="#10B981"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tvRecentResultsCircuit"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tvRecentResultsDate"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text=""
-                    tools:text="Autódromo José Carlos Pace (Interlagos) • São Paulo, Brasil"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="Fecha oficial: 8 de noviembre de 2026"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
 
-                <!-- Official Podium Cards Row -->
+                <Button
+                    android:id="@+id/btnViewFullResults"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="14dp"
+                    android:text="📊 Ver Clasificación Oficial"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Race Title & Circuit -->
+            <TextView
+                android:id="@+id/tvRecentResultsGpTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Grande Prêmio de São Paulo 2026"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRecentResultsCircuit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Autódromo José Carlos Pace (Interlagos) • São Paulo, Brasil"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+            <!-- Official Podium Glass Pedestals Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <!-- P1 Winner (Gold Glass Pedestal) -->
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal">
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_glass_hud_badge"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="10dp">
 
-                    <!-- P1 Winner -->
-                    <LinearLayout
-                        android:layout_width="0dp"
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:background="#151E2E"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
+                        android:text="🥇"
+                        android:textSize="22sp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvPodium1Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="🥇"
-                            android:textSize="24sp" />
+                            android:text="Lando Norris"
+                            android:textColor="#FF8000"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
-                        <LinearLayout
+                        <TextView
+                            android:id="@+id/tvPodium1Team"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvPodium1Name"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="-"
-                                tools:text="Lando Norris"
-                                android:textColor="#FF9500"
-                                android:textSize="14.5sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvPodium1Team"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text=""
-                                tools:text="McLaren • Ganador (25 pts)"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="11.5sp" />
-                        </LinearLayout>
+                            android:text="McLaren • Ganador (25 pts) 🏆"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
                     </LinearLayout>
+                </LinearLayout>
 
-                    <!-- P2 -->
-                    <LinearLayout
-                        android:layout_width="0dp"
+                <!-- P2 (Silver / Cyan Glass Pedestal) -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_glass_hud_badge"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:layout_weight="1"
-                        android:background="#151E2E"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
+                        android:text="🥈"
+                        android:textSize="22sp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvPodium2Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="🥈"
-                            android:textSize="24sp" />
+                            android:text="Max Verstappen"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
-                        <LinearLayout
+                        <TextView
+                            android:id="@+id/tvPodium2Team"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvPodium2Name"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="-"
-                                tools:text="Max Verstappen"
-                                android:textColor="@color/text_primary"
-                                android:textSize="14.5sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvPodium2Team"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text=""
-                                tools:text="Red Bull Racing • 2º (18 pts)"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="11.5sp" />
-                        </LinearLayout>
+                            android:text="Red Bull Racing • 2º (18 pts)"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
                     </LinearLayout>
+                </LinearLayout>
 
-                    <!-- P3 -->
-                    <LinearLayout
-                        android:layout_width="0dp"
+                <!-- P3 (Bronze / Violet Glass Pedestal) -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_glass_hud_badge"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:layout_weight="1"
-                        android:background="#151E2E"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
+                        android:text="🥉"
+                        android:textSize="22sp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvPodium3Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="🥉"
-                            android:textSize="24sp" />
+                            android:text="Isack Hadjar"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
-                        <LinearLayout
+                        <TextView
+                            android:id="@+id/tvPodium3Team"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvPodium3Name"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="-"
-                                tools:text="Isack Hadjar"
-                                android:textColor="@color/text_primary"
-                                android:textSize="14.5sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvPodium3Team"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text=""
-                                tools:text="Red Bull Racing • 3º (15 pts)"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="11.5sp" />
-                        </LinearLayout>
+                            android:text="Red Bull Racing • 3º (15 pts)"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </LinearLayout>
 
         <!-- ============================================== -->
-        <!-- 3. TEMPORADA: MUNDIAL DE PILOTOS              -->
+        <!-- 3. ACCESOS DE NAVEGACIÓN Y CATEGORÍAS         -->
         <!-- ============================================== -->
         <LinearLayout
-            android:id="@+id/sectionDrivers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="8dp"
+                android:text="EXPLORAR PLATAFORMA"
+                android:textColor="#00F0FF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
+                android:id="@+id/rvCircularHubs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:descendantFocusability="afterDescendants"
+                android:focusable="false"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 4. CARRUSEL: GRANDES PREMIOS DE LA TEMPORADA  -->
+        <!-- ============================================== -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:clipChildren="false"
-            android:clipToPadding="false"
             android:orientation="vertical"
-            android:paddingHorizontal="14dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:layout_weight="1"
-                    android:text="🏆 CAMPEONATO MUNDIAL DE PILOTOS 2026"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvDriversSectionSubtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="8dp"
-                    android:text="Clasificación Oficial"
-                    tools:text="Líder: A. Kimi Antonelli (390 pts) • Orden Oficial"
-                    android:textColor="@color/neon_cyan"
-                    android:textSize="11.5sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvCarouselDrivers"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:descendantFocusability="afterDescendants"
-                android:focusable="false"
-                android:orientation="horizontal" />
-        </LinearLayout>
-
-        <!-- ============================================== -->
-        <!-- 4. TEMPORADA: MUNDIAL DE CONSTRUCTORES        -->
-        <!-- ============================================== -->
-        <LinearLayout
-            android:id="@+id/sectionConstructors"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:orientation="vertical"
-            android:paddingHorizontal="14dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:layout_weight="1"
-                    android:text="🛠️ CAMPEONATO MUNDIAL DE CONSTRUCTORES 2026"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvConstructorsSectionSubtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="8dp"
-                    android:text="Clasificación Oficial"
-                    tools:text="Líder: Mercedes (652 pts) • Orden Oficial"
-                    android:textColor="#27F4D2"
-                    android:textSize="11.5sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvCarouselConstructors"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:descendantFocusability="afterDescendants"
-                android:focusable="false"
-                android:orientation="horizontal" />
-        </LinearLayout>
-
-        <!-- ============================================== -->
-        <!-- 5. EXPLORAR: CALENDARIO DE GRANDES PREMIOS     -->
-        <!-- ============================================== -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:orientation="vertical"
-            android:paddingHorizontal="14dp">
+            android:paddingHorizontal="12dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -561,24 +457,23 @@
                     android:layout_weight="1"
                     android:text="🏁 GRANDES PREMIOS DE LA TEMPORADA 2026"
                     android:textColor="@color/text_primary"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="8dp"
-                    android:text="← Temporada Oficial F1 →"
+                    android:text="← Pasadas | Siguiente: Las Vegas | Próximas →"
                     android:textColor="@color/text_secondary"
-                    android:textSize="11.5sp" />
+                    android:textSize="11sp" />
             </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCarouselGp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:clipChildren="false"
                 android:clipToPadding="false"
                 android:descendantFocusability="afterDescendants"
                 android:focusable="false"
@@ -586,32 +481,125 @@
         </LinearLayout>
 
         <!-- ============================================== -->
-        <!-- 6. EXPLORAR: CIRCUITOS Y TRAZADOS DEL MUNDIAL  -->
+        <!-- 5. CARRUSEL: MUNDIAL DE PILOTOS (FOTOS HERO)  -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:id="@+id/sectionDrivers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="🏆 CAMPEONATO MUNDIAL DE PILOTOS 2026"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="Líder: A. Kimi Antonelli (390 pts) • Orden Oficial"
+                    android:textColor="#00F0FF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
+                android:id="@+id/rvCarouselDrivers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:clipToPadding="false"
+                android:descendantFocusability="afterDescendants"
+                android:focusable="false"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 6. CARRUSEL: MUNDIAL DE CONSTRUCTORES         -->
+        <!-- ============================================== -->
+        <LinearLayout
+            android:id="@+id/sectionConstructors"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="🛠️ CAMPEONATO MUNDIAL DE CONSTRUCTORES 2026"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="Líder: Mercedes (652 pts) • Orden Oficial"
+                    android:textColor="#27F4D2"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
+                android:id="@+id/rvCarouselConstructors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:clipToPadding="false"
+                android:descendantFocusability="afterDescendants"
+                android:focusable="false"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <!-- ============================================== -->
+        <!-- 7. CARRUSEL: CIRCUITOS DEL MUNDIAL            -->
         <!-- ============================================== -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:clipChildren="false"
-            android:clipToPadding="false"
+            android:layout_marginTop="20dp"
             android:orientation="vertical"
-            android:paddingHorizontal="14dp">
+            android:paddingHorizontal="12dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="6dp"
                 android:text="🗺️ CIRCUITOS Y TRAZADOS OFICIALES"
                 android:textColor="@color/text_primary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.f1pitwall.tv.ui.common.TvHorizontalRecyclerView
                 android:id="@+id/rvCarouselCircuits"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:clipChildren="false"
                 android:clipToPadding="false"
                 android:descendantFocusability="afterDescendants"
                 android:focusable="false"

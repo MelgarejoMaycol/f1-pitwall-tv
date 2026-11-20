@@ -61,6 +61,4 @@ dependencies {
 
     // Image loading for F1 circuit maps & flags
     implementation 'io.coil-kt:coil:2.6.0'
-
-    testImplementation 'junit:junit:4.13.2'
 }

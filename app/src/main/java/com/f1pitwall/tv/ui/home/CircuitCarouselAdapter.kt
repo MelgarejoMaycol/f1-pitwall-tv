@@ -1,7 +1,5 @@
 package com.f1pitwall.tv.ui.home
 
-import android.graphics.Color
-import android.graphics.PorterDuff
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,14 +11,12 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.model.CircuitCardItem
 
 class CircuitCarouselAdapter(
-    private var itemsList: List<CircuitCardItem> = emptyList(),
+    private var items: List<CircuitCardItem> = emptyList(),
     private val onCircuitClick: (CircuitCardItem) -> Unit
 ) : RecyclerView.Adapter<CircuitCarouselAdapter.ViewHolder>() {
 
-    val items: List<CircuitCardItem> get() = itemsList
-
     fun updateData(newItems: List<CircuitCardItem>) {
-        itemsList = newItems
+        items = newItems
         notifyDataSetChanged()
     }
 
@@ -31,29 +27,34 @@ class CircuitCarouselAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(itemsList[position])
+        holder.bind(items[position])
     }
 
-    override fun getItemCount(): Int = itemsList.size
+    override fun getItemCount(): Int = items.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivCircuitSilhouette: ImageView = itemView.findViewById(R.id.ivCircuitSilhouette)
         private val tvCircuitCardName: TextView = itemView.findViewById(R.id.tvCircuitCardName)
         private val tvCircuitCardLocation: TextView = itemView.findViewById(R.id.tvCircuitCardLocation)
 
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
+
         fun bind(circuit: CircuitCardItem) {
             tvCircuitCardName.text = circuit.circuitName
             tvCircuitCardLocation.text = "${circuit.location} • ${circuit.country}"
-
-            // Force all circuit silhouettes to be pure white for high contrast on dark glass cards
-            ivCircuitSilhouette.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
 
             if (!circuit.circuitImageUrl.isNullOrEmpty()) {
                 ivCircuitSilhouette.load(circuit.circuitImageUrl) {
                     crossfade(true)
                 }
-            } else {
-                ivCircuitSilhouette.setImageDrawable(null)
             }
 
             itemView.setOnClickListener {

@@ -12,14 +12,12 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.model.DriverCardItem
 
 class DriverCarouselAdapter(
-    private var itemsList: List<DriverCardItem> = emptyList(),
+    private var items: List<DriverCardItem> = emptyList(),
     private val onDriverClick: (DriverCardItem) -> Unit
 ) : RecyclerView.Adapter<DriverCarouselAdapter.ViewHolder>() {
 
-    val items: List<DriverCardItem> get() = itemsList
-
     fun updateData(newItems: List<DriverCardItem>) {
-        itemsList = newItems
+        items = newItems
         notifyDataSetChanged()
     }
 
@@ -30,10 +28,10 @@ class DriverCarouselAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(itemsList[position], position)
+        holder.bind(items[position], position)
     }
 
-    override fun getItemCount(): Int = itemsList.size
+    override fun getItemCount(): Int = items.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvDriverRank: TextView = itemView.findViewById(R.id.tvDriverRank)
@@ -43,6 +41,16 @@ class DriverCarouselAdapter(
         private val viewDriverTeamColor: View = itemView.findViewById(R.id.viewDriverTeamColor)
         private val tvDriverName: TextView = itemView.findViewById(R.id.tvDriverName)
         private val tvDriverTeam: TextView = itemView.findViewById(R.id.tvDriverTeam)
+
+        init {
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(8f).setDuration(160).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start()
+                }
+            }
+        }
 
         fun bind(driver: DriverCardItem, position: Int) {
             val rankPos = if (driver.position > 0) driver.position else (position + 1)

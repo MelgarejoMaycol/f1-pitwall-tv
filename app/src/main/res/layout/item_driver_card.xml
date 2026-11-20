@@ -1,93 +1,96 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="175dp"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="185dp"
     android:layout_height="225dp"
-    android:layout_marginHorizontal="7dp"
-    android:layout_marginVertical="8dp"
+    android:layout_marginHorizontal="6dp"
+    android:layout_marginVertical="6dp"
     android:background="@drawable/card_focus_selector"
     android:clickable="true"
-    android:focusable="true"
-    android:orientation="vertical"
-    android:padding="10dp"
-    android:stateListAnimator="@animator/tv_card_elevation">
+    android:focusable="true">
 
-    <!-- Top HUD Row: Rank & Points + Gap Badge -->
-    <LinearLayout
+    <!-- 1. Driver Photo (Hero of the Card) -->
+    <ImageView
+        android:id="@+id/ivDriverPhoto"
         android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="16dp"
+        android:paddingHorizontal="4dp"
+        android:scaleType="fitCenter" />
+
+    <!-- 2. Dark Glass Gradient Vignette (Smoothly blends driver into lower glass pedestal) -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="110dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_driver_glass_fade" />
+
+    <!-- 3. Top-Left Floating Glass HUD Pill (Rank + Points) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="8dp"
+        android:background="@drawable/bg_glass_hud_badge"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="3dp">
 
         <TextView
             android:id="@+id/tvDriverRank"
             android:layout_width="wrap_content"
-            android:layout_height="22dp"
-            android:background="#202A3C"
-            android:gravity="center"
-            android:paddingHorizontal="7dp"
-            android:text=""
-            tools:text="1º"
-            android:textColor="#FFD700"
+            android:layout_height="wrap_content"
+            android:text="1º"
+            android:textColor="#FFB800"
             android:textSize="12sp"
             android:textStyle="bold" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="10dp"
+            android:layout_marginHorizontal="6dp"
+            android:background="#40FFFFFF" />
 
         <TextView
             android:id="@+id/tvDriverPoints"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text=""
-            tools:text="390 pts"
-            android:textColor="@color/neon_cyan"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
-        <TextView
-            android:id="@+id/tvDriverGap"
-            android:layout_width="wrap_content"
-            android:layout_height="20dp"
-            android:background="#152130"
-            android:gravity="center"
-            android:paddingHorizontal="6dp"
-            android:text=""
-            tools:text="LÍDER"
-            android:textColor="#22C55E"
-            android:textSize="10sp"
+            android:text="390 pts"
+            android:textColor="#00F0FF"
+            android:textSize="11sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Center: Official F1 Driver Headshot -->
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="4dp">
+    <!-- 4. Top-Right Gap Indicator Pill -->
+    <TextView
+        android:id="@+id/tvDriverGap"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="8dp"
+        android:background="@drawable/bg_glass_hud_badge"
+        android:paddingHorizontal="7dp"
+        android:paddingVertical="3dp"
+        android:text="LÍDER"
+        android:textColor="#10B981"
+        android:textSize="10sp"
+        android:textStyle="bold" />
 
-        <ImageView
-            android:id="@+id/ivDriverPhoto"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitCenter" />
-    </FrameLayout>
-
-    <!-- Bottom: Team line + Driver Full Name & Team -->
+    <!-- 5. Bottom Floating Glass Pedestal (Driver Name, Team, Number) -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="62dp"
+        android:layout_gravity="bottom"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="6dp">
 
         <View
             android:id="@+id/viewDriverTeamColor"
             android:layout_width="3.5dp"
-            android:layout_height="32dp"
+            android:layout_height="36dp"
             android:layout_marginEnd="8dp"
             android:background="@color/f1_red" />
 
@@ -103,8 +106,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text=""
-                tools:text="Andrea Kimi Antonelli"
+                android:text="Andrea Kimi Antonelli"
                 android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -116,10 +118,9 @@
                 android:layout_marginTop="1dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text=""
-                tools:text="Mercedes • #12"
+                android:text="Mercedes-AMG • #12"
                 android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
+                android:textSize="10.5sp" />
         </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

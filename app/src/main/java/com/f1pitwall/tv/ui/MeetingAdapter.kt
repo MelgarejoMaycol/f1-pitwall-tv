@@ -6,8 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
@@ -16,20 +14,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MeetingAdapter(
-    items: List<Meeting> = emptyList(),
+    private var items: List<Meeting> = emptyList(),
     private val onMeetingClick: (Meeting) -> Unit
-) : ListAdapter<Meeting, MeetingAdapter.ViewHolder>(MeetingDiffCallback) {
-
-    init {
-        if (items.isNotEmpty()) {
-            submitList(items)
-        }
-    }
-
-    val meetings: List<Meeting> get() = currentList
+) : RecyclerView.Adapter<MeetingAdapter.ViewHolder>() {
 
     fun updateData(newItems: List<Meeting>) {
-        submitList(newItems)
+        items = newItems
+        notifyDataSetChanged()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -39,8 +30,10 @@ class MeetingAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position), position)
+        holder.bind(items[position], position)
     }
+
+    override fun getItemCount(): Int = items.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvRoundBadge: TextView = itemView.findViewById(R.id.tvRoundBadge)
@@ -56,7 +49,7 @@ class MeetingAdapter(
                 tvRoundBadge.text = "TEST"
                 tvRoundBadge.setTextColor(Color.parseColor("#9DA4B5"))
             } else {
-                val roundNum = if (currentList.firstOrNull()?.meetingName?.contains("Testing", true) == true) position else position + 1
+                val roundNum = if (items.firstOrNull()?.meetingName?.contains("Testing", true) == true) position else position + 1
                 tvRoundBadge.text = String.format("R%02d", roundNum)
                 tvRoundBadge.setTextColor(Color.parseColor("#E10600"))
             }
@@ -114,16 +107,6 @@ class MeetingAdapter(
             } catch (e: Exception) {
                 Triple(startIso.take(10), "PROGRAMADA", Color.parseColor("#3B82F6"))
             }
-        }
-    }
-
-    object MeetingDiffCallback : DiffUtil.ItemCallback<Meeting>() {
-        override fun areItemsTheSame(oldItem: Meeting, newItem: Meeting): Boolean {
-            return oldItem.meetingKey == newItem.meetingKey
-        }
-
-        override fun areContentsTheSame(oldItem: Meeting, newItem: Meeting): Boolean {
-            return oldItem == newItem
         }
     }
 }

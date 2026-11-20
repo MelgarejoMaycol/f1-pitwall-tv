@@ -9,20 +9,11 @@ object TimeUtils {
     private const val COLOMBIA_TIMEZONE = "America/Bogota"
 
     fun parseUtc(isoDate: String?): Date? {
-        if (isoDate.isNullOrBlank()) return null
+        if (isoDate == null) return null
         return try {
-            val clean = isoDate.trim()
-            if (clean.length >= 19) {
-                val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-                format.timeZone = TimeZone.getTimeZone("UTC")
-                format.parse(clean.substring(0, 19))
-            } else if (clean.length >= 10) {
-                val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                format.timeZone = TimeZone.getTimeZone("UTC")
-                format.parse(clean.substring(0, 10))
-            } else {
-                null
-            }
+            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            format.timeZone = TimeZone.getTimeZone("UTC")
+            format.parse(isoDate.substring(0, 19))
         } catch (e: Exception) {
             null
         }
@@ -58,8 +49,9 @@ object TimeUtils {
         }
     }
 
-    fun calculateCountdown(isoDate: String?, now: Date = Date()): String {
+    fun calculateCountdown(isoDate: String?): String {
         val target = parseUtc(isoDate) ?: return ""
+        val now = Date()
         val diffMs = target.time - now.time
 
         if (diffMs <= 0) return "Comenzando ahora"
@@ -75,19 +67,15 @@ object TimeUtils {
         }
     }
 
-    fun isCurrentlyLive(startIso: String?, endIso: String?, now: Date = Date()): Boolean {
+    fun isCurrentlyLive(startIso: String?, endIso: String?): Boolean {
         val start = parseUtc(startIso) ?: return false
         val end = parseUtc(endIso) ?: return false
-        return now.time >= start.time && now.time <= end.time
+        val now = Date()
+        return now.after(start) && now.before(end)
     }
 
-    fun isCompleted(endIso: String?, now: Date = Date()): Boolean {
+    fun isCompleted(endIso: String?): Boolean {
         val end = parseUtc(endIso) ?: return false
-        return now.time > end.time
-    }
-
-    fun isUpcoming(startIso: String?, now: Date = Date()): Boolean {
-        val start = parseUtc(startIso) ?: return false
-        return now.time < start.time
+        return Date().after(end)
     }
 }

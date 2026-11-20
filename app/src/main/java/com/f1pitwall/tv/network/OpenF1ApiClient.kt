@@ -129,7 +129,7 @@ class OpenF1ApiClient {
 
     suspend fun getTeamRadiosForDriver(sessionKey: Long, driverNumber: Int): List<TeamRadio> {
         val type = object : TypeToken<List<TeamRadio>>() {}
-        val all = get("$baseUrl/team_radio?session_key=$sessionKey&driver_number=$driverNumber", type, useCache = false) ?: emptyList()
+        val all = get("$baseUrl/team_radio?session_key=$sessionKey&driver_number=$driverNumber", type, useCache = true) ?: emptyList()
         return all.reversed()
     }
 
@@ -145,21 +145,9 @@ class OpenF1ApiClient {
         return all.lastOrNull()
     }
 
-    suspend fun getLatestTelemetry(sessionKey: Long, driverNumber: Int, fromDate: String? = null): CarTelemetry? {
+    suspend fun getLatestTelemetry(sessionKey: Long, driverNumber: Int): CarTelemetry? {
         val type = object : TypeToken<List<CarTelemetry>>() {}
-        val url = if (!fromDate.isNullOrEmpty()) {
-            "$baseUrl/car_data?session_key=$sessionKey&driver_number=$driverNumber&date>=$fromDate"
-        } else {
-            "$baseUrl/car_data?session_key=$sessionKey&driver_number=$driverNumber"
-        }
-        val all = get(url, type, useCache = false) ?: emptyList()
-        if (all.isNotEmpty()) {
-            return all.lastOrNull()
-        }
-        if (!fromDate.isNullOrEmpty()) {
-            val fallback = get("$baseUrl/car_data?session_key=$sessionKey&driver_number=$driverNumber", type, useCache = false) ?: emptyList()
-            return fallback.lastOrNull()
-        }
-        return null
+        val all = get("$baseUrl/car_data?session_key=$sessionKey&driver_number=$driverNumber&speed>=0", type, useCache = false) ?: emptyList()
+        return all.lastOrNull()
     }
 }

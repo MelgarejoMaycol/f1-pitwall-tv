@@ -1,32 +1,25 @@
 # 🏎️ F1 PitWall TV
 
-Plataforma profesional de Fórmula 1 diseñada para **Smart TV, Android TV y dispositivos multimedia (1080p y 4K)**, con una experiencia visual cinematográfica inspirada en **F1 TV, ESPN, DAZN y Disney+**, navegable al 100% mediante control remoto (D-Pad).
+Plataforma profesional de Fórmula 1 diseñada para **Smart TV, Android TV y dispositivos multimedia (1080p y 4K)**, con una experiencia visual cinematográfica y futurista inspirada en **F1 TV, ESPN, DAZN y Disney+**, navegable al 100% mediante control remoto (D-Pad).
 
 ---
 
-## 🚀 Características Principales
+## 🚀 Novedades de la Fase 5: Rediseño Futurista & Navegación Fluida
 
-### 1. 🏠 Pantalla Principal (Estilo Streaming Premium)
-- **Hero Cinematográfico**: Detección inteligente del próximo evento (ej. *GP de Las Vegas 2026*), cuenta regresiva dinámica en tiempo real y conversión de horarios a hora de Colombia (GMT-5).
-- **Resultados Oficiales Integrados**: Tarjeta del último Gran Premio disputado (*GP de São Paulo 2026 / Interlagos*) con podio oficial (1º Norris, 2º Verstappen, 3º Hadjar) y acceso a clasificación completa.
-- **Hub de Categorías**: Navegación rápida por tarjetas a Mundial 2026, Muro de Pits, Calendario, Resultados y Ajustes.
-- **Carrusel de Grandes Premios**: Posicionamiento dinámico con la próxima carrera al frente y desplazamiento bidireccional (carreras pasadas y futuras).
-- **Mundial de Pilotos 2026**: Ordenado estrictamente de mayor a menor puntuación real (Jolpica F1 API: 1º Antonelli 390 pts, 2º Verstappen 279 pts, 3º Russell 262 pts...).
-- **Mundial de Constructores 2026**: Puntos, victorias y diferencias oficiales (1º Mercedes 652 pts, 2º Ferrari 510 pts, 3º Red Bull 415 pts...).
-- **Circuitos y Trazados Oficiales**: Siluetas de pistas en alta definición.
+### 1. 🎮 Navegación D-Pad de Alta Fluidez para Smart TV
+- **`TvHorizontalRecyclerView`**: Interceptor de foco que confina el movimiento horizontal a los límites del carrusel, eliminando saltos accidentales fuera de la sección al alcanzar los extremos (inicio o final).
+- **Auto-centrado Progresivo**: Desplazamiento vertical suave y adaptativo en `NestedScrollView` con margen de lectura para mantener siempre centrada la fila enfocada en televisores 1080p y 4K.
+- **Restauración de Estado y Scroll**: Al navegar a subpantallas (Muro de Pits, Carreras, Ajustes) y presionar el botón **Atrás**, la aplicación regresa de inmediato a la pantalla de Inicio conservando la posición exacta del scroll y el foco.
+- **Micro-animaciones de Foco**: Escalado fluido (1.06x), elevación y contornos en cian eléctrico y rojo competición en cada tarjeta y botón.
 
-### 2. 🏎️ Muro de Pits y Telemetría en Directo
-- **Espacio de Contenido Oficial F1**: Cuando no hay sesión en directo, la pantalla no queda vacía; ofrece previa técnica de la próxima carrera, resumen de la última cita y feed de boxes.
-- **Selector de Radios de Equipo**: Selector multi-piloto (`#1 VER`, `#4 NOR`, `#16 LEC`, `#44 HAM`, `#63 RUS`, `#81 PIA`, `#14 ALO`) con reproducción de audio real de F1 live timing mediante ExoPlayer secundario sin interrumpir el vídeo.
-- **Torre de Tiempos y Telemetría**: Sincronización de velocidad, marcha, RPM, acelerador, freno y DRS con OpenF1 API.
+### 2. 🏎️ Muro de Pits Inteligente (Cero Vídeos Falsos en Bucle)
+- **Modo Standby & Hub Editorial**: Si no hay carrera en directo, el reproductor no arranca en bucle de forma engañosa. En su lugar, presenta un centro de análisis técnico del próximo Gran Premio (*GP de Las Vegas 2026*), especificaciones de pista, telemetría y botones para reproducir previos o resúmenes bajo demanda.
+- **Sintonizador de Radios de Equipo**: Canales de audio reales de OpenF1 por piloto (`#1 VER`, `#4 NOR`, `#16 LEC`, `#44 HAM`, `#63 RUS`, `#81 PIA`, `#14 ALO`) sin simulaciones estáticas.
 
-### 3. 📅 Calendario y Archivo Histórico
-- Navegación por temporadas (2024, 2025 y 2026).
-- Detalle de sesiones (Prácticas, Clasificación, Sprint y Carrera) en hora local.
-
-### 4. 📺 Control Centralizado de Fuentes de Vídeo (Git Tracking)
-- Administrable directamente desde `app/src/main/assets/video_sources.json`.
-- Permite cambiar transmisiones HLS (`.m3u8`), DASH (`.mpd`) o MP4 sin tocar el código fuente.
+### 3. 👤 Fotos Reales de Pilotos y Logos Oficiales de Constructores
+- **Mapeo Oficial de Headshots**: Resolución garantizada en la CDN oficial de F1 para todos los pilotos de la parrilla 2026 (Antonelli, Verstappen, Russell, Hamilton, Leclerc, Norris, Piastri, Hadjar, Lawson, etc.).
+- **Logos de Equipos Oficiales**: Renderizado nativo de emblemas de alta definición para las 11 escuderías (Mercedes, Ferrari, Red Bull, McLaren, Aston Martin, Alpine, Williams, Haas, Racing Bulls, Audi F1 Team y Cadillac F1).
+- **Fallback Deportivo**: Casco aerodinámico vectorial (`ic_driver_helmet.xml`) como alternativa si no hay conexión de red.
 
 ---
 
@@ -34,8 +27,13 @@ Plataforma profesional de Fórmula 1 diseñada para **Smart TV, Android TV y dis
 
 - **Lenguaje**: Kotlin 1.9+
 - **Plataforma**: Android TV (Leanback / Android 10+ / API 29+)
+- **Módulos y Desacoplamiento**:
+  - `HomeViewManager`: Orquesta el Hero dinámico, podio reciente y 5 carruseles con scroll restoration.
+  - `PitWallViewManager`: Controla el ExoPlayer, estado Standby/En Espera, sintonizador de radio y telemetría de monoplazas.
+  - `TvHorizontalRecyclerView`: Gestión de límites horizontales y foco D-pad.
+  - `F1Repository`: Proveedor único de datos oficiales Jolpica & OpenF1.
 - **Reproductor Multimedia**: AndroidX Media3 / ExoPlayer (HLS, DASH, MP4)
-- **Carga de Imágenes**: Coil
+- **Carga de Imágenes**: Coil con caché en memoria y disco
 - **Red & APIs**: OkHttp3, Gson, Coroutines & Flow
 - **Fuentes de Datos**: OpenF1 API & Jolpica F1 API (Ergast)
 
