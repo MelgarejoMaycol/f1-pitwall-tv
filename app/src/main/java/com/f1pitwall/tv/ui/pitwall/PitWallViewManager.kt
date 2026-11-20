@@ -207,7 +207,8 @@ class PitWallViewManager(
     }
 
     private fun createPopupWindow(resultMsg: Message?): Boolean {
-        val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+        val message = resultMsg ?: return false
+        val transport = message.obj as? WebView.WebViewTransport ?: return false
         val popup = WebView(context)
         activePopupWebViews.add(popup)
         playerSurface.addView(popup, FrameLayout.LayoutParams(1, 1))
@@ -228,7 +229,7 @@ class PitWallViewManager(
             }
         }
         transport.webView = popup
-        resultMsg.sendToTarget()
+        message.sendToTarget()
         return true
     }
 
