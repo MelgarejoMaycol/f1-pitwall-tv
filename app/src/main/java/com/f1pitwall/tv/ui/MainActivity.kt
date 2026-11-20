@@ -14,7 +14,6 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.AppConfig
 import com.f1pitwall.tv.core.config.VideoSourcesConfig
 import com.f1pitwall.tv.core.config.BroadcastSource
-import com.f1pitwall.tv.core.config.VideoSourcesConfig
 import com.f1pitwall.tv.core.storage.PreferencesManager
 import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.repository.F1Repository
