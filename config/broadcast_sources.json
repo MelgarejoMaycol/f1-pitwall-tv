@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-20T15:10:00Z",
+  "providers": [
+    {
+      "id": "futbol_libre",
+      "name": "Fútbol Libre — Agenda",
+      "url": "https://futbol-libre.app/agenda",
+      "type": "FUTBOL_LIBRE",
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "id": "flx",
+      "name": "FLX",
+      "url": "https://flive.cc.cd/f1",
+      "type": "FLX",
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "id": "futbol_vivo",
+      "name": "Fútbol Vivo",
+      "url": "https://futbolvivo.tv/",
+      "type": "FUTBOL_VIVO",
+      "enabled": true,
+      "order": 3
+    },
+    {
+      "id": "web_generic",
+      "name": "Transmisión Web Directa",
+      "url": "https://futbolvivo.tv/",
+      "type": "WEB",
+      "enabled": true,
+      "order": 4
+    }
+  ],
+  "channels": [
+    {
+      "id": "hls_stream_1",
+      "name": "Señal HLS Principal",
+      "url": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+      "type": "HLS",
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "id": "mp4_backup",
+      "name": "Señal MP4 Backup",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "type": "MP4",
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "id": "dash_demo",
+      "name": "Señal DASH Test",
+      "url": "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
+      "type": "DASH",
+      "enabled": true,
+      "order": 3
+    },
+    {
+      "id": "web_stream_backup",
+      "name": "Señal Web Oficial",
+      "url": "https://futbolvivo.tv/",
+      "type": "WEB",
+      "enabled": true,
+      "order": 4
+    }
+  ]
+}
