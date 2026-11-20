@@ -369,38 +369,58 @@ class MainActivity : AppCompatActivity() {
     private fun loadLiveSessionData() {
         lifecycleScope.launch {
             try {
-                val session = api.getLatestSession()
-                if (session != null) {
-                    val isLive = TimeUtils.isCurrentlyLive(session.dateStart, session.dateEnd)
-                    val title = "${session.circuitShortName ?: "F1"} - ${session.sessionName ?: "Sesión"}"
-                    pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, title)
-
-                    val weather = api.getLatestWeather(session.sessionKey)
-                    weather?.let { w ->
-                        tvWeather.text = "⛅ Pista: ${w.trackTemp ?: 0}°C | Aire: ${w.airTemp ?: 0}°C"
-                    }
-
-                    val raceControl = api.getLatestRaceControl(session.sessionKey)
-                    raceControl?.let { rc ->
-                        tvRaceFlag.text = "🏁 ${rc.flag ?: "ESTADO"}: ${rc.message ?: "NORMAL"}"
-                        when {
-                            rc.flag.equals("YELLOW", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EAB308"))
-                            rc.flag.equals("RED", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EF4444"))
-                            else -> tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
-                        }
-                    }
-
-                    val drivers = api.getDrivers(session.sessionKey)
-                    val positions = api.getLatestPositions(session.sessionKey)
-                    val intervals = api.getLatestIntervals(session.sessionKey)
-                    val laps = api.getLatestLaps(session.sessionKey)
-                    val stints = api.getStints(session.sessionKey)
-
-                    val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
-                    pitWallViewManager.leaderboardAdapter.updateData(items)
+                val session = repository.getCurrentOrNextSession(AppConfig.DEFAULT_SEASON)
+                if (session == null) {
+                    pitWallViewManager.onScheduleUnavailable()
+                    pitWallViewManager.leaderboardAdapter.updateData(emptyList())
+                    tvRaceFlag.text = "🏁 CALENDARIO NO DISPONIBLE"
+                    tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
+                    tvWeather.text = "⛅ Pista: -- | Aire: --"
+                    return@launch
                 }
+
+                val now = Date()
+                val start = TimeUtils.parseUtc(session.dateStart)
+                val isLive = TimeUtils.isCurrentlyLive(session.dateStart, session.dateEnd)
+                val isUpcoming = start?.after(now) == true
+                val venue = session.circuitShortName ?: session.countryName ?: "F1"
+                val title = "$venue • ${session.sessionName ?: "Sesión"}"
+                pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, isUpcoming, title)
+
+                if (!isLive) {
+                    pitWallViewManager.leaderboardAdapter.updateData(emptyList())
+                    tvRaceFlag.text = if (isUpcoming) "🏁 PRÓXIMA SESIÓN" else "🏁 ÚLTIMA SESIÓN"
+                    tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
+                    tvWeather.text = "⛅ Pista: -- | Aire: --"
+                    return@launch
+                }
+
+                val weather = api.getLatestWeather(session.sessionKey)
+                weather?.let { w ->
+                    tvWeather.text = "⛅ Pista: ${w.trackTemp ?: 0}°C | Aire: ${w.airTemp ?: 0}°C"
+                }
+
+                val raceControl = api.getLatestRaceControl(session.sessionKey)
+                raceControl?.let { rc ->
+                    tvRaceFlag.text = "🏁 ${rc.flag ?: "ESTADO"}: ${rc.message ?: "NORMAL"}"
+                    when {
+                        rc.flag.equals("YELLOW", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EAB308"))
+                        rc.flag.equals("RED", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EF4444"))
+                        else -> tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
+                    }
+                }
+
+                val drivers = api.getDrivers(session.sessionKey)
+                val positions = api.getLatestPositions(session.sessionKey)
+                val intervals = api.getLatestIntervals(session.sessionKey)
+                val laps = api.getLatestLaps(session.sessionKey)
+                val stints = api.getStints(session.sessionKey)
+
+                val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
+                pitWallViewManager.leaderboardAdapter.updateData(items)
             } catch (e: Exception) {
                 e.printStackTrace()
+                pitWallViewManager.onScheduleUnavailable()
             }
         }
     }
@@ -466,22 +486,32 @@ class MainActivity : AppCompatActivity() {
                 val meetings = repository.getMeetings(year)
                 meetingAdapter.updateData(meetings)
 
-                if (meetings.isNotEmpty()) {
-                    val targetMeeting = if (selectedMeeting != null && selectedMeeting!!.year == year) {
-                        selectedMeeting!!
-                    } else {
-                        repository.findSmartSelectedMeeting(year) ?: meetings.first()
-                    }
+                if (meetings.isEmpty()) {
+                    selectedMeeting = null
+                    sessionScheduleAdapter.updateData(emptyList())
+                    tvSelectedGpName.text = "Calendario F1 $year no disponible"
+                    tvSelectedGpCircuit.text = "No se recibieron eventos desde OpenF1. Comprueba la conexión y vuelve a entrar en Carreras y Archivo."
+                    tvSelectedGpDates.text = "Temporada $year • Datos pendientes"
+                    ivCircuitTrackMap.visibility = View.GONE
+                    Toast.makeText(this@MainActivity, "No fue posible cargar el calendario F1 $year", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
 
-                    displayMeetingDetails(targetMeeting)
+                val targetMeeting = if (selectedMeeting != null && selectedMeeting!!.year == year) {
+                    selectedMeeting!!
+                } else {
+                    repository.findSmartSelectedMeeting(year) ?: meetings.first()
+                }
 
-                    val index = meetings.indexOfFirst { it.meetingKey == targetMeeting.meetingKey }
-                    if (index >= 0) {
-                        rvMeetings.scrollToPosition(index)
-                    }
+                displayMeetingDetails(targetMeeting)
+
+                val index = meetings.indexOfFirst { it.meetingKey == targetMeeting.meetingKey }
+                if (index >= 0) {
+                    rvMeetings.scrollToPosition(index)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                Toast.makeText(this@MainActivity, "Error cargando el calendario F1: ${e.localizedMessage ?: "red"}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -489,8 +519,16 @@ class MainActivity : AppCompatActivity() {
     private fun loadSessionsForMeeting(meetingKey: Long) {
         lifecycleScope.launch {
             try {
-                val sessions = api.getSessions(meetingKey)
+                val sessions = api.getSessions(meetingKey).sortedBy { TimeUtils.parseUtc(it.dateStart)?.time ?: Long.MAX_VALUE }
                 sessionScheduleAdapter.updateData(sessions)
+
+                if (sessions.isEmpty()) {
+                    val currentText = tvSelectedGpCircuit.text.toString()
+                    if (!currentText.contains("sesiones aún no publicadas", true)) {
+                        tvSelectedGpCircuit.text = "$currentText\nSesiones aún no publicadas por el proveedor."
+                    }
+                    return@launch
+                }
 
                 val raceSession = sessions.find { it.sessionType.equals("Race", true) } ?: sessions.lastOrNull()
                 raceSession?.let { s ->
