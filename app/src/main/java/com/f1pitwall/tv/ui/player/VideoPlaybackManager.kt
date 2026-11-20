@@ -488,7 +488,8 @@ class VideoPlaybackManager(
         val child = WebView(context).apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             isFocusable = false
-            visibility = View.GONE
+            // Chromium must keep the transport WebView attached while resolving the popup URL.
+            visibility = View.VISIBLE
 
             settings.apply {
                 javaScriptEnabled = true
@@ -547,6 +548,7 @@ class VideoPlaybackManager(
         }
 
         activePopupWebViews.add(child)
+        layoutPopupContainer?.visibility = View.VISIBLE
         layoutPopupContainer?.addView(child, FrameLayout.LayoutParams(1, 1))
         return child
     }
@@ -559,6 +561,9 @@ class VideoPlaybackManager(
             wv.stopLoading()
             wv.loadUrl("about:blank")
             wv.destroy()
+            if (activePopupWebViews.isEmpty()) {
+                layoutPopupContainer?.visibility = View.GONE
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error al cerrar child webview: ${e.message}")
         }
