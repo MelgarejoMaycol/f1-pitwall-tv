@@ -101,6 +101,8 @@ class PitWallViewManager(
     private var isUpcomingSession: Boolean = false
     private var currentScheduleTitle: String = "Calendario F1 en preparación"
     private var futbolVivoStatusText: String = "FÚTBOL LIBRE • BUSCANDO EVENTOS F1"
+    private var discoveredFutbolEventUrl: String? = null
+    private var discoveredFutbolEventTitle: String = "Evento de Fórmula 1"
     private val activePopupWebViews = mutableListOf<WebView>()
     private var customFullScreenView: View? = null
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
@@ -281,6 +283,29 @@ class PitWallViewManager(
         return listOf(".m3u8", ".mpd", ".mp4", ".m4v").any { path.endsWith(it) }
     }
 
+    private fun openDiscoveredFutbolEvent() {
+        val eventUrl = discoveredFutbolEventUrl
+        if (eventUrl.isNullOrBlank()) {
+            openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
+            return
+        }
+
+        val uri = runCatching { Uri.parse(eventUrl) }.getOrNull()
+        val host = uri?.host?.lowercase().orEmpty()
+        val allowedHost = host == "futbolvivo.tv" ||
+            host.endsWith(".futbolvivo.tv") ||
+            host == "golygoals.com" ||
+            host.endsWith(".golygoals.com")
+
+        if (uri == null || !allowedHost || uri.scheme !in listOf("http", "https")) {
+            Toast.makeText(context, "El evento fue detectado; abre la cartelera del proveedor para entrar manualmente.", Toast.LENGTH_LONG).show()
+            openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
+            return
+        }
+
+        playWebPage(eventUrl, discoveredFutbolEventTitle)
+    }
+
     private fun openDefaultWebSource(title: String) {
         val url = defaultWebSourceUrl
         if (url.isNullOrBlank()) {
@@ -333,8 +358,8 @@ class PitWallViewManager(
 
     private fun setupListeners() {
         // Los accesos de contenido abren la fuente web configurada; no muestran vídeos de prueba.
-        btnStandbyPreview.setOnClickListener { openDefaultWebSource("Fútbol Vivo / Fútbol Libre") }
-        btnStandbyRecap.setOnClickListener { openDefaultWebSource("Archivo F1 en la fuente web") }
+        btnStandbyPreview.setOnClickListener { openDiscoveredFutbolEvent() }
+        btnStandbyRecap.setOnClickListener { openDefaultWebSource("Cartelera de eventos F1") }
         btnStandbyOpenWeb.setOnClickListener { openDefaultWebSource("Fútbol Vivo / Fútbol Libre") }
 
         btnStandbyStopVideo.setOnClickListener {
@@ -343,12 +368,12 @@ class PitWallViewManager(
 
         // Durante una sesión activa o próxima, abrir la web real del proveedor configurado.
         btnLiveSessionAction.setOnClickListener {
-            openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
+            openDiscoveredFutbolEvent()
         }
 
         // Contenido y telemetría: no reproducir HLS de demostración como si fuese F1.
-        btnContentPreview.setOnClickListener { openDefaultWebSource("Fútbol Vivo / Fútbol Libre") }
-        btnContentRecap.setOnClickListener { openDefaultWebSource("Archivo F1 en la fuente web") }
+        btnContentPreview.setOnClickListener { openDiscoveredFutbolEvent() }
+        btnContentRecap.setOnClickListener { openDefaultWebSource("Cartelera de eventos F1") }
         btnContentBoxes.setOnClickListener { btnMetricsTelemetry.performClick() }
 
         // Radio Player
@@ -408,11 +433,19 @@ class PitWallViewManager(
         futbolVivoExtractor.onF1EventDetected = { event ->
             val status = if (event.isLive) "EN VIVO" else "PROGRAMADA"
             futbolVivoStatusText = "FÚTBOL LIBRE • $status"
+            discoveredFutbolEventUrl = event.eventUrl
+            discoveredFutbolEventTitle = event.title
             val start = event.startTime?.let { " • $it" }.orEmpty()
             tvStandbySubtitle.text = "Evento F1 detectado: ${event.title}$start"
             updateFutbolVivoStatusBadge()
+            btnLiveSessionAction.text = if (event.eventUrl.isNullOrBlank()) {
+                "📺 ABRIR TV WEB"
+            } else {
+                "📺 ABRIR EVENTO F1"
+            }
         }
         futbolVivoExtractor.onNoEventDetected = {
+            discoveredFutbolEventUrl = null
             futbolVivoStatusText = "FÚTBOL LIBRE • SIN EVENTO F1"
             tvStandbySubtitle.text =
                 "No se detectan eventos F1 en la cartelera actual. Abre TV Web para consultar los eventos publicados."
@@ -603,6 +636,11 @@ class PitWallViewManager(
                 tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
                 btnLiveSessionAction.text = "📺 ABRIR TV WEB"
             }
+        }
+        btnLiveSessionAction.text = if (discoveredFutbolEventUrl.isNullOrBlank()) {
+            "📺 ABRIR TV WEB"
+        } else {
+            "📺 ABRIR EVENTO F1"
         }
         updateFutbolVivoStatusBadge()
     }
