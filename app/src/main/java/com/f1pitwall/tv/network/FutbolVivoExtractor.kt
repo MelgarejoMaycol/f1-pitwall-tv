@@ -138,7 +138,11 @@ class FutbolVivoExtractor(private val context: Context) {
                     sources.forEach(source => {
                         if (Array.isArray(source)) {
                             source.forEach(item => {
-                                if (item && typeof item === "object") candidates.push({ item: item, extra: "" });
+                                if (item && typeof item === "object") {
+                                    candidates.push({ item: item, extra: "" });
+                                } else if (typeof item === "string") {
+                                    candidates.push({ item: { title: item }, extra: item });
+                                }
                             });
                         }
                     });
@@ -205,7 +209,7 @@ class FutbolVivoExtractor(private val context: Context) {
         webView?.evaluateJavascript(js, null)
     }
 
-    private inner class Bridge {
+    inner class Bridge {
         @JavascriptInterface
         fun postF1Event(json: String) {
             mainHandler.post {
