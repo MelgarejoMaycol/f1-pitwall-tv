@@ -321,7 +321,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="10dp"
-                                android:text="FORMULA 1 LAS VEGAS GRAND PRIX 2026"
+                                android:text="FÓRMULA 1 • MURO DE PITS"
                                 android:textColor="@color/text_primary"
                                 android:textSize="19sp"
                                 android:textStyle="bold" />
@@ -331,7 +331,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="4dp"
-                                android:text="Las Vegas Strip Circuit • Ronda 22 de 24 • Jueves 19 de Noviembre"
+                                android:text="Consultando calendario F1 y cartelera de Fútbol Libre..."
                                 android:textColor="@color/text_secondary"
                                 android:textSize="13sp" />
 
@@ -343,7 +343,7 @@
                                 android:background="#121824"
                                 android:paddingHorizontal="14dp"
                                 android:paddingVertical="6dp"
-                                android:text="Longitud: 6.201 km | 17 Curvas | 2 Zonas DRS | Vmax est.: 350 km/h"
+                                android:text="CALENDARIO: OPENF1 • EVENTOS: FÚTBOL LIBRE"
                                 android:textColor="#FFB800"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
@@ -363,7 +363,7 @@
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:paddingHorizontal="14dp"
-                                    android:text="🎬 Ver Previa Oficial GP Las Vegas"
+                                    android:text="🏎️ Buscar evento en Fútbol Libre"
                                     android:textColor="@color/text_primary"
                                     android:textSize="11sp"
                                     android:textStyle="bold" />
@@ -377,7 +377,7 @@
                                     android:clickable="true"
                                     android:focusable="true"
                                     android:paddingHorizontal="14dp"
-                                    android:text="🏁 Ver Resumen GP São Paulo"
+                                    android:text="📅 Ver cartelera de eventos"
                                     android:textColor="@color/text_primary"
                                     android:textSize="11sp"
                                     android:textStyle="bold" />
