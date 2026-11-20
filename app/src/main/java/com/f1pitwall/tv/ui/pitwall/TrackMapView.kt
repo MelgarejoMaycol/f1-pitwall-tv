@@ -88,7 +88,9 @@ class TrackMapView @JvmOverloads constructor(
         simTrackDrivers.clear()
         simTrackDrivers.addAll(drivers)
         lastSimFrameUptime = android.os.SystemClock.uptimeMillis()
-        postInvalidateOnAnimation()
+        if (isShown && visibility == View.VISIBLE) {
+            postInvalidateDelayed(33L)
+        }
     }
 
     // Bounds for coordinate normalization
@@ -328,7 +330,9 @@ class TrackMapView @JvmOverloads constructor(
         }
 
         animatedDrivers.keys.retainAll(activeDriverNumbers)
-        postInvalidateOnAnimation()
+        if (isShown && visibility == View.VISIBLE) {
+            postInvalidateDelayed(33L)
+        }
     }
 
     private fun calculateBounds() {
@@ -452,7 +456,7 @@ class TrackMapView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        if (!hasValidBounds || rawTrackPoints.size < 3) return
+        if (!isShown || visibility != View.VISIBLE || !hasValidBounds || rawTrackPoints.size < 3) return
 
         // 1. Draw wide dark asphalt bed
         if (!fullTrackBedPath.isEmpty) {
@@ -542,7 +546,9 @@ class TrackMapView @JvmOverloads constructor(
                 canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
             }
 
-            postInvalidateOnAnimation()
+            if (isShown && visibility == View.VISIBLE) {
+                postInvalidateDelayed(33L)
+            }
         } else if (animatedDrivers.isNotEmpty()) {
             var hasActiveMotion = false
             val now = android.os.SystemClock.uptimeMillis()
@@ -605,8 +611,8 @@ class TrackMapView @JvmOverloads constructor(
                 canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
             }
 
-            if (hasActiveMotion) {
-                postInvalidateOnAnimation()
+            if (hasActiveMotion && isShown && visibility == View.VISIBLE) {
+                postInvalidateDelayed(33L)
             }
         }
     }

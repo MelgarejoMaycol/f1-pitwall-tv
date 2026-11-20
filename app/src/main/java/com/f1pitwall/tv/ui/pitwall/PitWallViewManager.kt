@@ -24,7 +24,9 @@ import android.widget.*
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -210,6 +212,7 @@ class PitWallViewManager(
     private var radioPollingJob: Job? = null
     private var latestRadioUrl: String? = null
     private var lastPlayedRadioUrl: String? = null
+    private var currentDirectStreamUrl: String? = null
     private var currentSessionKey: Long? = null
     private var isLiveSessionActive: Boolean = false
     private var isUpcomingSession: Boolean = false
@@ -346,8 +349,8 @@ class PitWallViewManager(
         webVideoView.apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             setBackgroundColor(Color.BLACK)
-            isFocusable = true
-            isFocusableInTouchMode = true
+            isFocusable = false
+            isFocusableInTouchMode = false
 
             settings.apply {
                 javaScriptEnabled = true
@@ -391,16 +394,33 @@ class PitWallViewManager(
                     view: WebView?,
                     request: WebResourceRequest?
                 ): WebResourceResponse? {
-                    val url = request?.url?.toString()?.lowercase() ?: return null
+                    val rawUrl = request?.url?.toString() ?: return null
+                    val lowerUrl = rawUrl.lowercase(Locale.ROOT)
                     val isAd = listOf(
                         "acscdn.com", "al5sm.com", "deltalcherup.com", "histats.com",
                         "popads", "adsterra", "doubleclick", "googlesyndication",
                         "googleads", "adnxs", "propellerads", "trafficjunky",
-                        "exoclick", "juicyads", "syndication", "adsystem", "adservice"
-                    ).any { url.contains(it) }
+                        "exoclick", "juicyads", "syndication", "adsystem", "adservice",
+                        "monetag", "onclick", "ouo.io", "linkvertise", "shortener"
+                    ).any { lowerUrl.contains(it) }
                     if (isAd) {
                         return WebResourceResponse("text/javascript", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                     }
+
+                    // SNIFFER: Capturar señal directa (.m3u8 o stream HLS/DASH) para reproducción fluida en ExoPlayer
+                    if (isDirectStreamUrl(rawUrl)) {
+                        if (currentDirectStreamUrl == null) {
+                            val headers = request.requestHeaders ?: emptyMap()
+                            val referer = headers["Referer"] ?: headers["referer"] ?: view?.url ?: ""
+                            val origin = headers["Origin"] ?: headers["origin"] ?: ""
+                            val userAgent = headers["User-Agent"] ?: headers["user-agent"] ?: ""
+
+                            scope.launch(Dispatchers.Main) {
+                                playDirectStreamInExoPlayer(rawUrl, referer, origin, userAgent)
+                            }
+                        }
+                    }
+
                     return super.shouldInterceptRequest(view, request)
                 }
 
@@ -419,7 +439,12 @@ class PitWallViewManager(
                         "flive", "taifood", "videocdn", "weellz"
                     ).any { host.contains(it) }
 
-                    if (!isStreamHost && request.isForMainFrame) {
+                    val isAdRedirect = listOf(
+                        "ouo", "linkvertise", "adsterra", "popads", "onclick",
+                        "monetag", "shorturl", "acscdn", "al5sm", "bet", "casino"
+                    ).any { host.contains(it) }
+
+                    if (isAdRedirect || (!isStreamHost && request.isForMainFrame)) {
                         return true
                     }
                     return false
@@ -477,8 +502,13 @@ class PitWallViewManager(
                                     .site-header, .site-footer, .breadcrumb, .match-info,
                                     #cq-back-to-top, .cq-back-to-top,
                                     .histats, [id*="histats"], [class*="histats"], [id*="aclib"],
-                                    .homepage-faq-title, #cq-branding-layout-style {
+                                    .homepage-faq-title, #cq-branding-layout-style,
+                                    [id*="ad"], [class*="ad-"], [class*="banner"], [id*="banner"],
+                                    [class*="overlay-ad"], [class*="popup"], [id*="popup"],
+                                    a[href*="ouo"], a[href*="short"], [class*="ad_overlay"],
+                                    .floating-banner, #floating-banner {
                                         display: none !important;
+                                        pointer-events: none !important;
                                     }
                                     .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap, #playerContainer,
                                     .aspect-video, [class*="aspect-video"], #player, [id*="player"] {
@@ -1059,7 +1089,23 @@ class PitWallViewManager(
     private var videoWatchdogJob: Job? = null
 
     private fun initPlayers() {
-        exoPlayer = ExoPlayer.Builder(context).build()
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 15_000,
+                /* maxBufferMs = */ 45_000,
+                /* bufferForPlaybackMs = */ 2_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 5_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
+            .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
+
+        exoPlayer = ExoPlayer.Builder(context, renderersFactory)
+            .setLoadControl(loadControl)
+            .build()
         playerView.player = exoPlayer
         exoPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
@@ -1080,7 +1126,14 @@ class PitWallViewManager(
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                if (!isUserStoppedPlayback) {
+                if (currentDirectStreamUrl != null && !isUserStoppedPlayback) {
+                    android.util.Log.w("PitWallViewManager", "Direct stream error (${error.message}), falling back to webVideoView")
+                    currentDirectStreamUrl = null
+                    playerView.visibility = View.GONE
+                    webVideoView.visibility = View.VISIBLE
+                    updatePitWallFocusChains()
+                    currentWebUrl?.let { url -> webVideoView.loadUrl(url) }
+                } else if (!isUserStoppedPlayback) {
                     exoPlayer?.prepare()
                     exoPlayer?.play()
                 }
@@ -1118,6 +1171,85 @@ class PitWallViewManager(
 
         // By default off-race: Standby visible, playerView hidden, NO auto-playing demo video!
         switchToStandby()
+    }
+
+    fun isDirectStreamUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        val clean = url.substringBefore("#").trim()
+        val path = clean.substringBefore("?").lowercase(Locale.ROOT)
+
+        val isManifest = path.endsWith(".m3u8") || path.endsWith(".mpd") ||
+                path.contains(".m3u8/") || path.contains(".mpd/") ||
+                clean.contains(".m3u8?", ignoreCase = true) || clean.contains(".mpd?", ignoreCase = true)
+
+        // Exclude TS / AAC / key segments so we only intercept playlists/manifests
+        val isSegment = path.endsWith(".ts") || path.endsWith(".m4s") || path.endsWith(".key") || path.endsWith(".aac")
+        val isAd = listOf(
+            "doubleclick", "googlesyndication", "adsystem", "adnxs",
+            "adsterra", "popads", "monetag", "trafficjunky", "exoclick"
+        ).any { clean.contains(it, ignoreCase = true) }
+
+        return isManifest && !isSegment && !isAd
+    }
+
+    fun playDirectStreamInExoPlayer(
+        streamUrl: String,
+        referer: String? = null,
+        origin: String? = null,
+        userAgent: String? = null
+    ) {
+        if (currentDirectStreamUrl == streamUrl && exoPlayer?.isPlaying == true) {
+            return
+        }
+        currentDirectStreamUrl = streamUrl
+        isUserStoppedPlayback = false
+
+        webVideoView.stopLoading()
+        webVideoView.loadUrl("about:blank")
+        webVideoView.visibility = View.GONE
+
+        playerView.visibility = View.VISIBLE
+        layoutPlayerStandby.visibility = View.GONE
+        btnStandbyStopVideo.visibility = View.VISIBLE
+        updatePitWallFocusChains()
+
+        try {
+            val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15_000)
+                .setReadTimeoutMs(15_000)
+
+            val requestHeaders = mutableMapOf<String, String>()
+            if (!referer.isNullOrBlank()) {
+                requestHeaders["Referer"] = referer
+            }
+            if (!origin.isNullOrBlank()) {
+                requestHeaders["Origin"] = origin
+            }
+            if (requestHeaders.isNotEmpty()) {
+                httpDataSourceFactory.setDefaultRequestProperties(requestHeaders)
+            }
+            if (!userAgent.isNullOrBlank()) {
+                httpDataSourceFactory.setUserAgent(userAgent)
+            }
+
+            val mediaSourceFactory = DefaultMediaSourceFactory(httpDataSourceFactory)
+            val mediaItem = MediaItem.fromUri(streamUrl)
+            val mediaSource = mediaSourceFactory.createMediaSource(mediaItem)
+
+            exoPlayer?.setMediaSource(mediaSource)
+            exoPlayer?.prepare()
+            exoPlayer?.play()
+            startVideoPlaybackWatchdog()
+            Log.i("PitWallViewManager", "Direct stream routed to ExoPlayer: $streamUrl")
+        } catch (e: Exception) {
+            Log.e("PitWallViewManager", "Error playing direct stream in ExoPlayer", e)
+            currentDirectStreamUrl = null
+            playerView.visibility = View.GONE
+            webVideoView.visibility = View.VISIBLE
+            updatePitWallFocusChains()
+            currentWebUrl?.let { url -> webVideoView.loadUrl(url) }
+        }
     }
 
     private fun startVideoPlaybackWatchdog() {
@@ -1244,11 +1376,13 @@ class PitWallViewManager(
 
         if (forceReload || isSourceChange) {
             currentWebUrl = null
+            currentDirectStreamUrl = null
             webVideoView.stopLoading()
             webVideoView.loadUrl("about:blank")
             webVideoView.visibility = View.GONE
             exoPlayer?.pause()
             exoPlayer?.stop()
+            exoPlayer?.clearMediaItems()
             playerView.visibility = View.GONE
             layoutPlayerStandby.visibility = View.VISIBLE
         }
@@ -1484,6 +1618,7 @@ class PitWallViewManager(
 
     fun switchToStandby() {
         isUserStoppedPlayback = true
+        currentDirectStreamUrl = null
         videoWatchdogJob?.cancel()
         if (customFullScreenView != null) hideCustomView()
         webVideoView.stopLoading()
@@ -1492,6 +1627,7 @@ class PitWallViewManager(
         currentWebUrl = null
         exoPlayer?.pause()
         exoPlayer?.stop()
+        exoPlayer?.clearMediaItems()
         playerView.visibility = View.GONE
         layoutPlayerStandby.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.GONE
@@ -2888,38 +3024,40 @@ class PitWallViewManager(
             updateSimulatedLeaderboard()
         }
 
-        // 3. GPS Track Map (hardware-accelerated continuous 60 FPS spline animation)
-        layoutTrackMapCircuitImageContainer?.visibility = View.GONE
-        trackMapView?.visibility = View.VISIBLE
-        tvTrackMapLegend?.visibility = View.VISIBLE
-        tvTrackMapGpsStatus?.text = "🟢 GPS EN VIVO (EMULACIÓN 60 FPS)"
-        tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#15803D"))
+        // 3. GPS Track Map (hardware-accelerated continuous spline animation)
+        if (activeTelemetryMode == TelemetryMode.TRACK_MAP) {
+            layoutTrackMapCircuitImageContainer?.visibility = View.GONE
+            trackMapView?.visibility = View.VISIBLE
+            tvTrackMapLegend?.visibility = View.VISIBLE
+            tvTrackMapGpsStatus?.text = "🟢 GPS EN VIVO (EMULACIÓN 30 FPS)"
+            tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#15803D"))
 
-        trackMapView?.let { map ->
-            if (map.getSimulationDrivers().isEmpty()) {
-                val trackPoints = map.getTrackPoints()
-                if (trackPoints.isNotEmpty()) {
-                    val n = trackPoints.size
-                    val simDriversForMap = activeSimDrivers.mapIndexed { idx, d ->
-                        val progress = ((n.toFloat() - (idx * (n.toFloat() / activeSimDrivers.size.toFloat()))) % n.toFloat() + n.toFloat()) % n.toFloat()
-                        TrackMapView.SimTrackDriver(
-                            driverNumber = d.driverNumber,
-                            acronym = d.acronym,
-                            colorHex = d.teamColor,
-                            trackProgress = progress
-                        )
+            trackMapView?.let { map ->
+                if (map.getSimulationDrivers().isEmpty()) {
+                    val trackPoints = map.getTrackPoints()
+                    if (trackPoints.isNotEmpty()) {
+                        val n = trackPoints.size
+                        val simDriversForMap = activeSimDrivers.mapIndexed { idx, d ->
+                            val progress = ((n.toFloat() - (idx * (n.toFloat() / activeSimDrivers.size.toFloat()))) % n.toFloat() + n.toFloat()) % n.toFloat()
+                            TrackMapView.SimTrackDriver(
+                                driverNumber = d.driverNumber,
+                                acronym = d.acronym,
+                                colorHex = d.teamColor,
+                                trackProgress = progress
+                            )
+                        }
+                        map.setSimulationDrivers(simDriversForMap)
+                    } else {
+                        map.loadCircuit(circuitName)
                     }
-                    map.setSimulationDrivers(simDriversForMap)
-                } else {
-                    map.loadCircuit(circuitName)
                 }
+                map.selectedDriverNumber = if (isDriverTelemetryOpen) selectedDriverNumber else null
             }
-            map.selectedDriverNumber = if (isDriverTelemetryOpen) selectedDriverNumber else null
-        }
-        tvTrackMapFollowedDriver?.text = if (isDriverTelemetryOpen && selectedDriverItem != null) {
-            "Piloto seguido: #${selectedDriverItem!!.driverNumber} ${selectedDriverItem!!.acronym} (${selectedDriverItem!!.teamName})"
-        } else {
-            "Monitoreando a los 22 monoplazas en pista • Emulación en vivo (60 FPS)"
+            tvTrackMapFollowedDriver?.text = if (isDriverTelemetryOpen && selectedDriverItem != null) {
+                "Piloto seguido: #${selectedDriverItem!!.driverNumber} ${selectedDriverItem!!.acronym} (${selectedDriverItem!!.teamName})"
+            } else {
+                "Monitoreando a los 22 monoplazas en pista • Emulación en vivo (30 FPS)"
+            }
         }
 
         // 4. Driver Telemetry update if panel open (every 200ms for live dials!)
@@ -3665,9 +3803,25 @@ class PitWallViewManager(
 
     fun playSpanishBroadcast(broadcast: SpanishBroadcast) {
         isUserStoppedPlayback = false
+        currentDirectStreamUrl = null
         startVideoPlaybackWatchdog()
+
+        val directCandidate = broadcast.streamUrl?.takeIf { it.isNotBlank() }
+        if (directCandidate != null && isDirectStreamUrl(directCandidate)) {
+            exoPlayer?.pause()
+            exoPlayer?.stop()
+            exoPlayer?.clearMediaItems()
+            webVideoView.visibility = View.GONE
+            webVideoView.stopLoading()
+            webVideoView.loadUrl("about:blank")
+            tvLiveSessionAlertTitle.text = "🏎️ " + broadcast.getFormattedTitle()
+            playDirectStreamInExoPlayer(directCandidate)
+            return
+        }
+
         exoPlayer?.pause()
         exoPlayer?.stop()
+        exoPlayer?.clearMediaItems()
         playerView.visibility = View.GONE
         layoutPlayerStandby.visibility = View.GONE
         webVideoView.visibility = View.VISIBLE
@@ -3760,6 +3914,7 @@ class PitWallViewManager(
 
     fun selectServer(index: Int) {
         selectedServerIndex = index
+        currentDirectStreamUrl = null
         serverButtons.forEachIndexed { buttonIndex, button ->
             button.isSelected = buttonIndex == index
         }

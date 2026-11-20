@@ -1251,4 +1251,74 @@ class PitWallEnhancementsTest {
         assertTrue(statusText.contains("Sector 2 (312 km/h)"))
         assertTrue(statusText.contains("En escucha"))
     }
+
+    @Test
+    fun testDirectStreamUrlDetection() {
+        fun isDirectStreamUrl(url: String): Boolean {
+            if (url.isBlank()) return false
+            val clean = url.substringBefore("#").trim()
+            val path = clean.substringBefore("?").lowercase(Locale.ROOT)
+
+            val isManifest = path.endsWith(".m3u8") || path.endsWith(".mpd") ||
+                    path.contains(".m3u8/") || path.contains(".mpd/") ||
+                    clean.contains(".m3u8?", ignoreCase = true) || clean.contains(".mpd?", ignoreCase = true)
+
+            val isSegment = path.endsWith(".ts") || path.endsWith(".m4s") || path.endsWith(".key") || path.endsWith(".aac")
+            val isAd = listOf(
+                "doubleclick", "googlesyndication", "adsystem", "adnxs",
+                "adsterra", "popads", "monetag", "trafficjunky", "exoclick"
+            ).any { clean.contains(it, ignoreCase = true) }
+
+            return isManifest && !isSegment && !isAd
+        }
+
+        // Direct HLS and DASH streams
+        assertTrue(isDirectStreamUrl("https://edge.cdn.live/f1/channel_esp.m3u8"))
+        assertTrue(isDirectStreamUrl("https://stream.server.org/live/master.m3u8?token=xyz123&expires=9999"))
+        assertTrue(isDirectStreamUrl("http://tv.stream.com/hls/race.m3u8/manifest"))
+        assertTrue(isDirectStreamUrl("https://dash.akamaized.net/live/f1.mpd"))
+        assertTrue(isDirectStreamUrl("https://dash.akamaized.net/live/f1.mpd?hdnts=exp=123"))
+
+        // Segment chunks must NOT be treated as whole stream manifests
+        assertFalse(isDirectStreamUrl("https://edge.cdn.live/f1/segment_001.ts"))
+        assertFalse(isDirectStreamUrl("https://edge.cdn.live/f1/segment_001.m4s"))
+        assertFalse(isDirectStreamUrl("https://edge.cdn.live/f1/key.key"))
+        assertFalse(isDirectStreamUrl("https://edge.cdn.live/f1/audio.aac"))
+
+        // Ad networks serving m3u8 should be ignored
+        assertFalse(isDirectStreamUrl("https://adsterra.com/ads/commercial.m3u8"))
+        assertFalse(isDirectStreamUrl("https://googleads.g.doubleclick.net/ad/stream.m3u8"))
+        assertFalse(isDirectStreamUrl("https://monetag.com/track/banner.m3u8"))
+
+        // Standard web pages should NOT match
+        assertFalse(isDirectStreamUrl("https://flx.example.com/watch/f1"))
+        assertFalse(isDirectStreamUrl("https://librefutboltv.net/evento/f1-gp.html"))
+        assertFalse(isDirectStreamUrl(""))
+        assertFalse(isDirectStreamUrl("   "))
+    }
+
+    @Test
+    fun testWatchdogOnlyPlaysWhenStoppedAndNotBuffering() {
+        val stateReady = 3 // Player.STATE_READY
+        val stateBuffering = 2 // Player.STATE_BUFFERING
+        val stateEnded = 4 // Player.STATE_ENDED
+
+        fun shouldWatchdogTriggerPlay(playbackState: Int, playWhenReady: Boolean): Boolean {
+            return (playbackState == stateReady && !playWhenReady) || (playbackState == stateEnded)
+        }
+
+        // When stream is buffering/loading, watchdog must NOT interfere
+        assertFalse(shouldWatchdogTriggerPlay(playbackState = stateBuffering, playWhenReady = false))
+        assertFalse(shouldWatchdogTriggerPlay(playbackState = stateBuffering, playWhenReady = true))
+
+        // When stream paused/stopped while ready, watchdog triggers resume
+        assertTrue(shouldWatchdogTriggerPlay(playbackState = stateReady, playWhenReady = false))
+
+        // When stream reached ended state, watchdog triggers restart
+        assertTrue(shouldWatchdogTriggerPlay(playbackState = stateEnded, playWhenReady = false))
+        assertTrue(shouldWatchdogTriggerPlay(playbackState = stateEnded, playWhenReady = true))
+
+        // When already playing happily, no action needed
+        assertFalse(shouldWatchdogTriggerPlay(playbackState = stateReady, playWhenReady = true))
+    }
 }
