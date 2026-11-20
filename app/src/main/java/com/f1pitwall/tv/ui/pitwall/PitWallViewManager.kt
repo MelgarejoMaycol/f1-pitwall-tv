@@ -135,6 +135,11 @@ class PitWallViewManager(
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+                // Use a desktop-style UA for TV layouts while retaining the installed WebView's
+                // actual Chromium version, rather than spoofing an obsolete browser build.
+                userAgentString = userAgentString
+                    .replace("; wv", "")
+                    .replace(" Mobile", "")
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                     mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 }
@@ -164,6 +169,20 @@ class PitWallViewManager(
                     if (request?.isForMainFrame == true) {
                         val reason = error?.description?.toString() ?: "error de red"
                         Toast.makeText(context, "No se pudo cargar la página: " + reason, Toast.LENGTH_LONG).show()
+                    }
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    errorResponse: android.webkit.WebResourceResponse?
+                ) {
+                    if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 0) >= 400) {
+                        Toast.makeText(
+                            context,
+                            "El sitio respondió HTTP " + errorResponse?.statusCode,
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
 
@@ -215,6 +234,7 @@ class PitWallViewManager(
         popup.settings.javaScriptEnabled = true
         popup.settings.domStorageEnabled = true
         popup.settings.mediaPlaybackRequiresUserGesture = false
+        CookieManager.getInstance().setAcceptThirdPartyCookies(popup, true)
         popup.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 if (!url.isNullOrBlank() && url != "about:blank") {
