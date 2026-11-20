@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -29,6 +30,7 @@ import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.FutbolVivoExtractor
 import com.f1pitwall.tv.ui.LeaderboardAdapter
+import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 
@@ -59,6 +61,12 @@ class PitWallViewManager(
     private val layoutLiveSessionAlert: View = rootView.findViewById(R.id.layoutLiveSessionAlert)
     private val tvLiveSessionAlertTitle: TextView = rootView.findViewById(R.id.tvLiveSessionAlertTitle)
     private val btnLiveSessionAction: Button = rootView.findViewById(R.id.btnLiveSessionAction)
+    private val layoutServerSelector: View = rootView.findViewById(R.id.layoutServerSelector)
+    private val tvServerLabel: TextView = rootView.findViewById(R.id.tvServerLabel)
+    private val btnServer1: Button = rootView.findViewById(R.id.btnServer1)
+    private val btnServer2: Button = rootView.findViewById(R.id.btnServer2)
+    private val btnServer3: Button = rootView.findViewById(R.id.btnServer3)
+    private var selectedServerIndex: Int = 0
     private val btnContentPreview: Button = rootView.findViewById(R.id.btnContentPreview)
     private val btnContentRecap: Button = rootView.findViewById(R.id.btnContentRecap)
     private val btnContentBoxes: Button = rootView.findViewById(R.id.btnContentBoxes)
@@ -107,6 +115,7 @@ class PitWallViewManager(
     private var currentScheduleTitle: String = "Calendario F1 en preparación"
     private var futbolVivoStatusText: String = "FÚTBOL LIBRE • BUSCANDO EVENTOS F1"
     private var discoveredFutbolEventUrl: String? = null
+    private var discoveredAlternativeUrls: List<String> = emptyList()
     private var discoveredFutbolEventTitle: String = "Evento de Fórmula 1"
     private var currentWebUrl: String? = null
     private var customFullScreenView: View? = null
@@ -162,6 +171,8 @@ class PitWallViewManager(
                     setAcceptThirdPartyCookies(webVideoView, true)
                 }
             }
+
+            addJavascriptInterface(PitWallBridge(), "AndroidPitWallBridge")
 
             setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN &&
@@ -246,12 +257,6 @@ class PitWallViewManager(
                         (function() {
                             try { window.open = function() { return null; }; } catch(e) {}
                             function cleanAndMaximize() {
-                                const iframe = document.getElementById('liveIframe') || document.querySelector('.se-player-wrap iframe');
-                                if (iframe && iframe.src && iframe.src.indexOf('frame.html') !== -1) {
-                                    window.location.replace(iframe.src);
-                                    return;
-                                }
-
                                 const style = document.createElement('style');
                                 style.id = '__f1_tv_clean';
                                 style.innerHTML = `
@@ -269,7 +274,7 @@ class PitWallViewManager(
                                     .histats, [id*="histats"], [class*="histats"], [id*="aclib"] {
                                         display: none !important;
                                     }
-                                    .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap {
+                                    .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap, #playerContainer {
                                         position: fixed !important;
                                         top: 0 !important;
                                         left: 0 !important;
@@ -307,7 +312,7 @@ class PitWallViewManager(
                                 });
 
                                 document.querySelectorAll('div').forEach(d => {
-                                    if (d.id !== 'playerWrap' && !d.classList.contains('se-player-wrap') && !d.classList.contains('se-player')) {
+                                    if (d.id !== 'playerWrap' && d.id !== 'playerContainer' && !d.classList.contains('se-player-wrap') && !d.classList.contains('se-player')) {
                                         const s = window.getComputedStyle(d);
                                         if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) > 999999) {
                                             d.remove();
@@ -316,10 +321,44 @@ class PitWallViewManager(
                                 });
                             }
 
+                            function reportServers() {
+                                try {
+                                    if (window.currentMatch) {
+                                        console.log("F1_DEBUG: currentMatch=" + JSON.stringify({
+                                            id: window.currentMatch.id,
+                                            name: window.currentMatch.name,
+                                            streams: window.currentMatch.streams,
+                                            channels: window.currentMatch.channels
+                                        }));
+                                    }
+                                    let servers = [];
+                                    let active = 0;
+                                    if (window.currentMatch && Array.isArray(window.currentMatch.channels) && window.currentMatch.channels.length > 0) {
+                                        servers = window.currentMatch.channels.map((c, i) => c.server_name || ('Opción ' + (i + 1)));
+                                        active = typeof window.activeServer !== 'undefined' ? window.activeServer : 0;
+                                    } else if (window.currentMatch && Array.isArray(window.currentMatch.streams) && window.currentMatch.streams.length > 0) {
+                                        servers = window.currentMatch.streams.map((s, i) => s.language || s.name || ('Opción ' + (i + 1)));
+                                        active = typeof window.activeStream !== 'undefined' ? window.activeStream : 0;
+                                    } else {
+                                        const tabs = document.querySelectorAll('#streamTabs .se-tab-btn');
+                                        if (tabs && tabs.length > 0) {
+                                            tabs.forEach((t, i) => {
+                                                servers.push(t.innerText.trim() || ('Opción ' + (i + 1)));
+                                                if (t.classList.contains('active')) active = i;
+                                            });
+                                        }
+                                    }
+                                    if (servers.length > 0 && window.AndroidPitWallBridge) {
+                                        window.AndroidPitWallBridge.onServersAvailable(servers.length, active, JSON.stringify(servers));
+                                    }
+                                } catch(e) {}
+                            }
+
                             cleanAndMaximize();
-                            setTimeout(cleanAndMaximize, 600);
-                            setTimeout(cleanAndMaximize, 1500);
-                            setTimeout(cleanAndMaximize, 3000);
+                            reportServers();
+                            setTimeout(function() { cleanAndMaximize(); reportServers(); }, 600);
+                            setTimeout(function() { cleanAndMaximize(); reportServers(); }, 1500);
+                            setTimeout(function() { cleanAndMaximize(); reportServers(); }, 3000);
                         })();
                     """.trimIndent()
                     view?.evaluateJavascript(cleanJs, null)
@@ -372,10 +411,15 @@ class PitWallViewManager(
         if (w <= 0 || h <= 0) return
         val density = context.resources.displayMetrics.density
 
+        val focusedView = rootView.findFocus() ?: btnServer1
+
         sendTouch(w / 2f, h / 2f)
         webVideoView.postDelayed({
             sendTouch(w / 2f, 35f * density)
-        }, 250)
+            focusedView.post {
+                focusedView.requestFocus()
+            }
+        }, 300)
     }
 
     private fun sendTouch(x: Float, y: Float) {
@@ -437,7 +481,13 @@ class PitWallViewManager(
             return
         }
 
-        currentWebUrl = url
+        var targetUrl = url
+        if (selectedServerIndex > 0 && !url.contains("s=")) {
+            val sep = if (url.contains("?")) "&" else "?"
+            targetUrl = "$url${sep}s=$selectedServerIndex"
+        }
+
+        currentWebUrl = targetUrl
         exoPlayer?.pause()
         exoPlayer?.stop()
         playerView.visibility = View.GONE
@@ -445,8 +495,8 @@ class PitWallViewManager(
         webVideoView.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.VISIBLE
         tvLiveSessionAlertTitle.text = "🏎️ " + title
-        webVideoView.loadUrl(url)
-        webVideoView.requestFocus()
+        webVideoView.loadUrl(targetUrl)
+        btnServer1.post { btnServer1.requestFocus() }
     }
 
     fun handleBackPressed(): Boolean {
@@ -480,6 +530,42 @@ class PitWallViewManager(
         btnStandbyStopVideo.setOnClickListener {
             switchToStandby()
         }
+
+        // Selección de servidores / opciones de señal
+        btnServer1.setOnClickListener { selectServer(0) }
+        btnServer2.setOnClickListener { selectServer(1) }
+        btnServer3.setOnClickListener { selectServer(2) }
+        btnServer1.isSelected = true
+
+        // TV Remote Focus Chain
+        btnServer1.nextFocusUpId = R.id.btnTabPitWall
+        btnServer1.nextFocusRightId = R.id.btnServer2
+        btnServer1.nextFocusDownId = R.id.btnPlayRadio
+        btnServer1.nextFocusLeftId = R.id.btnServer1
+
+        btnServer2.nextFocusUpId = R.id.btnTabPitWall
+        btnServer2.nextFocusLeftId = R.id.btnServer1
+        btnServer2.nextFocusRightId = R.id.btnServer3
+        btnServer2.nextFocusDownId = R.id.btnPlayRadio
+
+        btnServer3.nextFocusUpId = R.id.btnTabPitWall
+        btnServer3.nextFocusLeftId = R.id.btnServer2
+        btnServer3.nextFocusRightId = R.id.btnLiveSessionAction
+        btnServer3.nextFocusDownId = R.id.btnPlayRadio
+
+        btnLiveSessionAction.nextFocusUpId = R.id.btnTabPitWall
+        btnLiveSessionAction.nextFocusLeftId = R.id.btnServer3
+        btnLiveSessionAction.nextFocusRightId = R.id.btnMetricsTiming
+        btnLiveSessionAction.nextFocusDownId = R.id.btnPlayRadio
+
+        btnPlayRadio.nextFocusUpId = R.id.btnServer1
+        btnRadioVer.nextFocusUpId = R.id.btnServer1
+        btnRadioNor.nextFocusUpId = R.id.btnServer1
+        btnRadioLec.nextFocusUpId = R.id.btnServer2
+        btnRadioHam.nextFocusUpId = R.id.btnServer2
+        btnRadioRus.nextFocusUpId = R.id.btnServer3
+        btnRadioPia.nextFocusUpId = R.id.btnServer3
+        btnRadioAlo.nextFocusUpId = R.id.btnLiveSessionAction
 
         // Botón de refrescar / recargar la señal en vivo si cae
         btnLiveSessionAction.setOnClickListener {
@@ -547,6 +633,7 @@ class PitWallViewManager(
             val status = if (event.isLive) "EN VIVO" else "PROGRAMADA"
             futbolVivoStatusText = "FÚTBOL LIBRE • $status"
             discoveredFutbolEventUrl = event.eventUrl
+            discoveredAlternativeUrls = event.alternativeUrls
             discoveredFutbolEventTitle = event.title
             val start = event.startTime?.let { " • $it" }.orEmpty()
             tvStandbySubtitle.text = "Evento F1 detectado: ${event.title}$start"
@@ -559,6 +646,7 @@ class PitWallViewManager(
         }
         futbolVivoExtractor.onNoEventDetected = {
             discoveredFutbolEventUrl = null
+            discoveredAlternativeUrls = emptyList()
             futbolVivoStatusText = "FÚTBOL LIBRE • SIN EVENTO F1"
             tvStandbySubtitle.text =
                 "No se detectan eventos F1 en la cartelera actual. Abre TV Web para consultar los eventos publicados."
@@ -584,6 +672,7 @@ class PitWallViewManager(
     }
 
     fun onPitWallTabSelected() {
+        btnServer1.post { btnServer1.requestFocus() }
         if (!isVideoPlaying()) {
             if (!discoveredFutbolEventUrl.isNullOrBlank()) {
                 openDiscoveredFutbolEvent()
@@ -767,10 +856,113 @@ class PitWallViewManager(
         updateFutbolVivoStatusBadge()
     }
 
+    inner class PitWallBridge {
+        @JavascriptInterface
+        fun onServersAvailable(count: Int, activeIdx: Int, titlesJson: String?) {
+            rootView.post {
+                updateServerButtons(count, activeIdx, titlesJson)
+            }
+        }
+    }
+
+    private fun updateServerButtons(count: Int, activeIdx: Int, titlesJson: String?) {
+        android.util.Log.d("PitWallServer", "updateServerButtons: count=$count, active=$activeIdx, titles=$titlesJson")
+        // Always keep all 3 server options visible so user can switch anytime
+        btnServer1.visibility = View.VISIBLE
+        btnServer2.visibility = View.VISIBLE
+        btnServer3.visibility = View.VISIBLE
+
+        if (!titlesJson.isNullOrBlank()) {
+            try {
+                val list = Gson().fromJson(titlesJson, Array<String>::class.java)
+                if (list != null) {
+                    if (list.isNotEmpty()) btnServer1.text = formatServerTitle(list[0], 1)
+                    if (list.size > 1) btnServer2.text = formatServerTitle(list[1], 2)
+                    if (list.size > 2) btnServer3.text = formatServerTitle(list[2], 3)
+                }
+            } catch (_: Exception) {}
+        }
+
+        selectedServerIndex = activeIdx
+        btnServer1.isSelected = (activeIdx == 0)
+        btnServer2.isSelected = (activeIdx == 1)
+        btnServer3.isSelected = (activeIdx == 2)
+    }
+
+    private fun formatServerTitle(raw: String, fallbackNum: Int): String {
+        val clean = raw.trim()
+        if (clean.equals("English", ignoreCase = true)) return "Opción $fallbackNum (ENG)"
+        if (clean.equals("Spanish", ignoreCase = true) || clean.equals("Español", ignoreCase = true)) return "Opción $fallbackNum (ESP)"
+        return if (clean.length in 1..14) clean else "Opción $fallbackNum"
+    }
+
+    fun selectServer(index: Int) {
+        selectedServerIndex = index
+        btnServer1.isSelected = (index == 0)
+        btnServer2.isSelected = (index == 1)
+        btnServer3.isSelected = (index == 2)
+
+        Toast.makeText(context, "Conectando a Opción ${index + 1}...", Toast.LENGTH_SHORT).show()
+
+        val altUrl = if (index < discoveredAlternativeUrls.size) discoveredAlternativeUrls[index] else null
+
+        val switchJs = """
+            (function(idx, fallbackAltUrl) {
+                try {
+                    // 1. soccer.html (currentMatch.channels)
+                    if (window.currentMatch && Array.isArray(window.currentMatch.channels) && window.currentMatch.channels[idx]) {
+                        window.activeServer = idx;
+                        if (typeof window.updatePlayer === 'function') {
+                            window.updatePlayer(window.currentMatch.channels[idx]);
+                        }
+                        const tabs = document.querySelectorAll('#streamTabs .se-tab-btn');
+                        tabs.forEach((b, i) => b.classList.toggle('active', i === idx));
+                        return 'switched_channel_' + idx;
+                    }
+                    // 2. us.html / latin.html (currentMatch.streams)
+                    if (window.currentMatch && Array.isArray(window.currentMatch.streams) && window.currentMatch.streams[idx]) {
+                        window.activeStream = idx;
+                        if (typeof window.renderPlayer === 'function') {
+                            window.renderPlayer();
+                        }
+                        const tabs = document.querySelectorAll('#streamTabs .se-tab-btn');
+                        tabs.forEach((b, i) => b.classList.toggle('active', i === idx));
+                        return 'switched_stream_' + idx;
+                    }
+                    // 3. Fallback: click tab button in DOM
+                    const tabs = document.querySelectorAll('#streamTabs .se-tab-btn');
+                    if (tabs && tabs[idx]) {
+                        tabs[idx].click();
+                        return 'clicked_tab_' + idx;
+                    }
+                    // 4. Fallback: navigate to alternative discovered F1 match URL
+                    if (fallbackAltUrl && fallbackAltUrl !== window.location.href) {
+                        window.location.replace(fallbackAltUrl);
+                        return 'navigated_alt_url_' + fallbackAltUrl;
+                    }
+                    // 5. URL navigation with &s=idx for direct reload
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('s', idx);
+                    window.location.replace(u.toString());
+                    return 'navigated_param_' + idx;
+                } catch(e) {
+                    return 'error: ' + e.message;
+                }
+            })($index, ${altUrl?.let { "'$it'" } ?: "null"});
+        """.trimIndent()
+
+        webVideoView.evaluateJavascript(switchJs) { res ->
+            android.util.Log.d("PitWallServer", "Server switch result: $res")
+        }
+
+        webVideoView.postDelayed({ triggerPlayerTap() }, 2000)
+        webVideoView.postDelayed({ triggerPlayerTap() }, 4500)
+    }
+
     fun refreshStream() {
         Toast.makeText(context, "🔄 Recargando transmisión F1...", Toast.LENGTH_SHORT).show()
         if (webVideoView.visibility == View.VISIBLE && currentWebUrl != null && currentWebUrl != "about:blank") {
-            webVideoView.reload()
+            selectServer(selectedServerIndex)
         } else {
             openDiscoveredFutbolEvent()
         }

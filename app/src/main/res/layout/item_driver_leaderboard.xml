@@ -5,6 +5,7 @@
     android:layout_marginVertical="2dp"
     android:background="@drawable/card_focus_selector"
     android:focusable="true"
+    android:nextFocusLeft="@+id/btnServer1"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="6dp">

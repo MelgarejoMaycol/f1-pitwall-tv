@@ -21,7 +21,8 @@ data class F1LiveStreamEvent(
     val title: String,
     val isLive: Boolean,
     val startTime: String?,
-    val eventUrl: String?
+    val eventUrl: String?,
+    val alternativeUrls: List<String> = emptyList()
 )
 
 class FutbolVivoExtractor(private val context: Context) {
@@ -130,6 +131,7 @@ class FutbolVivoExtractor(private val context: Context) {
                     const sources = [
                         window.seAllMatches,
                         window.seLatinMatches,
+                        window.seKoraMatches,
                         window.seMatches,
                         window.allMatches,
                         window.matches
@@ -198,8 +200,16 @@ class FutbolVivoExtractor(private val context: Context) {
                             live: isLive(item, entry.extra),
                             startTime: startOf(item),
                             eventUrl: (() => {
-                                const candidate = item.url || item.href || item.link ||
-                                    (typeof window.seStreamUrl === "function" ? window.seStreamUrl(item) : null);
+                                let candidate = item.url || item.href || item.link;
+                                if (!candidate) {
+                                    if (typeof window.seLatinStreamUrl === "function" && window.seLatinMatches && window.seLatinMatches.indexOf(item) !== -1) {
+                                        candidate = window.seLatinStreamUrl(item);
+                                    } else if (typeof window.seKoraStreamUrl === "function" && window.seKoraMatches && window.seKoraMatches.indexOf(item) !== -1) {
+                                        candidate = window.seKoraStreamUrl(item);
+                                    } else if (typeof window.seStreamUrl === "function") {
+                                        candidate = window.seStreamUrl(item);
+                                    }
+                                }
                                 return typeof candidate === "string" ? candidate : null;
                             })()
                         };
@@ -215,10 +225,23 @@ class FutbolVivoExtractor(private val context: Context) {
                     if (f1Matches.length) {
                         noEventSent = false;
                         const target = f1Matches[0];
-                        const key = [target.title, target.live, target.startTime || "", target.eventUrl || ""].join("|");
+                        const uniqueUrls = [];
+                        f1Matches.forEach(m => {
+                            if (m.eventUrl && uniqueUrls.indexOf(m.eventUrl) === -1) {
+                                uniqueUrls.push(m.eventUrl);
+                            }
+                        });
+                        const key = [target.title, target.live, target.startTime || "", target.eventUrl || "", uniqueUrls.join(",")].join("|");
                         if (key !== lastEventKey && window.AndroidBridge) {
                             lastEventKey = key;
-                            window.AndroidBridge.postF1Event(JSON.stringify(target));
+                            const payload = {
+                                title: target.title,
+                                live: target.live,
+                                startTime: target.startTime,
+                                eventUrl: target.eventUrl,
+                                alternativeUrls: uniqueUrls
+                            };
+                            window.AndroidBridge.postF1Event(JSON.stringify(payload));
                         }
                     } else if (attempts >= 8 && !noEventSent && window.AndroidBridge) {
                         noEventSent = true;
@@ -245,7 +268,16 @@ class FutbolVivoExtractor(private val context: Context) {
                     val live = item.get("live")?.takeIf { !it.isJsonNull }?.asBoolean ?: false
                     val start = item.get("startTime")?.takeIf { !it.isJsonNull }?.asString
                     val url = item.get("eventUrl")?.takeIf { !it.isJsonNull }?.asString
-                    onF1EventDetected?.invoke(F1LiveStreamEvent(title, live, start, url))
+                    val altList = mutableListOf<String>()
+                    val altArray = item.getAsJsonArray("alternativeUrls")
+                    if (altArray != null) {
+                        for (elem in altArray) {
+                            if (!elem.isJsonNull && !elem.asString.isNullOrBlank()) {
+                                altList.add(elem.asString)
+                            }
+                        }
+                    }
+                    onF1EventDetected?.invoke(F1LiveStreamEvent(title, live, start, url, altList))
                 } catch (_: Exception) {
                     onNoEventDetected?.invoke()
                 }

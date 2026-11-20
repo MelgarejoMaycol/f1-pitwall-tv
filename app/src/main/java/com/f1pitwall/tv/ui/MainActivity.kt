@@ -2,6 +2,7 @@ package com.f1pitwall.tv.ui
 
 import android.graphics.Color
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -198,6 +199,17 @@ class MainActivity : AppCompatActivity() {
             homeViewManager.saveFocusAndScroll()
             switchToTab(layoutPitWall, btnTabPitWall)
             pitWallViewManager.onPitWallTabSelected()
+        }
+
+        btnTabPitWall.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                val server1 = findViewById<View>(R.id.btnServer1)
+                if (server1 != null && server1.visibility == View.VISIBLE) {
+                    server1.requestFocus()
+                    return@setOnKeyListener true
+                }
+            }
+            false
         }
 
         btnTabArchive.setOnClickListener {
