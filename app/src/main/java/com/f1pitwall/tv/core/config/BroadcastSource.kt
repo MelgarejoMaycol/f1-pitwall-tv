@@ -21,6 +21,12 @@ enum class BroadcastSource(
         displayName = "Fútbol Vivo",
         defaultUrl = "https://futbolvivo.tv/",
         description = "Cartelera y servidores de Fútbol Libre / Fútbol Vivo."
+    ),
+    FUTBOL_LIBRE(
+        key = "FUTBOL_LIBRE",
+        displayName = "Fútbol Libre",
+        defaultUrl = "https://futbol-libre.app/agenda",
+        description = "Agenda completa y transmisiones por evento de Fútbol Libre."
     );
 
     companion object {

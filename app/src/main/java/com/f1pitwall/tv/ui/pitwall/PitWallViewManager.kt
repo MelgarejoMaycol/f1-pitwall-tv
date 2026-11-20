@@ -32,10 +32,13 @@ import com.f1pitwall.tv.core.util.BroadcastDetectorUtils
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.FlxExtractor
+import com.f1pitwall.tv.network.FutbolLibreExtractor
 import com.f1pitwall.tv.network.FutbolVivoExtractor
 import com.f1pitwall.tv.ui.LeaderboardAdapter
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 
 class PitWallViewManager(
@@ -49,6 +52,7 @@ class PitWallViewManager(
     private val preferencesManager = PreferencesManager(context)
     private val futbolVivoExtractor = FutbolVivoExtractor(context)
     private val flxExtractor = FlxExtractor(scope)
+    private val futbolLibreExtractor = FutbolLibreExtractor(scope)
 
     // Video Player & Standby
     private val playerSurface: FrameLayout = rootView.findViewById(R.id.framePitWallSurface)
@@ -70,18 +74,24 @@ class PitWallViewManager(
     private val btnLiveSessionAction: Button = rootView.findViewById(R.id.btnLiveSessionAction)
     private val layoutServerSelector: View = rootView.findViewById(R.id.layoutServerSelector)
     private val tvServerLabel: TextView = rootView.findViewById(R.id.tvServerLabel)
+    private val btnSessionSelector: Button? = rootView.findViewById(R.id.btnSessionSelector)
     private val btnServer1: Button = rootView.findViewById(R.id.btnServer1)
     private val btnServer2: Button = rootView.findViewById(R.id.btnServer2)
     private val btnServer3: Button = rootView.findViewById(R.id.btnServer3)
     private val btnServer4: Button? = rootView.findViewById(R.id.btnServer4)
     private val btnServer5: Button? = rootView.findViewById(R.id.btnServer5)
+    private val btnServer6: Button? = rootView.findViewById(R.id.btnServer6)
+    private val btnServer7: Button? = rootView.findViewById(R.id.btnServer7)
+    private val btnServer8: Button? = rootView.findViewById(R.id.btnServer8)
     private val serverButtons: List<Button> by lazy {
-        listOfNotNull(btnServer1, btnServer2, btnServer3, btnServer4, btnServer5)
+        listOfNotNull(btnServer1, btnServer2, btnServer3, btnServer4, btnServer5, btnServer6, btnServer7, btnServer8)
     }
     private var selectedServerIndex: Int = 0
     private var activeSpanishBroadcasts: List<SpanishBroadcast> = emptyList()
     private var selectedBroadcastIndex: Int = 0
     private var currentLoadedSource: BroadcastSource? = null
+    private var futbolLibreEvents: List<FutbolLibreEvent> = emptyList()
+    private var selectedFutbolLibreEventIndex: Int = 0
     private val btnContentPreview: Button = rootView.findViewById(R.id.btnContentPreview)
     private val btnContentRecap: Button = rootView.findViewById(R.id.btnContentRecap)
     private val btnContentBoxes: Button = rootView.findViewById(R.id.btnContentBoxes)
@@ -287,11 +297,14 @@ class PitWallViewManager(
                                     header, footer, nav, .se-match-head, .se-teams, .se-match-title,
                                     .se-tabs, .navbar, .se-footer, .nav-mobile-only, .se-home-link,
                                     #streamTabs, #matchTitle, #matchTeams, .se-sport-pill,
+                                    .site-header, .site-footer, .breadcrumb, .match-info, .player-toolbar,
+                                    .player-source-state, .player-placeholder, #cq-back-to-top, .cq-back-to-top,
                                     .histats, [id*="histats"], [class*="histats"], [id*="aclib"] {
                                         display: none !important;
                                     }
                                     .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap, #playerContainer,
-                                    .aspect-video, [class*="aspect-video"], #player, [id*="player"] {
+                                    .aspect-video, [class*="aspect-video"], #player, [id*="player"],
+                                    .player-box, .player-panel, #source-frame, #chinaq-video {
                                         position: fixed !important;
                                         top: 0 !important;
                                         left: 0 !important;
@@ -771,7 +784,9 @@ class PitWallViewManager(
 
         when (source) {
             BroadcastSource.FLX -> {
+                btnSessionSelector?.visibility = View.GONE
                 futbolVivoExtractor.stop()
+                futbolLibreExtractor.destroy()
                 flxExtractor.onSpanishBroadcastsDetected = { list ->
                     onSpanishBroadcastsFound(list, BroadcastSource.FLX)
                 }
@@ -781,7 +796,9 @@ class PitWallViewManager(
                 flxExtractor.startExtraction(source.defaultUrl)
             }
             BroadcastSource.FUTBOL_VIVO -> {
+                btnSessionSelector?.visibility = View.GONE
                 flxExtractor.destroy()
+                futbolLibreExtractor.destroy()
                 futbolVivoExtractor.onF1EventDetected = { event ->
                     val status = if (event.isLive) "EN VIVO" else "PROGRAMADA"
                     futbolVivoStatusText = "FÚTBOL VIVO • $status"
@@ -804,7 +821,84 @@ class PitWallViewManager(
                 }
                 futbolVivoExtractor.startExtraction(source.defaultUrl)
             }
+            BroadcastSource.FUTBOL_LIBRE -> {
+                flxExtractor.destroy()
+                futbolVivoExtractor.stop()
+                futbolLibreExtractor.onEventsDetected = { events ->
+                    onFutbolLibreEventsFound(events)
+                }
+                futbolLibreExtractor.onNoEventsDetected = {
+                    onNoSpanishBroadcastsFound(BroadcastSource.FUTBOL_LIBRE)
+                }
+                futbolLibreExtractor.startExtraction(source.defaultUrl)
+            }
         }
+    }
+
+    private fun onFutbolLibreEventsFound(events: List<FutbolLibreEvent>) {
+        futbolLibreEvents = events
+        selectedFutbolLibreEventIndex = 0
+
+        if (events.isEmpty()) {
+            onNoSpanishBroadcastsFound(BroadcastSource.FUTBOL_LIBRE)
+            return
+        }
+
+        btnSessionSelector?.visibility = if (events.size > 1) View.VISIBLE else View.GONE
+        btnSessionSelector?.setOnClickListener {
+            showSessionSelectionDialog(futbolLibreEvents)
+        }
+
+        selectFutbolLibreEvent(0)
+    }
+
+    private fun updateSessionSelectorButton(event: FutbolLibreEvent) {
+        btnSessionSelector?.text = "📅 ${event.getShortLabel()} ▼"
+    }
+
+    fun selectFutbolLibreEvent(index: Int) {
+        if (index !in futbolLibreEvents.indices) return
+        selectedFutbolLibreEventIndex = index
+        selectedBroadcastIndex = 0
+        val event = futbolLibreEvents[index]
+        updateSessionSelectorButton(event)
+
+        tvStandbyTitle.text = event.gpName.uppercase()
+        tvStandbySubtitle.text = "${event.title} • ${event.colombiaTime}"
+        tvStandbyStatusBadge.text = "FÚTBOL LIBRE • ${event.sources.size} TRANSMISIÓN(ES)"
+
+        if (event.sources.isNotEmpty()) {
+            onSpanishBroadcastsFound(event.sources, BroadcastSource.FUTBOL_LIBRE)
+            val currentBroadcast = event.sources[0]
+            tvLiveSessionAlertTitle.text = "🏎️ ${event.gpName} — ${event.sessionName} — ${currentBroadcast.getFormattedTitle()}"
+        } else {
+            scope.launch(Dispatchers.IO) {
+                val matchSources = futbolLibreExtractor.fetchSourcesForMatch(event.fullMatchUrl)
+                withContext(Dispatchers.Main) {
+                    if (matchSources.isNotEmpty()) {
+                        onSpanishBroadcastsFound(matchSources, BroadcastSource.FUTBOL_LIBRE)
+                        val currentBroadcast = matchSources[0]
+                        tvLiveSessionAlertTitle.text = "🏎️ ${event.gpName} — ${event.sessionName} — ${currentBroadcast.getFormattedTitle()}"
+                    } else {
+                        layoutServerSelector.visibility = View.GONE
+                        tvLiveSessionAlertTitle.text = "🏎️ ${event.title}"
+                        playWebPage(event.fullMatchUrl, event.title)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showSessionSelectionDialog(events: List<FutbolLibreEvent>) {
+        val sessionNames = events.map { "${it.title} (${it.colombiaTime})" }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(context)
+            .setTitle("Seleccionar Sesión de F1")
+            .setSingleChoiceItems(sessionNames, selectedFutbolLibreEventIndex) { dialog, which ->
+                dialog.dismiss()
+                selectFutbolLibreEvent(which)
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
     }
 
     private fun updateFutbolVivoStatusBadge() {
@@ -1078,7 +1172,12 @@ class PitWallViewManager(
         val target = list[targetIdx]
         tvLiveSessionAlertTitle.text = "🏎️ " + target.getFormattedTitle()
         tvStandbySubtitle.text = "Transmisión identificada: ${target.getFormattedTitle()}"
-        tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • ${list.size} OPCIÓN(ES) EN ESPAÑOL"
+        val badgeText = if (source == BroadcastSource.FUTBOL_LIBRE) {
+            "FÚTBOL LIBRE • ${list.size} TRANSMISIÓN(ES)"
+        } else {
+            "${source.displayName.uppercase()} • ${list.size} OPCIÓN(ES) EN ESPAÑOL"
+        }
+        tvStandbyStatusBadge.text = badgeText
 
         if (!isVideoPlaying() || currentWebUrl != target.streamUrl) {
             playSpanishBroadcast(target)
@@ -1088,9 +1187,17 @@ class PitWallViewManager(
     private fun onNoSpanishBroadcastsFound(source: BroadcastSource) {
         activeSpanishBroadcasts = emptyList()
         layoutServerSelector.visibility = View.GONE
-        tvLiveSessionAlertTitle.text = "⚠️ No hay transmisiones en español disponibles actualmente para ${source.displayName}"
-        tvStandbySubtitle.text = "No se encontraron transmisiones en español disponibles en ${source.displayName}. Puedes cambiar la fuente en Ajustes o recargar."
-        tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • SIN TRANSMISIONES EN ESPAÑOL"
+        btnSessionSelector?.visibility = View.GONE
+
+        if (source == BroadcastSource.FUTBOL_LIBRE) {
+            tvLiveSessionAlertTitle.text = "⚠️ No hay eventos de Fórmula 1 disponibles actualmente en Fútbol Libre Agenda"
+            tvStandbySubtitle.text = "No se encontraron eventos o sesiones de F1 en la agenda de Fútbol Libre. Puedes cambiar la fuente en Ajustes o recargar."
+            tvStandbyStatusBadge.text = "FÚTBOL LIBRE • SIN EVENTOS F1"
+        } else {
+            tvLiveSessionAlertTitle.text = "⚠️ No hay transmisiones en español disponibles actualmente para ${source.displayName}"
+            tvStandbySubtitle.text = "No se encontraron transmisiones en español disponibles en ${source.displayName}. Puedes cambiar la fuente en Ajustes o recargar."
+            tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • SIN TRANSMISIONES EN ESPAÑOL"
+        }
         btnLiveSessionAction.text = "🔄 Refrescar"
     }
 
@@ -1103,6 +1210,10 @@ class PitWallViewManager(
         highlightBroadcastButton(index)
 
         val broadcast = activeSpanishBroadcasts[index]
+        if ((currentLoadedSource ?: preferencesManager.broadcastSource) == BroadcastSource.FUTBOL_LIBRE && selectedFutbolLibreEventIndex in futbolLibreEvents.indices) {
+            val event = futbolLibreEvents[selectedFutbolLibreEventIndex]
+            tvLiveSessionAlertTitle.text = "🏎️ ${event.gpName} — ${event.sessionName} — ${broadcast.getFormattedTitle()}"
+        }
         Toast.makeText(context, "Sintonizando: ${broadcast.getFormattedTitle()}...", Toast.LENGTH_SHORT).show()
         playSpanishBroadcast(broadcast)
     }
@@ -1249,6 +1360,7 @@ class PitWallViewManager(
         webVideoView.onPause()
         flxExtractor.destroy()
         futbolVivoExtractor.onPause()
+        futbolLibreExtractor.destroy()
     }
 
     fun onResume() {
@@ -1260,6 +1372,7 @@ class PitWallViewManager(
     fun onDestroy() {
         flxExtractor.destroy()
         futbolVivoExtractor.destroy()
+        futbolLibreExtractor.destroy()
         webVideoView.stopLoading()
         webVideoView.destroy()
         exoPlayer?.release()

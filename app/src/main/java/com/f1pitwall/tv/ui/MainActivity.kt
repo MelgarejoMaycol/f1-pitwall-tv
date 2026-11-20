@@ -72,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     // Settings UI & Smart Search
     private lateinit var btnSourceFlx: Button
     private lateinit var btnSourceFutbolVivo: Button
+    private lateinit var btnSourceFutbolLibre: Button
     private lateinit var tvActiveSourceInfo: TextView
     private val preferencesManager by lazy { PreferencesManager(this) }
     private lateinit var tvDetectedSessionTitle: TextView
@@ -136,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         // Settings Views
         btnSourceFlx = findViewById(R.id.btnSourceFlx)
         btnSourceFutbolVivo = findViewById(R.id.btnSourceFutbolVivo)
+        btnSourceFutbolLibre = findViewById(R.id.btnSourceFutbolLibre)
         tvActiveSourceInfo = findViewById(R.id.tvActiveSourceInfo)
         tvDetectedSessionTitle = findViewById(R.id.tvDetectedSessionTitle)
         tvSearchChip1 = findViewById(R.id.tvSearchChip1)
@@ -345,6 +347,12 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Fuente seleccionada: Fútbol Vivo (futbolvivo.tv)", Toast.LENGTH_SHORT).show()
         }
 
+        btnSourceFutbolLibre.setOnClickListener {
+            preferencesManager.broadcastSource = BroadcastSource.FUTBOL_LIBRE
+            updateBroadcastSourceUI(BroadcastSource.FUTBOL_LIBRE)
+            Toast.makeText(this, "Fuente seleccionada: Fútbol Libre (futbol-libre.app/agenda)", Toast.LENGTH_SHORT).show()
+        }
+
         // TV Remote Navigation Chain for Broadcast Source
         btnSourceFlx.nextFocusUpId = R.id.btnTabSettings
         btnSourceFlx.nextFocusRightId = R.id.btnSourceFutbolVivo
@@ -353,13 +361,19 @@ class MainActivity : AppCompatActivity() {
 
         btnSourceFutbolVivo.nextFocusUpId = R.id.btnTabSettings
         btnSourceFutbolVivo.nextFocusLeftId = R.id.btnSourceFlx
-        btnSourceFutbolVivo.nextFocusRightId = R.id.btnSourceFutbolVivo
+        btnSourceFutbolVivo.nextFocusRightId = R.id.btnSourceFutbolLibre
         btnSourceFutbolVivo.nextFocusDownId = R.id.btnApplyStream
+
+        btnSourceFutbolLibre.nextFocusUpId = R.id.btnTabSettings
+        btnSourceFutbolLibre.nextFocusLeftId = R.id.btnSourceFutbolVivo
+        btnSourceFutbolLibre.nextFocusRightId = R.id.btnSourceFutbolLibre
+        btnSourceFutbolLibre.nextFocusDownId = R.id.btnApplyStream
     }
 
     private fun updateBroadcastSourceUI(source: BroadcastSource) {
         btnSourceFlx.isSelected = (source == BroadcastSource.FLX)
         btnSourceFutbolVivo.isSelected = (source == BroadcastSource.FUTBOL_VIVO)
+        btnSourceFutbolLibre.isSelected = (source == BroadcastSource.FUTBOL_LIBRE)
         tvActiveSourceInfo.text = "Fuente activa: ${source.displayName} (${source.defaultUrl})"
     }
 

@@ -13,24 +13,35 @@ data class SpanishBroadcast(
     val index: Int,
     val network: String?,
     val language: String = "Español",
-    val serverName: String,
-    val originalTitle: String,
+    val serverName: String = "Server 1",
+    val originalTitle: String = "",
     val streamUrl: String?,
     val isOnline: Boolean = true,
-    val clickActionJs: String? = null
+    val clickActionJs: String? = null,
+    val sourceId: String? = null,
+    val customFormattedTitle: String? = null,
+    val customButtonLabel: String? = null
 ) {
     /**
      * Construye el nombre exacto de la transmisión conforme a la especificación:
      * Transmisión X — [Cadena] — Español — [Servidor]
+     * O el formato personalizado si está presente (para Fútbol Libre).
      */
     fun getFormattedTitle(): String {
+        if (!customFormattedTitle.isNullOrBlank()) {
+            return customFormattedTitle
+        }
         val parts = mutableListOf<String>()
         parts.add("Transmisión $index")
         if (!network.isNullOrBlank()) {
             parts.add(network)
         }
-        parts.add(language)
-        parts.add(serverName)
+        if (language.isNotBlank()) {
+            parts.add(language)
+        }
+        if (serverName.isNotBlank()) {
+            parts.add(serverName)
+        }
         return parts.joinToString(" — ")
     }
 
@@ -38,6 +49,9 @@ data class SpanishBroadcast(
      * Etiqueta concisa para los botones del control remoto en Android TV.
      */
     fun getButtonLabel(): String {
+        if (!customButtonLabel.isNullOrBlank()) {
+            return customButtonLabel
+        }
         val net = network ?: "Opción $index"
         val srv = when {
             serverName.contains("1") -> "S1"
