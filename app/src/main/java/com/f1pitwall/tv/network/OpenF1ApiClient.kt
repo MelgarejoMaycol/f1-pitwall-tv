@@ -179,4 +179,43 @@ class OpenF1ApiClient {
         val all = get("$baseUrl/car_data?session_key=$sessionKey&driver_number=$driverNumber&speed>=0", type, useCache = false) ?: emptyList()
         return all.lastOrNull()
     }
+
+    suspend fun getCarLocations(sessionKey: Long): List<CarLocation> {
+        val type = object : TypeToken<List<CarLocation>>() {}
+        val all = get("$baseUrl/location?session_key=$sessionKey", type, useCache = false) ?: emptyList()
+        return all.filter { it.x != 0f || it.y != 0f }
+            .groupBy { it.driverNumber }
+            .mapNotNull { it.value.lastOrNull() }
+    }
+
+    suspend fun getTrackOutline(sessionKey: Long, driverNumber: Int = 1): List<CarLocation> {
+        val type = object : TypeToken<List<CarLocation>>() {}
+        var list = get("$baseUrl/location?session_key=$sessionKey&driver_number=$driverNumber", type, useCache = true) ?: emptyList()
+        if (list.isEmpty() && driverNumber != 3) {
+            list = get("$baseUrl/location?session_key=$sessionKey&driver_number=3", type, useCache = true) ?: emptyList()
+        }
+        if (list.isEmpty() && driverNumber != 4) {
+            list = get("$baseUrl/location?session_key=$sessionKey&driver_number=4", type, useCache = true) ?: emptyList()
+        }
+        val validPoints = list.filter { it.x != 0f || it.y != 0f }
+        if (validPoints.size <= 250) return validPoints
+        val step = (validPoints.size / 250).coerceAtLeast(1)
+        return validPoints.filterIndexed { index, _ -> index % step == 0 }
+    }
+
+    suspend fun getPitStops(sessionKey: Long): List<PitStop> {
+        val type = object : TypeToken<List<PitStop>>() {}
+        return get("$baseUrl/pit?session_key=$sessionKey", type, useCache = false) ?: emptyList()
+    }
+
+    suspend fun getAllStintsForSession(sessionKey: Long): List<Stint> {
+        val type = object : TypeToken<List<Stint>>() {}
+        return get("$baseUrl/stints?session_key=$sessionKey", type, useCache = false) ?: emptyList()
+    }
+
+    suspend fun getRaceControlMessages(sessionKey: Long): List<RaceControl> {
+        val type = object : TypeToken<List<RaceControl>>() {}
+        val all = get("$baseUrl/race_control?session_key=$sessionKey", type, useCache = false) ?: emptyList()
+        return all.reversed()
+    }
 }

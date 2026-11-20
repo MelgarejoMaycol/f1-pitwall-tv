@@ -89,7 +89,10 @@ data class RaceControl(
     @SerializedName("category") val category: String?,
     @SerializedName("message") val message: String?,
     @SerializedName("flag") val flag: String?,
-    @SerializedName("scope") val scope: String?
+    @SerializedName("scope") val scope: String?,
+    @SerializedName("sector") val sector: Int? = null,
+    @SerializedName("driver_number") val driverNumber: Int? = null,
+    @SerializedName("lap_number") val lapNumber: Int? = null
 )
 
 data class Weather(
@@ -97,7 +100,41 @@ data class Weather(
     @SerializedName("track_temperature") val trackTemp: Double?,
     @SerializedName("humidity") val humidity: Double?,
     @SerializedName("rainfall") val rainfall: Int?,
-    @SerializedName("wind_speed") val windSpeed: Double?
+    @SerializedName("wind_speed") val windSpeed: Double?,
+    @SerializedName("wind_direction") val windDirection: Int? = null,
+    @SerializedName("pressure") val pressure: Double? = null
+)
+
+data class CarLocation(
+    @SerializedName("date") val date: String?,
+    @SerializedName("driver_number") val driverNumber: Int,
+    @SerializedName("x") val x: Float,
+    @SerializedName("y") val y: Float,
+    @SerializedName("z") val z: Float? = null
+)
+
+data class PitStop(
+    @SerializedName("date") val date: String?,
+    @SerializedName("driver_number") val driverNumber: Int,
+    @SerializedName("lap_number") val lapNumber: Int?,
+    @SerializedName("pit_duration") val pitDuration: Double?,
+    @SerializedName("stop_duration") val stopDuration: Double?,
+    @SerializedName("lane_duration") val laneDuration: Double?
+)
+
+data class DriverTyreStrategyItem(
+    val driverNumber: Int,
+    val position: Int,
+    val acronym: String,
+    val fullName: String,
+    val teamName: String,
+    val teamColor: String,
+    val currentCompound: String,
+    val tyreAge: Int,
+    val totalStints: Int,
+    val pitStopsCount: Int,
+    val lastPitStopDuration: String,
+    val stintsHistory: String
 )
 
 data class DriverLeaderboardItem(

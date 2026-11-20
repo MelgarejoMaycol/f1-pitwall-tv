@@ -7,9 +7,14 @@ import com.f1pitwall.tv.data.model.JolpicaQualifyingResult
 import com.f1pitwall.tv.data.model.JolpicaRace
 import com.f1pitwall.tv.data.model.RaceTableContainer
 import com.f1pitwall.tv.data.model.JolpicaResponse
+import com.f1pitwall.tv.model.CarLocation
 import com.f1pitwall.tv.model.DriverLeaderboardItem
+import com.f1pitwall.tv.model.DriverTyreStrategyItem
 import com.f1pitwall.tv.model.Lap
+import com.f1pitwall.tv.model.RaceControl
 import com.f1pitwall.tv.model.TeamRadio
+import com.f1pitwall.tv.model.Weather
+import com.f1pitwall.tv.ui.pitwall.TrackMapView
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import org.junit.Assert.*
@@ -255,5 +260,73 @@ class PitWallEnhancementsTest {
         assertEquals(Integer.valueOf(312), lap.i2Speed)
         assertEquals(Integer.valueOf(338), lap.stSpeed)
         assertEquals("1:31.825", TimeUtils.formatLapDuration(lap.lapDuration))
+    }
+
+    @Test
+    fun testTyreStrategyModel() {
+        val strategyItem = DriverTyreStrategyItem(
+            driverNumber = 16,
+            position = 3,
+            acronym = "LEC",
+            fullName = "Charles Leclerc",
+            teamName = "Ferrari",
+            teamColor = "E80020",
+            currentCompound = "HARD",
+            tyreAge = 18,
+            totalStints = 2,
+            pitStopsCount = 1,
+            lastPitStopDuration = "2.4s",
+            stintsHistory = "M (22v) ➔ H (18v)"
+        )
+
+        assertEquals("LEC", strategyItem.acronym)
+        assertEquals(3, strategyItem.position)
+        assertEquals("HARD", strategyItem.currentCompound)
+        assertEquals(18, strategyItem.tyreAge)
+        assertEquals(1, strategyItem.pitStopsCount)
+        assertEquals("2.4s", strategyItem.lastPitStopDuration)
+        assertEquals("M (22v) ➔ H (18v)", strategyItem.stintsHistory)
+    }
+
+    @Test
+    fun testRaceControlCategorization() {
+        val messages = listOf(
+            RaceControl(date = "2026-11-20T04:00:00Z", category = "SafetyCar", message = "SAFETY CAR DEPLOYED", flag = "YELLOW", scope = "Track"),
+            RaceControl(date = "2026-11-20T04:10:00Z", category = "Flag", message = "TRACK CLEAR", flag = "CLEAR", scope = "Sector", sector = 4),
+            RaceControl(date = "2026-11-20T04:15:00Z", category = "Drs", message = "DRS ENABLED", flag = null, scope = "Track"),
+            RaceControl(date = "2026-11-20T04:20:00Z", category = "Incident", message = "CAR 44 TIME PENALTY 5 SEC", flag = null, scope = "Driver", driverNumber = 44)
+        )
+
+        assertEquals(4, messages.size)
+        assertTrue(messages[0].message?.contains("SAFETY CAR") == true)
+        assertEquals("YELLOW", messages[0].flag)
+        assertEquals("CLEAR", messages[1].flag)
+        assertEquals(Integer.valueOf(4), messages[1].sector)
+        assertEquals(Integer.valueOf(44), messages[3].driverNumber)
+    }
+
+    @Test
+    fun testCarLocationAndMarkerMapping() {
+        val location = CarLocation(
+            date = "2026-11-20T01:38:41Z",
+            driverNumber = 1,
+            x = 2522f,
+            y = 97f,
+            z = 6089f
+        )
+
+        val marker = TrackMapView.DriverMarker(
+            driverNumber = location.driverNumber,
+            acronym = "VER",
+            colorHex = "#3671C6",
+            rawX = location.x,
+            rawY = location.y
+        )
+
+        assertEquals(1, marker.driverNumber)
+        assertEquals("VER", marker.acronym)
+        assertEquals("#3671C6", marker.colorHex)
+        assertEquals(2522f, marker.rawX, 0.01f)
+        assertEquals(97f, marker.rawY, 0.01f)
     }
 }

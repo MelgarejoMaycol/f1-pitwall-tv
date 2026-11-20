@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="4dp"
+    android:background="@drawable/bg_glass_panel"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="6dp">
+
+    <!-- Position -->
+    <TextView
+        android:id="@+id/tvTyrePos"
+        android:layout_width="22dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="1"
+        android:textColor="@color/text_primary"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <!-- Team Color Indicator -->
+    <View
+        android:id="@+id/viewTyreTeamColor"
+        android:layout_width="4dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="6dp"
+        android:background="#E10600" />
+
+    <!-- Driver Info (Acronym & Team) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvTyreDriverName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VER • Max Verstappen"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvTyreStintsHistory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="M (18v) ➔ H (24v)"
+            android:textColor="@color/text_muted"
+            android:textSize="9sp" />
+    </LinearLayout>
+
+    <!-- Pit Stops Count & Duration -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="vertical"
+        android:layout_marginEnd="6dp">
+
+        <TextView
+            android:id="@+id/tvTyrePitCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1 STOP"
+            android:textColor="@color/text_secondary"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvTyrePitDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Box: 2.3s"
+            android:textColor="@color/text_muted"
+            android:textSize="8sp" />
+    </LinearLayout>
+
+    <!-- Compound Badge -->
+    <TextView
+        android:id="@+id/tvTyreBadge"
+        android:layout_width="48dp"
+        android:layout_height="24dp"
+        android:background="@drawable/bg_glass_hud_badge"
+        android:gravity="center"
+        android:text="M 14v"
+        android:textColor="@color/text_primary"
+        android:textSize="10sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

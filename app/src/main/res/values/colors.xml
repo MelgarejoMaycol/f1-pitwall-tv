@@ -8,6 +8,8 @@
     <color name="f1_surface_card">#142038</color>
     <color name="f1_focused">#00F0FF</color>
     <color name="f1_focused_bg">#243352</color>
+    <color name="accent_blue">#38BDF8</color>
+    <color name="accent_gold">#F59E0B</color>
 
     <!-- Text Hierarchy (Optimized for High Legibility on Glass Surfaces) -->
     <color name="text_primary">#FFFFFF</color>

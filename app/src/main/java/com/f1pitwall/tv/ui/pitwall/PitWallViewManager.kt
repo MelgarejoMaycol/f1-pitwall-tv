@@ -3,6 +3,7 @@ package com.f1pitwall.tv.ui.pitwall
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.PointF
 import android.net.Uri
 import android.os.Message
 import android.os.SystemClock
@@ -111,11 +112,47 @@ class PitWallViewManager(
     private val tvSessionTitle: TextView = rootView.findViewById(R.id.tvSessionTitle)
     private val btnRefreshLive: Button? = rootView.findViewById(R.id.btnRefreshLive)
 
+    enum class TelemetryMode {
+        TIMING, DRIVER, TRACK_MAP, TYRES, RACE_CONTROL
+    }
+
+    var activeTelemetryMode: TelemetryMode = TelemetryMode.TIMING
+        private set
+
+    private var selectedDriverNumber: Int = 1
+
     // Metrics Switcher & Containers
     private val btnMetricsTiming: Button = rootView.findViewById(R.id.btnMetricsTiming)
     private val btnMetricsTelemetry: Button = rootView.findViewById(R.id.btnMetricsTelemetry)
+    private val btnMetricsTrackMap: Button? = rootView.findViewById(R.id.btnMetricsTrackMap)
+    private val btnMetricsTyres: Button? = rootView.findViewById(R.id.btnMetricsTyres)
+    private val btnMetricsRaceControl: Button? = rootView.findViewById(R.id.btnMetricsRaceControl)
+
     private val rvLeaderboard: RecyclerView = rootView.findViewById(R.id.rvLeaderboard)
     private val layoutTelemetryPanel: View = rootView.findViewById(R.id.layoutTelemetryPanel)
+    private val layoutTrackMapPanel: View? = rootView.findViewById(R.id.layoutTrackMapPanel)
+    private val layoutTyresPanel: View? = rootView.findViewById(R.id.layoutTyresPanel)
+    private val layoutRaceControlPanel: View? = rootView.findViewById(R.id.layoutRaceControlPanel)
+
+    // Track Map Views
+    private val trackMapView: TrackMapView? = rootView.findViewById(R.id.trackMapView)
+    private val tvTrackMapTitle: TextView? = rootView.findViewById(R.id.tvTrackMapTitle)
+
+    // Tyres Views & Adapter
+    private val rvTyreStrategy: RecyclerView? = rootView.findViewById(R.id.rvTyreStrategy)
+    val tyreStrategyAdapter = TyreStrategyAdapter { item ->
+        selectedDriverNumber = item.driverNumber
+        tuneRadioDriver(item.driverNumber, item.fullName)
+    }
+
+    // Race Control Views & Adapter
+    private val tvRcMainFlagBanner: TextView? = rootView.findViewById(R.id.tvRcMainFlagBanner)
+    private val tvRcTrackTemp: TextView? = rootView.findViewById(R.id.tvRcTrackTemp)
+    private val tvRcAirTemp: TextView? = rootView.findViewById(R.id.tvRcAirTemp)
+    private val tvRcRain: TextView? = rootView.findViewById(R.id.tvRcRain)
+    private val tvRcWind: TextView? = rootView.findViewById(R.id.tvRcWind)
+    private val rvRaceControl: RecyclerView? = rootView.findViewById(R.id.rvRaceControl)
+    val raceControlAdapter = RaceControlAdapter()
 
     // Telemetry Gauges
     private val tvTelemetryDriverHeader: TextView = rootView.findViewById(R.id.tvTelemetryDriverHeader)
@@ -156,8 +193,10 @@ class PitWallViewManager(
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
 
     val leaderboardAdapter = LeaderboardAdapter { item ->
+        selectedDriverNumber = item.driverNumber
         tvTelemetryDriverHeader.text = "#${item.driverNumber} ${item.fullName} • ${item.teamName}"
-        btnMetricsTelemetry.performClick()
+        trackMapView?.selectedDriverNumber = item.driverNumber
+        switchTelemetryMode(TelemetryMode.DRIVER)
         loadDriverTelemetry(item.driverNumber)
     }
 
@@ -924,26 +963,26 @@ class PitWallViewManager(
         btnRadioPia.setOnClickListener { tuneRadioDriver(81, "Oscar Piastri") }
         btnRadioAlo.setOnClickListener { tuneRadioDriver(14, "Fernando Alonso") }
 
-        // Metrics Switcher
-        btnMetricsTiming.setOnClickListener {
-            rvLeaderboard.visibility = View.VISIBLE
-            layoutTelemetryPanel.visibility = View.GONE
-            btnMetricsTiming.isSelected = true
-            btnMetricsTelemetry.isSelected = false
-        }
+        // Setup Adapters for new panels
+        rvTyreStrategy?.layoutManager = LinearLayoutManager(context)
+        rvTyreStrategy?.adapter = tyreStrategyAdapter
 
-        btnMetricsTelemetry.setOnClickListener {
-            rvLeaderboard.visibility = View.GONE
-            layoutTelemetryPanel.visibility = View.VISIBLE
-            btnMetricsTiming.isSelected = false
-            btnMetricsTelemetry.isSelected = true
-            loadDriverTelemetry(1)
-        }
-        btnMetricsTiming.isSelected = true
+        rvRaceControl?.layoutManager = LinearLayoutManager(context)
+        rvRaceControl?.adapter = raceControlAdapter
+
+        // Metrics Switcher (5 Dynamic Telemetry Modes)
+        btnMetricsTiming.setOnClickListener { switchTelemetryMode(TelemetryMode.TIMING) }
+        btnMetricsTelemetry.setOnClickListener { switchTelemetryMode(TelemetryMode.DRIVER) }
+        btnMetricsTrackMap?.setOnClickListener { switchTelemetryMode(TelemetryMode.TRACK_MAP) }
+        btnMetricsTyres?.setOnClickListener { switchTelemetryMode(TelemetryMode.TYRES) }
+        btnMetricsRaceControl?.setOnClickListener { switchTelemetryMode(TelemetryMode.RACE_CONTROL) }
+        btnRefreshLive?.setOnClickListener { refreshActiveTelemetryMode() }
 
         btnTelemetryDemoToggle.setOnClickListener {
-            loadDriverTelemetry(1)
+            loadDriverTelemetry(selectedDriverNumber)
         }
+
+        switchTelemetryMode(TelemetryMode.TIMING)
     }
 
     private fun initBroadcastSource() {
@@ -1410,6 +1449,138 @@ class PitWallViewManager(
         }
     }
 
+    fun switchTelemetryMode(mode: TelemetryMode) {
+        activeTelemetryMode = mode
+
+        btnMetricsTiming.isSelected = (mode == TelemetryMode.TIMING)
+        btnMetricsTelemetry.isSelected = (mode == TelemetryMode.DRIVER)
+        btnMetricsTrackMap?.isSelected = (mode == TelemetryMode.TRACK_MAP)
+        btnMetricsTyres?.isSelected = (mode == TelemetryMode.TYRES)
+        btnMetricsRaceControl?.isSelected = (mode == TelemetryMode.RACE_CONTROL)
+
+        rvLeaderboard.visibility = if (mode == TelemetryMode.TIMING) View.VISIBLE else View.GONE
+        layoutTelemetryPanel.visibility = if (mode == TelemetryMode.DRIVER) View.VISIBLE else View.GONE
+        layoutTrackMapPanel?.visibility = if (mode == TelemetryMode.TRACK_MAP) View.VISIBLE else View.GONE
+        layoutTyresPanel?.visibility = if (mode == TelemetryMode.TYRES) View.VISIBLE else View.GONE
+        layoutRaceControlPanel?.visibility = if (mode == TelemetryMode.RACE_CONTROL) View.VISIBLE else View.GONE
+
+        refreshActiveTelemetryMode()
+    }
+
+    fun refreshActiveTelemetryMode() {
+        when (activeTelemetryMode) {
+            TelemetryMode.TIMING -> {
+                // Actualizado por MainActivity en cada ciclo
+            }
+            TelemetryMode.DRIVER -> {
+                loadDriverTelemetry(selectedDriverNumber)
+            }
+            TelemetryMode.TRACK_MAP -> {
+                loadTrackMapData()
+            }
+            TelemetryMode.TYRES -> {
+                loadTyreStrategyData()
+            }
+            TelemetryMode.RACE_CONTROL -> {
+                loadRaceControlAndWeatherData()
+            }
+        }
+    }
+
+    fun loadTrackMapData() {
+        scope.launch {
+            try {
+                val key = currentSessionKey ?: return@launch
+                val outline: List<CarLocation> = repository.getTrackOutline(key)
+                if (outline.isNotEmpty()) {
+                    val pts = outline.map { pt: CarLocation -> PointF(pt.x, pt.y) }
+                    trackMapView?.setTrackPoints(pts)
+                }
+
+                val locations: List<CarLocation> = repository.getCarLocations(key)
+                val drivers = repository.getDrivers(key).associateBy { it.driverNumber }
+
+                val markers = locations.map { loc: CarLocation ->
+                    val driver = drivers[loc.driverNumber]
+                    val acronym = driver?.acronym ?: "#${loc.driverNumber}"
+                    val teamColor = driver?.teamColour ?: repository.getTeamColor(driver?.teamName ?: "")
+                    TrackMapView.DriverMarker(
+                        driverNumber = loc.driverNumber,
+                        acronym = acronym,
+                        colorHex = teamColor,
+                        rawX = loc.x,
+                        rawY = loc.y
+                    )
+                }
+
+                trackMapView?.selectedDriverNumber = selectedDriverNumber
+                trackMapView?.setDriverPositions(markers)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun loadTyreStrategyData() {
+        scope.launch {
+            try {
+                val key = currentSessionKey ?: return@launch
+                val strategies = repository.getTyreStrategies(key)
+                tyreStrategyAdapter.updateData(strategies)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun loadRaceControlAndWeatherData() {
+        scope.launch {
+            try {
+                val key = currentSessionKey ?: return@launch
+                val messages: List<RaceControl> = repository.getRaceControlMessages(key)
+                raceControlAdapter.updateData(messages)
+
+                val latestMsg = messages.firstOrNull()
+                val flag = latestMsg?.flag?.uppercase() ?: ""
+                val msgUpper = latestMsg?.message?.uppercase() ?: ""
+
+                when {
+                    flag.contains("RED") || msgUpper.contains("RED FLAG") -> {
+                        tvRcMainFlagBanner?.text = "🔴 BANDERA ROJA • SESIÓN DETENIDA"
+                        tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#EF4444"))
+                    }
+                    msgUpper.contains("SAFETY CAR") -> {
+                        tvRcMainFlagBanner?.text = "⚠️ SAFETY CAR EN PISTA (SC)"
+                        tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#F97316"))
+                    }
+                    msgUpper.contains("VIRTUAL") || msgUpper.contains("VSC") -> {
+                        tvRcMainFlagBanner?.text = "⏱️ VIRTUAL SAFETY CAR (VSC)"
+                        tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#F59E0B"))
+                    }
+                    flag.contains("YELLOW") || msgUpper.contains("YELLOW") -> {
+                        val sec = latestMsg?.sector?.let { " • SECTOR $it" } ?: ""
+                        tvRcMainFlagBanner?.text = "🟡 BANDERA AMARILLA • PRECAUCIÓN$sec"
+                        tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#EAB308"))
+                    }
+                    else -> {
+                        tvRcMainFlagBanner?.text = "🟢 PISTA LIBRE • BANDERA VERDE"
+                        tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#22C55E"))
+                    }
+                }
+
+                val weather: Weather? = repository.getLatestWeather(key)
+                weather?.let { w: Weather ->
+                    tvRcTrackTemp?.text = "Asfalto: ${w.trackTemp ?: "--"} °C"
+                    tvRcAirTemp?.text = "Aire: ${w.airTemp ?: "--"} °C"
+                    tvRcRain?.text = if ((w.rainfall ?: 0) > 0) "Lluvia: 🌧️ DETECTADA" else "Lluvia: ☀️ SECO"
+                    tvRcWind?.text = "Viento: ${w.windSpeed ?: "--"} km/h"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun onSessionUpdated(
         sessionKey: Long,
         isLive: Boolean,
@@ -1423,6 +1594,7 @@ class PitWallViewManager(
         tvSessionTitle.text = sessionTitleText
         tvStandbyTitle.text = sessionTitleText.uppercase()
         updateScheduleBanner()
+        refreshActiveTelemetryMode()
     }
 
     fun onScheduleUnavailable() {

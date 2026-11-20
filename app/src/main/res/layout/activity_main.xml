@@ -618,54 +618,102 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <!-- Header & Mode Switcher (Torre de Tiempos vs Telemetría) -->
-                <LinearLayout
+                <!-- Header & Mode Switcher (5 Dynamic Telemetry Modes) -->
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="32dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
+                    android:scrollbars="none"
                     android:layout_marginBottom="6dp">
 
-                    <Button
-                        android:id="@+id/btnMetricsTiming"
-                        android:layout_width="0dp"
-                        android:layout_height="30dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:text="⏱️ Torre Tiempos"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <Button
-                        android:id="@+id/btnMetricsTelemetry"
-                        android:layout_width="0dp"
-                        android:layout_height="30dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="6dp"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:text="📈 Telemetría"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <Button
-                        android:id="@+id/btnRefreshLive"
+                    <LinearLayout
                         android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="6dp"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:paddingHorizontal="6dp"
-                        android:text="🔄"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp" />
-                </LinearLayout>
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnMetricsTiming"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="10dp"
+                            android:text="⏱️ TIEMPOS"
+                            android:textColor="@color/text_primary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnMetricsTelemetry"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="10dp"
+                            android:text="📈 PILOTO"
+                            android:textColor="@color/text_primary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnMetricsTrackMap"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="10dp"
+                            android:text="🗺️ MAPA GPS"
+                            android:textColor="@color/text_primary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnMetricsTyres"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="10dp"
+                            android:text="🛞 NEUMÁTICOS"
+                            android:textColor="@color/text_primary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnMetricsRaceControl"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="10dp"
+                            android:text="🚩 CONTROL/CLIMA"
+                            android:textColor="@color/text_primary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnRefreshLive"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="8dp"
+                            android:text="🔄"
+                            android:textColor="@color/text_primary"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+                </HorizontalScrollView>
 
                 <TextView
                     android:id="@+id/tvSessionTitle"
@@ -1020,6 +1068,181 @@
                         android:textColor="@color/text_primary"
                         android:textSize="10sp"
                         android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- 3. LIVE GPS TRACK MAP PANEL -->
+                <LinearLayout
+                    android:id="@+id/layoutTrackMapPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvTrackMapTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="🗺️ TRAZADO EN VIVO • POSICIONES GPS"
+                        android:textColor="@color/accent_blue"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <!-- Custom Track Map View -->
+                    <com.f1pitwall.tv.ui.pitwall.TrackMapView
+                        android:id="@+id/trackMapView"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:background="#0F172A" />
+
+                    <TextView
+                        android:id="@+id/tvTrackMapLegend"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="Puntos con colores de escudería y siglas en directo"
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <!-- 4. TYRES & PIT STRATEGY PANEL -->
+                <LinearLayout
+                    android:id="@+id/layoutTyresPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="🛞 ESTRATEGIA Y GESTIÓN DE NEUMÁTICOS"
+                        android:textColor="@color/accent_gold"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvTyreStrategy"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </LinearLayout>
+
+                <!-- 5. RACE CONTROL & WEATHER PANEL -->
+                <LinearLayout
+                    android:id="@+id/layoutRaceControlPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <!-- Big Status Flag Banner -->
+                    <TextView
+                        android:id="@+id/tvRcMainFlagBanner"
+                        android:layout_width="match_parent"
+                        android:layout_height="32dp"
+                        android:background="#22C55E"
+                        android:gravity="center"
+                        android:text="🟢 PISTA LIBRE • BANDERA VERDE"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <!-- Weather Dashboard Card -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="4dp"
+                        app:cardBackgroundColor="#111827"
+                        app:cardCornerRadius="6dp"
+                        app:cardElevation="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="6dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⛅ ESTACIÓN METEOROLÓGICA DE PISTA"
+                                android:textColor="@color/accent_blue"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="3dp">
+
+                                <TextView
+                                    android:id="@+id/tvRcTrackTemp"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Asfalto: -- °C"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvRcAirTemp"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Aire: -- °C"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="10sp" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="2dp">
+
+                                <TextView
+                                    android:id="@+id/tvRcRain"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Lluvia: Seco"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tvRcWind"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Viento: -- km/h"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="9sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📢 MENSAJES OFICIALES FIA (DIRECCIÓN DE CARRERA)"
+                        android:textColor="@color/text_muted"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="2dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvRaceControl"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>

@@ -3,10 +3,7 @@ package com.f1pitwall.tv.data.repository
 import com.f1pitwall.tv.core.config.AppConfig
 import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.model.*
-import com.f1pitwall.tv.model.CarTelemetry
-import com.f1pitwall.tv.model.DriverLeaderboardItem
-import com.f1pitwall.tv.model.Meeting
-import com.f1pitwall.tv.model.Session
+import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.JolpicaApiClient
 import com.f1pitwall.tv.network.OpenF1ApiClient
 import kotlinx.coroutines.Dispatchers
@@ -334,6 +331,106 @@ class F1Repository(
             laps.firstOrNull { it.s1 != null || it.s2 != null || it.s3 != null || it.lapDuration != null }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    suspend fun getDrivers(sessionKey: Long): List<Driver> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getDrivers(sessionKey)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getCarLocations(sessionKey: Long): List<CarLocation> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getCarLocations(sessionKey)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getTrackOutline(sessionKey: Long): List<CarLocation> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getTrackOutline(sessionKey)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getPitStops(sessionKey: Long): List<PitStop> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getPitStops(sessionKey)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getRaceControlMessages(sessionKey: Long): List<RaceControl> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getRaceControlMessages(sessionKey)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getLatestWeather(sessionKey: Long): Weather? = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getLatestWeather(sessionKey)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getTyreStrategies(sessionKey: Long): List<DriverTyreStrategyItem> = withContext(Dispatchers.IO) {
+        try {
+            val drivers = openF1Api.getDrivers(sessionKey)
+            val stints = openF1Api.getAllStintsForSession(sessionKey)
+            val pitStops = openF1Api.getPitStops(sessionKey)
+            val positions = openF1Api.getLatestPositions(sessionKey).associateBy { it.driverNumber }
+
+            val stintsByDriver = stints.groupBy { it.driverNumber }
+            val pitsByDriver = pitStops.groupBy { it.driverNumber }
+
+            drivers.map { d ->
+                val dStints = stintsByDriver[d.driverNumber]?.sortedBy { it.stintNumber } ?: emptyList()
+                val currentStint = dStints.lastOrNull()
+                val dPits = pitsByDriver[d.driverNumber] ?: emptyList()
+                val lastPit = dPits.lastOrNull()
+                val pos = positions[d.driverNumber]?.position ?: 99
+
+                val compound = currentStint?.compound ?: "MEDIUM"
+                val tyreAge = currentStint?.tyreAgeAtStart ?: 0
+
+                val historyStr = if (dStints.isNotEmpty()) {
+                    dStints.joinToString(" ➔ ") { s ->
+                        val compInitial = s.compound?.take(1)?.uppercase() ?: "?"
+                        "$compInitial (${s.lapEnd?.let { end -> (end - (s.lapStart ?: 1) + 1) } ?: s.tyreAgeAtStart ?: "?"}v)"
+                    }
+                } else "Sin paradas registradas"
+
+                val pitDurationStr = lastPit?.pitDuration?.let { String.format(Locale.US, "%.1fs", it) }
+                    ?: lastPit?.stopDuration?.let { String.format(Locale.US, "%.1fs", it) }
+                    ?: if (dPits.isNotEmpty()) "Completada" else "--"
+
+                DriverTyreStrategyItem(
+                    driverNumber = d.driverNumber,
+                    position = pos,
+                    acronym = d.acronym ?: "#${d.driverNumber}",
+                    fullName = d.fullName ?: "Piloto ${d.driverNumber}",
+                    teamName = d.teamName ?: "",
+                    teamColor = d.teamColour ?: getTeamColor(d.teamName ?: ""),
+                    currentCompound = compound,
+                    tyreAge = tyreAge,
+                    totalStints = dStints.size,
+                    pitStopsCount = dPits.size,
+                    lastPitStopDuration = pitDurationStr,
+                    stintsHistory = historyStr
+                )
+            }.sortedBy { it.position }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 
