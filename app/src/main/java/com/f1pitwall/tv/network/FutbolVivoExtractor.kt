@@ -166,6 +166,30 @@ class FutbolVivoExtractor(private val context: Context) {
                         }
                     });
 
+                    // Generic fallback for layout changes: inspect all visible links.
+                    document.querySelectorAll("a[href]").forEach(node => {
+                        const label = (node.innerText || node.textContent || "").trim().replace(/\s+/g, " ");
+                        if (label && isFormulaOne(label)) {
+                            candidates.push({
+                                item: {
+                                    title: label,
+                                    href: node.href || node.getAttribute("href"),
+                                    live: /live|en vivo|en directo/i.test(label)
+                                },
+                                extra: label
+                            });
+                        }
+                    });
+
+                    // Last fallback: inspect visible text lines if the provider changed its card markup.
+                    const bodyLines = (document.body?.innerText || "").split(/\n+/);
+                    bodyLines.forEach(line => {
+                        const label = line.trim().replace(/\s+/g, " ");
+                        if (label && isFormulaOne(label)) {
+                            candidates.push({ item: { title: label }, extra: label });
+                        }
+                    });
+
                     const f1Matches = candidates.map(entry => {
                         const item = entry.item;
                         const title = eventTitle(item) || entry.extra;
