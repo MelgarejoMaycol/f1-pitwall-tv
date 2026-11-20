@@ -1008,6 +1008,11 @@ class MainActivity : AppCompatActivity() {
         return if (child.parent == recyclerView) child else null
     }
 
+    override fun onResume() {
+        super.onResume()
+        videoPlaybackManager.resume()
+    }
+
     override fun onPause() {
         super.onPause()
         videoPlaybackManager.pause()
