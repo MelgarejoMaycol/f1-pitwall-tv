@@ -54,9 +54,13 @@ class SessionScheduleAdapter(
                 name.contains("Race", true) -> "RAC"
                 else -> "SES"
             }
-            tvSessionTypeTag.text = shortTag
+            tvSessionTypeTag.text = if (session.isCancelled == true) "CANCEL" else shortTag
 
-            tvSessionTime.text = formatSessionDateTime(session.dateStart)
+            tvSessionTime.text = if (session.isCancelled == true) {
+                "Sesión cancelada"
+            } else {
+                formatSessionDateTime(session.dateStart)
+            }
 
             btnViewSessionData.setOnClickListener {
                 onSessionClick(session)
