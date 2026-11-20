@@ -833,7 +833,10 @@ class MainActivity : AppCompatActivity() {
     private fun showLayout(target: View) {
         if (target != layoutPitWall) {
             radioManager.pause()
-            findViewById<View>(R.id.layoutDedicatedPlayback).visibility = View.GONE
+            // Return the single WebView to the inline surface before hiding its fullscreen host.
+            if (videoPlaybackManager.isDedicatedFullscreenActive) {
+                videoPlaybackManager.closeDedicatedFullscreen()
+            }
         }
         layoutHome.visibility = if (target == layoutHome) View.VISIBLE else View.GONE
         layoutPitWall.visibility = if (target == layoutPitWall) View.VISIBLE else View.GONE
