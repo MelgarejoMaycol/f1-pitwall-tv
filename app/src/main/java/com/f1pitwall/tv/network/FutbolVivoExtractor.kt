@@ -169,7 +169,10 @@ class FutbolVivoExtractor(private val context: Context) {
                             title: title,
                             live: isLive(item, entry.extra),
                             startTime: startOf(item),
-                            eventUrl: item.url || item.href || item.link || null
+                            eventUrl: (() => {
+                                const candidate = item.url || item.href || item.link || null;
+                                return typeof candidate === "string" ? candidate : null;
+                            })()
                         };
                     }).filter(event => event.title && isFormulaOne(event.title));
 
@@ -188,7 +191,7 @@ class FutbolVivoExtractor(private val context: Context) {
                             lastEventKey = key;
                             window.AndroidBridge.postF1Event(JSON.stringify(target));
                         }
-                    } else if (attempts >= 12 && !noEventSent && window.AndroidBridge) {
+                    } else if (attempts >= 6 && !noEventSent && window.AndroidBridge) {
                         noEventSent = true;
                         window.AndroidBridge.postNoF1();
                     }
