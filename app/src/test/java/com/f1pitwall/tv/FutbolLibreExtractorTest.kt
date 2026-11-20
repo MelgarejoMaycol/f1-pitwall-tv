@@ -286,6 +286,56 @@ class FutbolLibreExtractorTest {
     }
 
     @Test
+    fun testF1AcademyClassificationIndependent() {
+        val extractor = FutbolLibreExtractor()
+        val html = """
+            <div class="source-agenda-event" data-source-instant="2026-11-21T02:10:00+00:00">
+                <button class="source-agenda-eventbtn">
+                    <span class="source-agenda-time">02:10</span>
+                    <span class="source-agenda-competition">Sports:</span>
+                    <span class="source-agenda-eventtext">F1 Academy – GP Las Vegas – Carrera #1</span>
+                </button>
+                <a class="agenda-open-match" href="/match/f1-academy-gp-las-vegas-carrera-1">Ver Carrera</a>
+                <div class="source-agenda-sources">
+                    <a class="agenda-source-button" href="/match/f1-academy-gp-las-vegas-carrera-1#source=16801">
+                        <span>Fuente 1</span><small>ESPN 3</small>
+                    </a>
+                </div>
+            </div>
+            <div class="source-agenda-event" data-source-instant="2026-11-21T04:00:00+00:00">
+                <button class="source-agenda-eventbtn">
+                    <span class="source-agenda-time">04:00</span>
+                    <span class="source-agenda-competition">F1:</span>
+                    <span class="source-agenda-eventtext">GP Las Vegas – Clasificación</span>
+                </button>
+                <a class="agenda-open-match" href="/match/gp-las-vegas-clasificacion">Ver Carrera</a>
+                <div class="source-agenda-sources">
+                    <a class="agenda-source-button" href="/match/gp-las-vegas-clasificacion#source=16722">
+                        <span>Fuente 1</span><small>Disney +</small>
+                    </a>
+                </div>
+            </div>
+        """.trimIndent()
+
+        val events = extractor.parseAgendaHtml(html)
+        assertEquals(2, events.size)
+
+        val academyEvent = events[0]
+        val mainF1Event = events[1]
+
+        // F1 Academy debe identificarse como categoría independiente
+        assertEquals("F1 Academy", academyEvent.category)
+        assertTrue(academyEvent.isF1Academy)
+        assertTrue(academyEvent.getShortLabel().startsWith("Acad:"))
+        assertTrue(academyEvent.getDisplayTitle().startsWith("[F1 ACADEMY]"))
+
+        // F1 Principal
+        assertEquals("Fórmula 1", mainF1Event.category)
+        assertFalse(mainF1Event.isF1Academy)
+        assertTrue(mainF1Event.getDisplayTitle().startsWith("[F1]"))
+    }
+
+    @Test
     fun testSessionSwitchingChannelIsolation() {
         // Evento 1: Práctica Libre con 3 fuentes
         val event1 = FutbolLibreEvent(

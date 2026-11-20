@@ -1074,14 +1074,16 @@ class PitWallViewManager(
 
         val event = futbolLibreEvents[index]
         updateSessionSelectorButton(event)
-        tvStandbyTitle.text = event.gpName.uppercase()
+        val categoryPrefix = if (event.isF1Academy) "F1 ACADEMY • " else ""
+        tvStandbyTitle.text = (categoryPrefix + event.gpName).uppercase()
         tvStandbySubtitle.text = event.title + " • " + event.colombiaTime
-        tvStandbyStatusBadge.text = "FÚTBOL LIBRE • " + event.sources.size + " TRANSMISIÓN(ES)"
+        tvStandbyStatusBadge.text = (if (event.isF1Academy) "F1 ACADEMY" else "FÚTBOL LIBRE") + " • " + event.sources.size + " TRANSMISIÓN(ES)"
 
         if (event.sources.isNotEmpty()) {
             onSpanishBroadcastsFound(event.sources, BroadcastSource.FUTBOL_LIBRE)
             val currentBroadcast = event.sources[0]
-            tvLiveSessionAlertTitle.text = "🏎️ " + event.gpName + " — " + event.sessionName + " — " + currentBroadcast.getFormattedTitle()
+            val catAlert = if (event.isF1Academy) " [F1 Academy]" else ""
+            tvLiveSessionAlertTitle.text = "🏎️ " + event.gpName + catAlert + " — " + event.sessionName + " — " + currentBroadcast.getFormattedTitle()
             return
         }
 
@@ -1099,7 +1101,8 @@ class PitWallViewManager(
                     }
                     onSpanishBroadcastsFound(matchSources, BroadcastSource.FUTBOL_LIBRE)
                     val currentBroadcast = matchSources[0]
-                    tvLiveSessionAlertTitle.text = "🏎️ " + event.gpName + " — " + event.sessionName + " — " + currentBroadcast.getFormattedTitle()
+                    val catAlert = if (event.isF1Academy) " [F1 Academy]" else ""
+                    tvLiveSessionAlertTitle.text = "🏎️ " + event.gpName + catAlert + " — " + event.sessionName + " — " + currentBroadcast.getFormattedTitle()
                 } else {
                     tvLiveSessionAlertTitle.text = event.title
                     tvStandbySubtitle.text = "No se encontraron fuentes en el HTML inicial. Abriendo la ficha del evento..."
@@ -1110,9 +1113,12 @@ class PitWallViewManager(
     }
 
     private fun showSessionSelectionDialog(events: List<FutbolLibreEvent>) {
-        val sessionNames = events.map { "${it.title} (${it.colombiaTime})" }.toTypedArray()
+        val sessionNames = events.map {
+            val prefix = if (it.isF1Academy) "🏁 [F1 Academy] " else "🏎️ [F1] "
+            "$prefix${it.title} (${it.colombiaTime})"
+        }.toTypedArray()
         androidx.appcompat.app.AlertDialog.Builder(context)
-            .setTitle("Seleccionar Sesión de F1")
+            .setTitle("Seleccionar Sesión de Carreras")
             .setSingleChoiceItems(sessionNames, selectedFutbolLibreEventIndex) { dialog, which ->
                 dialog.dismiss()
                 selectFutbolLibreEvent(which)

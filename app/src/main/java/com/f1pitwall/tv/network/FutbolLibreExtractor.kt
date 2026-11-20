@@ -121,6 +121,8 @@ class FutbolLibreExtractor(
                 )
             }
 
+            val isAcademy = combinedTitle.contains("Academy", ignoreCase = true)
+            val category = if (isAcademy) "F1 Academy" else "Fórmula 1"
             val sessionName = extractSessionName(combinedTitle)
             val gpName = extractGpName(combinedTitle)
 
@@ -134,7 +136,8 @@ class FutbolLibreExtractor(
                     colombiaTime = colombiaTime,
                     matchPath = matchPath,
                     fullMatchUrl = matchUrl,
-                    sources = broadcastList
+                    sources = broadcastList,
+                    category = category
                 )
             )
         }

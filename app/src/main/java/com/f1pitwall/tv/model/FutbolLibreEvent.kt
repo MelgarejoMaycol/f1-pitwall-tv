@@ -12,24 +12,33 @@ data class FutbolLibreEvent(
     val colombiaTime: String,
     val matchPath: String,
     val fullMatchUrl: String,
-    val sources: List<SpanishBroadcast> = emptyList()
+    val sources: List<SpanishBroadcast> = emptyList(),
+    val category: String = "Fórmula 1"
 ) {
+    val isF1Academy: Boolean
+        get() = category.equals("F1 Academy", ignoreCase = true) ||
+                title.contains("Academy", ignoreCase = true) ||
+                sessionName.contains("Academy", ignoreCase = true)
+
     fun getDisplayTitle(): String {
-        return "$title • $colombiaTime"
+        val categoryPrefix = if (isF1Academy) "[F1 ACADEMY] " else "[F1] "
+        return "$categoryPrefix$title • $colombiaTime"
     }
 
     fun getShortLabel(): String {
+        val prefix = if (isF1Academy) "Acad: " else ""
         val shortSession = when {
             sessionName.contains("Prácticas Libres #1", ignoreCase = true) || sessionName.contains("Práctica 1", ignoreCase = true) || sessionName.contains("P1", ignoreCase = true) -> "P1"
             sessionName.contains("Prácticas Libres #2", ignoreCase = true) || sessionName.contains("Práctica 2", ignoreCase = true) || sessionName.contains("P2", ignoreCase = true) -> "P2"
             sessionName.contains("Prácticas Libres #3", ignoreCase = true) || sessionName.contains("Práctica 3", ignoreCase = true) || sessionName.contains("P3", ignoreCase = true) -> "P3"
             sessionName.contains("Clasificación", ignoreCase = true) -> "Clasificación"
             sessionName.contains("Sprint", ignoreCase = true) -> "Sprint"
+            sessionName.contains("Carrera #1", ignoreCase = true) || sessionName.contains("Carrera 1", ignoreCase = true) -> "Carrera 1"
+            sessionName.contains("Carrera #2", ignoreCase = true) || sessionName.contains("Carrera 2", ignoreCase = true) -> "Carrera 2"
             sessionName.contains("Carrera", ignoreCase = true) -> "Carrera"
-            sessionName.contains("Academy", ignoreCase = true) -> "F1 Academy"
             sessionName.contains("On Board", ignoreCase = true) -> "OnBoard"
-            else -> sessionName.ifBlank { "Sesión F1" }
+            else -> sessionName.ifBlank { "Sesión" }
         }
-        return "$shortSession ($colombiaTime)"
+        return "$prefix$shortSession ($colombiaTime)"
     }
 }
