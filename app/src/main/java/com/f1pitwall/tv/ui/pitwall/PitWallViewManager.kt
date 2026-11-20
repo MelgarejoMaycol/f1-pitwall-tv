@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Message
 import android.os.SystemClock
+import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -94,6 +95,7 @@ class PitWallViewManager(
     private var futbolLibreEvents: List<FutbolLibreEvent> = emptyList()
     private var selectedFutbolLibreEventIndex: Int = 0
     private var futbolLibreSourcesJob: Job? = null
+    private var pendingFutbolLibreSourceId: String? = null
     private val btnContentPreview: Button = rootView.findViewById(R.id.btnContentPreview)
     private val btnContentRecap: Button = rootView.findViewById(R.id.btnContentRecap)
     private val btnContentBoxes: Button = rootView.findViewById(R.id.btnContentBoxes)
@@ -299,14 +301,22 @@ class PitWallViewManager(
                                     header, footer, nav, .se-match-head, .se-teams, .se-match-title,
                                     .se-tabs, .navbar, .se-footer, .nav-mobile-only, .se-home-link,
                                     #streamTabs, #matchTitle, #matchTeams, .se-sport-pill,
-                                    .site-header, .site-footer, .breadcrumb, .match-info, .player-toolbar,
-                                    .player-source-state, .player-placeholder, #cq-back-to-top, .cq-back-to-top,
-                                    .histats, [id*="histats"], [class*="histats"], [id*="aclib"] {
+                                    .site-header, .site-footer, .breadcrumb, .match-info,
+                                    #cq-back-to-top, .cq-back-to-top,
+                                    .histats, [id*="histats"], [class*="histats"], [id*="aclib"],
+                                    .homepage-faq-title, #cq-branding-layout-style {
                                         display: none !important;
                                     }
                                     .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap, #playerContainer,
-                                    .aspect-video, [class*="aspect-video"], #player, [id*="player"],
-                                    .player-box, .player-panel, #source-frame, #chinaq-video {
+                                    .aspect-video, [class*="aspect-video"], #player, [id*="player"] {
+                                        margin: 0 !important;
+                                        padding: 0 !important;
+                                        border: none !important;
+                                        background: #000000 !important;
+                                    }
+                                    .player-panel {
+                                        display: flex !important;
+                                        flex-direction: column !important;
                                         position: fixed !important;
                                         top: 0 !important;
                                         left: 0 !important;
@@ -317,11 +327,42 @@ class PitWallViewManager(
                                         margin: 0 !important;
                                         padding: 0 !important;
                                         border: none !important;
-                                        border-radius: 0 !important;
                                         background: #000000 !important;
                                         z-index: 999999 !important;
                                     }
-                                    iframe {
+                                    .player-toolbar, .server-switcher, .event-source-switcher {
+                                        display: flex !important;
+                                        visibility: visible !important;
+                                        opacity: 1 !important;
+                                        flex-shrink: 0 !important;
+                                        background: rgba(10, 15, 20, 0.90) !important;
+                                        padding: 6px 12px !important;
+                                        z-index: 1000001 !important;
+                                        align-items: center !important;
+                                        overflow-x: auto !important;
+                                    }
+                                    .player-source-state {
+                                        display: flex !important;
+                                        visibility: visible !important;
+                                        align-items: center !important;
+                                        margin-right: 12px !important;
+                                    }
+                                    button.event-source-choice, .source-pill {
+                                        display: inline-flex !important;
+                                        visibility: visible !important;
+                                        opacity: 1 !important;
+                                        cursor: pointer !important;
+                                    }
+                                    .player-box {
+                                        flex: 1 1 auto !important;
+                                        position: relative !important;
+                                        width: 100% !important;
+                                        height: 100% !important;
+                                        margin: 0 !important;
+                                        padding: 0 !important;
+                                        background: #000000 !important;
+                                    }
+                                    #source-frame, #chinaq-video, iframe {
                                         position: absolute !important;
                                         top: 0 !important;
                                         left: 0 !important;
@@ -390,48 +431,131 @@ class PitWallViewManager(
                             function scanSpanishBroadcasts() {
                                 try {
                                     var host = (window.location.hostname || '').toLowerCase();
-                                    var isFutbolLibreAgenda = host === 'futbol-libre.app' || host.endsWith('.futbol-libre.app');
-                                    if (isFutbolLibreAgenda) {
-                                        var libreBroadcasts = [];
-                                        var sourceButtons = Array.prototype.slice.call(
-                                            document.querySelectorAll('button.event-source-choice[data-source]')
-                                        );
-                                        sourceButtons.forEach(function(button, idx) {
-                                            var sourceId = (button.getAttribute('data-source') || '').trim();
-                                            if (!/^[A-Za-z0-9_-]{1,32}$/.test(sourceId)) return;
-                                            var providerNode = button.querySelector('.source-provider');
-                                            var channelNode = button.querySelector('.source-channel');
-                                            var provider = (providerNode && providerNode.textContent || '').trim() || ('Fuente ' + (idx + 1));
-                                            var channel = (channelNode && channelNode.textContent || '').trim() || provider;
-                                            var pageUrl = window.location.href.split('#')[0];
-                                            var targetUrl = pageUrl + '#source=' + encodeURIComponent(sourceId);
-                                            var clickJs = "(function(){var id=" + JSON.stringify(sourceId) +
-                                                ";var b=Array.prototype.find.call(document.querySelectorAll('button.event-source-choice[data-source]')," +
-                                                "function(el){return el.getAttribute('data-source')===id;});" +
-                                                "if(b){b.click();}else{window.location.hash='source='+encodeURIComponent(id);}})();";
-                                            libreBroadcasts.push({
-                                                index: idx + 1,
-                                                network: channel,
-                                                language: '',
-                                                serverName: provider,
-                                                originalTitle: provider + ' · ' + channel,
-                                                streamUrl: targetUrl,
-                                                clickActionJs: clickJs,
-                                                sourceId: sourceId,
-                                                customFormattedTitle: 'Transmisión ' + (idx + 1) + ' — ' + channel,
-                                                customButtonLabel: 'T' + (idx + 1) + ': ' + channel
+                                    var pathname = window.location.pathname || '';
+                                    var isFutbolLibre = host === 'futbol-libre.app' || host.endsWith('.futbol-libre.app');
+                                    if (isFutbolLibre) {
+                                        if (pathname.indexOf('/match/') !== -1) {
+                                            var libreBroadcasts = [];
+                                            var sourceButtons = Array.prototype.slice.call(
+                                                document.querySelectorAll('button.event-source-choice[data-source]')
+                                            );
+                                            sourceButtons.forEach(function(button, idx) {
+                                                var sourceId = (button.getAttribute('data-source') || '').trim();
+                                                if (!/^[A-Za-z0-9_-]{1,32}$/.test(sourceId)) return;
+                                                var providerNode = button.querySelector('.source-provider');
+                                                var channelNode = button.querySelector('.source-channel');
+                                                var provider = (providerNode && providerNode.textContent || '').trim() || ('Fuente ' + (idx + 1));
+                                                var channel = (channelNode && channelNode.textContent || '').trim() || provider;
+                                                var pageUrl = window.location.href.split('#')[0];
+                                                var targetUrl = pageUrl + '#source=' + encodeURIComponent(sourceId);
+                                                var clickJs = "(function(){var id=" + JSON.stringify(sourceId) + ";" +
+                                                    "function tryClick(){var b=document.querySelector('button.event-source-choice[data-source=\"'+id+'\"]');if(b){b.click();return true;}return false;}" +
+                                                    "if(!tryClick()){var attempts=0;var timer=setInterval(function(){attempts++;if(tryClick()||attempts>=25){clearInterval(timer);}},200);}})();";
+                                                libreBroadcasts.push({
+                                                    index: idx + 1,
+                                                    network: channel,
+                                                    language: '',
+                                                    serverName: provider,
+                                                    originalTitle: provider + ' · ' + channel,
+                                                    streamUrl: targetUrl,
+                                                    clickActionJs: clickJs,
+                                                    sourceId: sourceId,
+                                                    customFormattedTitle: 'Transmisión ' + (idx + 1) + ' — ' + channel,
+                                                    customButtonLabel: 'T' + (idx + 1) + ': ' + channel
+                                                });
                                             });
-                                        });
 
-                                        if (libreBroadcasts.length > 0 &&
-                                            window.AndroidPitWallBridge &&
-                                            typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
-                                            window.AndroidPitWallBridge.onSpanishBroadcastsDetected(JSON.stringify(libreBroadcasts));
-                                        } else if (window.AndroidPitWallBridge &&
-                                            typeof window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected === 'function') {
-                                            window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected();
+                                            if (libreBroadcasts.length > 0 &&
+                                                window.AndroidPitWallBridge &&
+                                                typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
+                                                window.AndroidPitWallBridge.onSpanishBroadcastsDetected(JSON.stringify(libreBroadcasts));
+                                            }
+                                            return;
                                         }
-                                        return;
+
+                                        if (pathname.indexOf('/agenda') !== -1) {
+                                            var agendaEvents = [];
+                                            var eventDivs = Array.prototype.slice.call(document.querySelectorAll('div.source-agenda-event'));
+                                            eventDivs.forEach(function(div, evIdx) {
+                                                var btn = div.querySelector('button.source-agenda-eventbtn');
+                                                if (!btn) return;
+                                                var timeSpan = btn.querySelector('span.source-agenda-time');
+                                                var timeRaw = (timeSpan && timeSpan.textContent || '').trim();
+                                                var compSpan = btn.querySelector('span.source-agenda-competition');
+                                                var compRaw = (compSpan && compSpan.textContent || '').trim();
+                                                var textSpan = btn.querySelector('span.source-agenda-eventtext');
+                                                var textRaw = (textSpan && textSpan.textContent || '').trim();
+                                                var combined = (compRaw ? (compRaw + ' ' + textRaw) : textRaw).replace(/\s+/g, ' ').trim();
+
+                                                var t = combined.toLowerCase();
+                                                var hasF1 = /\bf1\b|f[oó]rmula\s*(?:1|one)|f1\s*academy|motorsport.*f1/i.test(t);
+                                                var isOther = /\bf2\b|\bf3\b|formula\s*[23]|motogp|indycar|nascar/i.test(t);
+                                                if (isOther && !hasF1) return;
+                                                if (!hasF1) {
+                                                    var hasGp = /gran\s*premio|grand\s*prix|\bgp\b/i.test(t);
+                                                    var hasSess = /pr[aá]cticas?\s*libres?|pr[aá]ctica\s*[123]|clasificaci[oó]n|carrera/i.test(t);
+                                                    if (!hasGp || !hasSess) return;
+                                                }
+
+                                                var instant = div.getAttribute('data-source-instant') || '';
+                                                var srcLinks = Array.prototype.slice.call(div.querySelectorAll('a.agenda-source-button'));
+                                                var openMatch = div.querySelector('a.agenda-open-match');
+                                                var href = (openMatch && openMatch.getAttribute('href') || '').trim();
+                                                if (!href && srcLinks.length > 0) {
+                                                    href = (srcLinks[0].getAttribute('href') || '').split('#')[0].trim();
+                                                }
+                                                if (!href) return;
+                                                var matchUrl = href.indexOf('http') === 0 ? href : ('https://futbol-libre.app' + href);
+                                                var slug = href.replace('/match/', '').split('/')[0].split('#')[0];
+
+                                                var broadcastList = [];
+                                                srcLinks.forEach(function(anchor, sIdx) {
+                                                    var sp = anchor.querySelector('span');
+                                                    var sm = anchor.querySelector('small');
+                                                    var prov = (sp && sp.textContent || '').trim() || ('Fuente ' + (sIdx + 1));
+                                                    var chan = (sm && sm.textContent || '').trim() || prov;
+                                                    var sHref = (anchor.getAttribute('href') || '').trim();
+                                                    var srcMatch = sHref.match(/[?#&]source=([A-Za-z0-9_-]+)/);
+                                                    var sId = srcMatch ? srcMatch[1] : null;
+                                                    var sTarget = sHref.indexOf('http') === 0 ? sHref : ('https://futbol-libre.app' + sHref);
+                                                    var sClick = sId ? ("(function(){var id=" + JSON.stringify(sId) + ";" +
+                                                        "function tryClick(){var b=document.querySelector('button.event-source-choice[data-source=\"'+id+'\"]');if(b){b.click();return true;}return false;}" +
+                                                        "if(!tryClick()){var attempts=0;var timer=setInterval(function(){attempts++;if(tryClick()||attempts>=25){clearInterval(timer);}},200);}})();") : null;
+
+                                                    broadcastList.push({
+                                                        index: sIdx + 1,
+                                                        network: chan,
+                                                        language: '',
+                                                        serverName: prov,
+                                                        originalTitle: prov + ' · ' + chan,
+                                                        streamUrl: sTarget,
+                                                        clickActionJs: sClick,
+                                                        sourceId: sId,
+                                                        customFormattedTitle: 'Transmisión ' + (sIdx + 1) + ' — ' + chan,
+                                                        customButtonLabel: 'T' + (sIdx + 1) + ': ' + chan
+                                                    });
+                                                });
+
+                                                agendaEvents.push({
+                                                    id: slug || ('event_' + (evIdx + 1)),
+                                                    title: combined,
+                                                    sessionName: combined.split(':').pop().trim() || combined,
+                                                    gpName: 'GP de Las Vegas',
+                                                    utcInstant: instant,
+                                                    colombiaTime: timeRaw,
+                                                    matchPath: href,
+                                                    fullMatchUrl: matchUrl,
+                                                    sources: broadcastList
+                                                });
+                                            });
+
+                                            if (agendaEvents.length > 0 &&
+                                                window.AndroidPitWallBridge &&
+                                                typeof window.AndroidPitWallBridge.onFutbolLibreAgendaDetected === 'function') {
+                                                window.AndroidPitWallBridge.onFutbolLibreAgendaDetected(JSON.stringify(agendaEvents));
+                                            }
+                                            return;
+                                        }
                                     }
 
                                     if (host.indexOf('futbolvivo') === -1 && host.indexOf('futbollibre') === -1) return;
@@ -522,6 +646,38 @@ class PitWallViewManager(
                         })();
                     """.trimIndent()
                     view?.evaluateJavascript(cleanJs, null)
+
+                    if (currentLoadedSource == BroadcastSource.FUTBOL_LIBRE) {
+                        val sourceId = pendingFutbolLibreSourceId ?: activeSpanishBroadcasts.getOrNull(selectedBroadcastIndex)?.sourceId
+                        if (!sourceId.isNullOrBlank()) {
+                            val ensureJs = """
+                                (function() {
+                                    var id = '$sourceId';
+                                    function ensureActive() {
+                                        var b = document.querySelector('button.event-source-choice[data-source="' + id + '"]');
+                                        if (b) {
+                                            if (!b.classList.contains('selected') && !b.classList.contains('active-source')) {
+                                                b.click();
+                                            }
+                                            return true;
+                                        }
+                                        return false;
+                                    }
+                                    if (!ensureActive()) {
+                                        var count = 0;
+                                        var t = setInterval(function() {
+                                            count++;
+                                            if (ensureActive() || count >= 20) {
+                                                clearInterval(t);
+                                            }
+                                        }, 250);
+                                    }
+                                })();
+                            """.trimIndent()
+                            view?.evaluateJavascript(ensureJs, null)
+                        }
+                        pendingFutbolLibreSourceId = null
+                    }
 
                     view?.postDelayed({ triggerPlayerTap() }, 3000)
                     view?.postDelayed({ triggerPlayerTap() }, 5500)
@@ -1192,10 +1348,38 @@ class PitWallViewManager(
                     try {
                         val array = Gson().fromJson(json, Array<SpanishBroadcast>::class.java)
                         if (array != null && array.isNotEmpty()) {
+                            val source = currentLoadedSource ?: preferencesManager.broadcastSource
+                            if (source == BroadcastSource.FUTBOL_LIBRE) {
+                                val currentEvent = futbolLibreEvents.getOrNull(selectedFutbolLibreEventIndex)
+                                val detectedPage = array.firstOrNull()?.streamUrl?.substringBefore("#")
+                                val expectedPage = currentEvent?.fullMatchUrl?.substringBefore("#")
+                                if (currentEvent != null && detectedPage != null && expectedPage != null &&
+                                    !detectedPage.equals(expectedPage, ignoreCase = true)) {
+                                    Log.d("PitWallViewManager", "Ignoring broadcast update from different page: $detectedPage != $expectedPage")
+                                    return@post
+                                }
+                            }
                             onSpanishBroadcastsFound(
                                 array.toList(),
-                                currentLoadedSource ?: preferencesManager.broadcastSource
+                                source
                             )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun onFutbolLibreAgendaDetected(json: String?) {
+            rootView.post {
+                val source = currentLoadedSource ?: preferencesManager.broadcastSource
+                if (source == BroadcastSource.FUTBOL_LIBRE && futbolLibreEvents.isEmpty() && !json.isNullOrBlank()) {
+                    try {
+                        val events = Gson().fromJson(json, Array<FutbolLibreEvent>::class.java)?.toList()
+                        if (!events.isNullOrEmpty()) {
+                            onFutbolLibreEventsFound(events)
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -1251,13 +1435,30 @@ class PitWallViewManager(
 
     private fun updateServerFocusChain() {
         val visibleButtons = serverButtons.filter { it.visibility == View.VISIBLE }
+        val isSessionSelectorVisible = btnSessionSelector?.visibility == View.VISIBLE
+
         visibleButtons.forEachIndexed { index, button ->
             button.nextFocusUpId = R.id.btnTabPitWall
             button.nextFocusDownId = R.id.webVideoView
-            button.nextFocusLeftId = visibleButtons.getOrNull(index - 1)?.id ?: button.id
+            val prevId = visibleButtons.getOrNull(index - 1)?.id
+            if (prevId != null) {
+                button.nextFocusLeftId = prevId
+            } else if (isSessionSelectorVisible && btnSessionSelector != null) {
+                button.nextFocusLeftId = btnSessionSelector.id
+            } else {
+                button.nextFocusLeftId = button.id
+            }
             button.nextFocusRightId = visibleButtons.getOrNull(index + 1)?.id ?: R.id.btnLiveSessionAction
         }
-        btnLiveSessionAction.nextFocusLeftId = visibleButtons.lastOrNull()?.id ?: R.id.btnServer1
+
+        if (isSessionSelectorVisible && btnSessionSelector != null) {
+            btnSessionSelector.nextFocusUpId = R.id.btnTabPitWall
+            btnSessionSelector.nextFocusDownId = R.id.webVideoView
+            btnSessionSelector.nextFocusLeftId = btnSessionSelector.id
+            btnSessionSelector.nextFocusRightId = visibleButtons.firstOrNull()?.id ?: R.id.btnLiveSessionAction
+        }
+
+        btnLiveSessionAction.nextFocusLeftId = visibleButtons.lastOrNull()?.id ?: btnSessionSelector?.takeIf { isSessionSelectorVisible }?.id ?: R.id.btnServer1
     }
 
     private fun onNoSpanishBroadcastsFound(source: BroadcastSource) {
@@ -1319,6 +1520,7 @@ class PitWallViewManager(
             val targetPage = targetUrl.substringBefore("#")
             val loadedPage = (webVideoView.url ?: currentWebUrl.orEmpty()).substringBefore("#")
             currentWebUrl = targetUrl
+            pendingFutbolLibreSourceId = broadcast.sourceId
 
             // Load the public event page first; its visible source selector then changes
             // the provider inside that page. Do not extract private media URLs.
@@ -1328,9 +1530,11 @@ class PitWallViewManager(
                 webVideoView.loadUrl(targetUrl)
             }
 
-            webVideoView.postDelayed({ triggerPlayerTap() }, 2000)
-            webVideoView.postDelayed({ triggerPlayerTap() }, 4500)
-            serverButtons.firstOrNull { it.visibility == View.VISIBLE }?.post { it.requestFocus() }
+            webVideoView.postDelayed({ triggerPlayerTap() }, 1800)
+            webVideoView.postDelayed({ triggerPlayerTap() }, 4000)
+            serverButtons.firstOrNull { it.visibility == View.VISIBLE }?.let { targetBtn ->
+                targetBtn.post { targetBtn.requestFocus() }
+            }
             return
         }
 

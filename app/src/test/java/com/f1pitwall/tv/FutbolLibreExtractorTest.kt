@@ -1,6 +1,8 @@
 package com.f1pitwall.tv
 
 import com.f1pitwall.tv.core.config.BroadcastSource
+import com.f1pitwall.tv.model.FutbolLibreEvent
+import com.f1pitwall.tv.model.SpanishBroadcast
 import com.f1pitwall.tv.network.FutbolLibreExtractor
 import org.junit.Assert.*
 import org.junit.Test
@@ -15,20 +17,39 @@ class FutbolLibreExtractorTest {
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Fórmula 1: Práctica Libre 1"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Fórmula 1 - Práctica 2"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("F1 - Práctica Libre 3"))
+        assertTrue(FutbolLibreExtractor.isFormulaOneEvent("F1: GP Las Vegas – Práctica 3"))
+        assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Sports: F1 – GP Las Vegas – P3"))
+        assertTrue(FutbolLibreExtractor.isFormulaOneEvent("F1 | GP de Las Vegas: Prácticas Libres #1"))
+        assertTrue(FutbolLibreExtractor.isFormulaOneEvent("F1 | GP de Las Vegas: Cámara On Board - Colapinto"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Fórmula 1 - Carrera Sprint"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("F1 - Carrera Principal"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("F1 Academy - Carrera 1"))
+        assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Sports: F1 Academy – GP Las Vegas – Carrera #1"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Formula 1 Academy - Clasificación"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Gran Premio de Las Vegas - Clasificación"))
         assertTrue(FutbolLibreExtractor.isFormulaOneEvent("Grand Prix Mónaco - Carrera"))
+    }
 
-        // Casos que NO deben reconocerse (fútbol, otras categorías, o series menores sin F1)
+    @Test
+    fun testRejectionOfOtherSportsAndCategories() {
+        // Series de soporte o menores que NO deben confundirse con F1
         assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Fórmula 2 - Clasificación"))
         assertFalse(FutbolLibreExtractor.isFormulaOneEvent("F2 - Sprint Race"))
         assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Fórmula 3 - Feature Race"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("F3 - Sprint Race"))
+
+        // Otros deportes de motor
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("MotoGP - Gran Premio de Cataluña - Carrera"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Moto 2 - Gran Premio de Valencia"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Moto 3 - Clasificación"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("IndyCar - Grand Prix of Long Beach"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("NASCAR - Cup Series - Race"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Formula E - ePrix de Mónaco"))
+
+        // Fútbol u otros deportes convencionales
         assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Copa Libertadores - River Plate vs Boca Juniors"))
         assertFalse(FutbolLibreExtractor.isFormulaOneEvent("UEFA Champions League - Real Madrid vs Bayern"))
-        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("MotoGP - Gran Premio de Cataluña"))
+        assertFalse(FutbolLibreExtractor.isFormulaOneEvent("Premier League - Arsenal vs Chelsea"))
     }
 
     @Test
@@ -157,37 +178,69 @@ class FutbolLibreExtractorTest {
     }
 
     @Test
+    fun testEightSourcesNumberingAndFormatting() {
+        val extractor = FutbolLibreExtractor()
+        val buttonsHtml = (1..8).joinToString("\n") { i ->
+            """
+            <button class="source-pill event-source-choice" data-source="$i">
+                <span class="source-provider">Fuente $i</span>
+                <span class="source-channel">Canal F1 $i</span>
+            </button>
+            """.trimIndent()
+        }
+
+        val sources = extractor.parseMatchSourcesHtml(buttonsHtml, "https://futbol-libre.app/match/f1-gp-las-vegas")
+        assertEquals(8, sources.size)
+
+        for (i in 1..8) {
+            val s = sources[i - 1]
+            assertEquals(i, s.index)
+            assertEquals("Canal F1 $i", s.network)
+            assertEquals("Fuente $i", s.serverName)
+            assertEquals("Transmisión $i — Canal F1 $i", s.getFormattedTitle())
+            assertEquals("T$i: Canal F1 $i", s.getButtonLabel())
+            assertEquals("$i", s.sourceId)
+            assertEquals("https://futbol-libre.app/match/f1-gp-las-vegas#source=$i", s.streamUrl)
+            // Verificar que el clickJs contiene el polling/retry robusto
+            assertNotNull(s.clickActionJs)
+            assertTrue(s.clickActionJs!!.contains("tryClick"))
+            assertTrue(s.clickActionJs!!.contains("var id='$i'"))
+        }
+    }
+
+    @Test
     fun testParseMatchSourcesHtmlUsesConsistentOneBasedLabels() {
         val extractor = FutbolLibreExtractor()
         val html = """
-            <button class="source-pill event-source-choice" data-source="1">
+            <button class="source-pill event-source-choice" data-source="16722">
                 <span class="source-provider">Fuente 1</span>
-                <span class="source-channel">ESPN 2</span>
+                <span class="source-channel">Disney +</span>
             </button>
-            <button class="source-pill event-source-choice" data-source="2">
+            <button class="source-pill event-source-choice" data-source="16723">
                 <span class="source-provider">Fuente 2</span>
-                <span class="source-channel">FOX Sports</span>
+                <span class="source-channel">ESPN</span>
             </button>
         """.trimIndent()
 
         val sources = extractor.parseMatchSourcesHtml(
             html,
-            "https://futbol-libre.app/match/gp-las-vegas-practice-1"
+            "https://futbol-libre.app/match/gp-las-vegas-clasificacion"
         )
 
         assertEquals(2, sources.size)
         assertEquals(1, sources[0].index)
-        assertEquals("Transmisión 1 — ESPN 2", sources[0].getFormattedTitle())
-        assertEquals("T1: ESPN 2", sources[0].getButtonLabel())
-        assertEquals("1", sources[0].sourceId)
+        assertEquals("Transmisión 1 — Disney +", sources[0].getFormattedTitle())
+        assertEquals("T1: Disney +", sources[0].getButtonLabel())
+        assertEquals("16722", sources[0].sourceId)
         assertTrue(sources[0].clickActionJs.orEmpty().contains("event-source-choice"))
         assertEquals(
-            "https://futbol-libre.app/match/gp-las-vegas-practice-1#source=1",
+            "https://futbol-libre.app/match/gp-las-vegas-clasificacion#source=16722",
             sources[0].streamUrl
         )
         assertEquals(2, sources[1].index)
-        assertEquals("Transmisión 2 — FOX Sports", sources[1].getFormattedTitle())
-        assertEquals("T2: FOX Sports", sources[1].getButtonLabel())
+        assertEquals("Transmisión 2 — ESPN", sources[1].getFormattedTitle())
+        assertEquals("T2: ESPN", sources[1].getButtonLabel())
+        assertEquals("16723", sources[1].sourceId)
     }
 
     @Test
@@ -219,10 +272,66 @@ class FutbolLibreExtractorTest {
     }
 
     @Test
-    fun testEnglishSessionNamesAreRecognized() {
+    fun testSessionNamesRecognition() {
         assertEquals("Free Practice 1", FutbolLibreExtractor.extractSessionName("Formula 1 - Las Vegas - Free Practice 1"))
+        assertEquals("Prácticas Libres #1", FutbolLibreExtractor.extractSessionName("F1 | GP de Las Vegas: Prácticas Libres #1"))
+        assertEquals("Práctica 3", FutbolLibreExtractor.extractSessionName("F1: GP Las Vegas – Práctica 3"))
+        assertEquals("P3", FutbolLibreExtractor.extractSessionName("Sports: F1 – GP Las Vegas – P3"))
+        assertEquals("Cámara On Board - Colapinto", FutbolLibreExtractor.extractSessionName("F1 | GP de Las Vegas: Cámara On Board - Colapinto"))
+        assertEquals("Clasificación", FutbolLibreExtractor.extractSessionName("F1: GP Las Vegas – Clasificación"))
         assertEquals("Qualifying", FutbolLibreExtractor.extractSessionName("F1 - Grand Prix - Qualifying"))
         assertEquals("Sprint Race", FutbolLibreExtractor.extractSessionName("F1 - Sprint Race"))
+        assertEquals("Carrera Principal", FutbolLibreExtractor.extractSessionName("F1 - Gran Premio de Las Vegas - Carrera Principal"))
+        assertTrue(FutbolLibreExtractor.extractSessionName("Sports: F1 Academy – GP Las Vegas – Carrera #1").contains("F1 Academy"))
+    }
+
+    @Test
+    fun testSessionSwitchingChannelIsolation() {
+        // Evento 1: Práctica Libre con 3 fuentes
+        val event1 = FutbolLibreEvent(
+            id = "event-fp1",
+            title = "F1 - GP Las Vegas - FP1",
+            sessionName = "FP1",
+            gpName = "GP de Las Vegas",
+            utcInstant = "2026-11-21T00:30:00Z",
+            colombiaTime = "20/11 07:30 PM (Hora Col)",
+            matchPath = "/match/fp1",
+            fullMatchUrl = "https://futbol-libre.app/match/fp1",
+            sources = listOf(
+                SpanishBroadcast(1, "Disney1", streamUrl = "https://futbol-libre.app/match/fp1#source=1", sourceId = "1"),
+                SpanishBroadcast(2, "ESPN 2", streamUrl = "https://futbol-libre.app/match/fp1#source=2", sourceId = "2"),
+                SpanishBroadcast(3, "Fox Sports", streamUrl = "https://futbol-libre.app/match/fp1#source=3", sourceId = "3")
+            )
+        )
+
+        // Evento 2: Clasificación con 7 fuentes distintas
+        val event2 = FutbolLibreEvent(
+            id = "event-quali",
+            title = "F1 - GP Las Vegas - Clasificación",
+            sessionName = "Clasificación",
+            gpName = "GP de Las Vegas",
+            utcInstant = "2026-11-21T04:00:00Z",
+            colombiaTime = "20/11 11:00 PM (Hora Col)",
+            matchPath = "/match/quali",
+            fullMatchUrl = "https://futbol-libre.app/match/quali",
+            sources = (1..7).map { i ->
+                SpanishBroadcast(i, "Canal Quali $i", streamUrl = "https://futbol-libre.app/match/quali#source=$i", sourceId = "$i")
+            }
+        )
+
+        assertEquals(3, event1.sources.size)
+        assertEquals(7, event2.sources.size)
+
+        // Las URLs base deben ser diferentes para no mezclar canales
+        assertNotEquals(event1.fullMatchUrl, event2.fullMatchUrl)
+        event1.sources.forEach { s ->
+            assertTrue(s.streamUrl!!.startsWith(event1.fullMatchUrl))
+            assertFalse(s.streamUrl!!.startsWith(event2.fullMatchUrl))
+        }
+        event2.sources.forEach { s ->
+            assertTrue(s.streamUrl!!.startsWith(event2.fullMatchUrl))
+            assertFalse(s.streamUrl!!.startsWith(event1.fullMatchUrl))
+        }
     }
 
     @Test

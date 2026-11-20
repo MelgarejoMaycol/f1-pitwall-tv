@@ -188,7 +188,7 @@ class FutbolLibreExtractor(
     ): SpanishBroadcast {
         val safeSourceId = sourceId?.takeIf { SOURCE_ID_PATTERN.matches(it) }
         val clickJs = safeSourceId?.let {
-            "(function(){var id='" + it + "';var b=Array.prototype.find.call(document.querySelectorAll('button.event-source-choice[data-source]'),function(el){return el.getAttribute('data-source')===id;});if(b){b.click();}else{window.location.hash='source='+encodeURIComponent(id);}})();"
+            "(function(){var id='$it';function tryClick(){var b=document.querySelector('button.event-source-choice[data-source=\"'+id+'\"]');if(b){b.click();return true;}return false;}if(!tryClick()){var attempts=0;var timer=setInterval(function(){attempts++;if(tryClick()||attempts>=25){clearInterval(timer);}},200);}})();"
         }
         return SpanishBroadcast(
             index = index,
@@ -266,11 +266,15 @@ class FutbolLibreExtractor(
         fun isFormulaOneEvent(title: String): Boolean {
             val t = title.lowercase(Locale.ROOT)
             val hasF1 = Regex("""\bf1\b|f[oó]rmula\s*(?:1|one)|f1\s*academy|motorsport.*f1|f[oó]rmula\s*1\s*academy""").containsMatchIn(t)
-            val hasGp = Regex("""gran\s*premio|grand\s*prix|\bgp\b""").containsMatchIn(t)
-            val hasSession = Regex("""pr[aá]cticas?\s*libres?|pr[aá]ctica\s*[123]|clasificaci[oó]n|carrera(?:\s*sprint|\s*principal)?|race|f1\s*academy""").containsMatchIn(t)
-            val isOtherSeries = Regex("""\bf2\b|\bf3\b|formula\s*[23]|f[oó]rmula\s*[23]""").containsMatchIn(t)
+            val isOtherSeries = Regex("""\bf2\b|\bf3\b|formula\s*[23]|f[oó]rmula\s*[23]|motogp|moto\s*[23]|indycar|nascar|wec|formula\s*e|f[oó]rmula\s*e""").containsMatchIn(t)
             if (isOtherSeries && !hasF1) return false
-            return hasF1 || (hasGp && hasSession) || (hasGp && t.contains("las vegas"))
+            if (!hasF1) {
+                val hasGp = Regex("""gran\s*premio|grand\s*prix|\bgp\b""").containsMatchIn(t)
+                val hasSession = Regex("""pr[aá]cticas?\s*libres?|pr[aá]ctica\s*[123]|free\s*practice\s*[123]|\bfp[123]\b|clasificaci[oó]n|qualifying|carrera(?:\s*sprint|\s*principal)?|\brace\b|sprint""").containsMatchIn(t)
+                val isNonF1Sport = Regex("""moto|rally|karting|cycling|tennis|futbol|fútbol|basket""").containsMatchIn(t)
+                return hasGp && hasSession && !isNonF1Sport
+            }
+            return true
         }
 
         fun formatToColombiaTime(utcInstantIso: String?, fallbackTime: String): String {
@@ -289,7 +293,7 @@ class FutbolLibreExtractor(
         fun extractSessionName(title: String): String {
             val t = title.replace(Regex("\\s+"), " ").trim()
             val sessionMatch = Regex(
-                """(Prácticas?\s*Libres?\s*#?[123]|Práctica\s*[123]|Free\s*Practice\s*[123]|\bFP[123]\b|Practice\s*[123]|Clasificación|Qualifying|Carrera\s*Sprint|Sprint\s*Race|Sprint|Carrera\s*Principal|Main\s*Race|Carrera\s*#?[123]|\bRace\b|Cámara\s*On\s*Board[^:]*|On\s*Board[^:]*|F1\s*Academy)""",
+                """(Prácticas?\s*Libres?\s*#?[123]|Práctica\s*[123]|Free\s*Practice\s*[123]|\bFP[123]\b|Practice\s*[123]|\bP[123]\b|Clasificación|Qualifying|Carrera\s*Sprint|Sprint\s*Race|\bSprint\b|Carrera\s*Principal|Main\s*Race|Carrera\s*#?[123]|\bRace\b|Cámara\s*On\s*Board[^:]*|On\s*Board[^:]*|F1\s*Academy(?:\s*[–—-]\s*[^–—-]+)*\s*[–—-]\s*(?:Carrera\s*#?[123]|Race\s*#?[123]|Clasificación|Qualifying)|F1\s*Academy)""",
                 RegexOption.IGNORE_CASE
             ).find(t)
             return sessionMatch?.value?.trim() ?: t.substringAfterLast(":").trim().ifBlank { t }
