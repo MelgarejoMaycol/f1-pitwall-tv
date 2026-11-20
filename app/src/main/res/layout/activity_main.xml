@@ -1076,7 +1076,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📺 FUENTES DE VIDEO Y TRANSMISIONES"
+                android:text="FUENTES DE TRANSMISIÓN"
                 android:textColor="@color/f1_red"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -1097,21 +1097,33 @@
                     android:orientation="vertical"
                     android:padding="14dp">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="📡 Fuente de transmisiones"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Determina de qué página se obtendrán los servidores y canales disponibles en Muro de Pits."
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11.5sp" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Fuente de transmisión"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnReloadGitSources"
+                            android:layout_width="wrap_content"
+                            android:layout_height="34dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="12dp"
+                            android:text="↻ Actualizar"
+                            android:textColor="@color/text_primary"
+                            android:textSize="10sp" />
+                    </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -1166,25 +1178,43 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Fuente activa: FLX (https://flive.cc.cd/f1)"
+                        android:text="Activa: FLX"
                         android:textColor="@color/text_muted"
                         android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Canales"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <HorizontalScrollView
+                        android:id="@+id/scrollDirectChannels"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:scrollbars="none"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/llDynamicDirectPresets"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal" />
+                    </HorizontalScrollView>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Identificación automática del Gran Premio y términos de búsqueda adaptados por sesión:"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
-            <!-- Smart Adaptive Search Card -->
+            <!-- Smart Adaptive Search Card (hidden) -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
+                android:visibility="gone"
                 app:cardBackgroundColor="@color/glass_surface_dock"
                 app:cardCornerRadius="14dp"
                 app:cardElevation="0dp">
@@ -1278,120 +1308,6 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Stream URL Input -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="Página web o enlace directo de video (WEB / HLS / DASH / MP4):"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <EditText
-                android:id="@+id/etStreamUrl"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/card_focus_selector"
-                android:focusable="true"
-                android:hint="https://sitio-web-o-servidor/video"
-                android:paddingHorizontal="12dp"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_muted"
-                android:textSize="12sp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnApplyStream"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="14dp"
-                    android:text="⚡ Aplicar Señal de Video"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/btnPresetDemo1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:text="HLS Demo 1"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp" />
-
-                <Button
-                    android:id="@+id/btnPresetDemo2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:text="MP4 Backup"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp" />
-
-                <Button
-                    android:id="@+id/btnReloadGitSources"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/btn_tab_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:text="🔄 Recargar Fuentes Git"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tvRemoteCatalogStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="📡 Catálogo Git: Inicializando..."
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
-
-            <HorizontalScrollView
-                android:id="@+id/scrollDirectChannels"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:scrollbars="none">
-
-                <LinearLayout
-                    android:id="@+id/llDynamicDirectPresets"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal" />
-            </HorizontalScrollView>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:lineSpacingExtra="3dp"
-                android:text="📁 Control de Fuentes vía Git: Puedes añadir, cambiar proveedores o actualizar enlaces desde tu computadora editando 'app/src/main/assets/video_sources.json' y 'season_config.json'. Al hacer commit de los cambios, la aplicación los adoptará de forma nativa."
-                android:textColor="@color/text_muted"
-                android:textSize="11sp" />
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
