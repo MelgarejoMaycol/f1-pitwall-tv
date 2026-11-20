@@ -143,11 +143,17 @@ object F1ContentDiscovery {
                     .se-player-wrap {
                         padding-bottom: 0 !important;
                     }
-                    iframe {
+                    /* Only size the actual event player iframe. Styling every iframe
+                       also fullscreens ad/hidden iframes, which can cover live video. */
+                    .se-player, .se-player-wrap {
+                        position: relative !important;
+                    }
+                    .se-player-wrap iframe, .se-player iframe {
                         position: absolute !important;
                         top: 0 !important; left: 0 !important;
                         width: 100% !important; height: 100% !important;
                         border: none !important;
+                        z-index: 2 !important;
                     }
                 `;
                 document.head.appendChild(style);
