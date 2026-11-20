@@ -38,7 +38,7 @@ class F1Repository(
         val now = Date()
 
         fun chooseSession(sessions: List<Session>): Session? {
-            val timed = sessions.mapNotNull { session ->
+            val timed = sessions.filterNot { it.isCancelled == true }.mapNotNull { session ->
                 val start = TimeUtils.parseUtc(session.dateStart)
                 val end = TimeUtils.parseUtc(session.dateEnd)
                 if (start != null && end != null) Triple(session, start, end) else null
@@ -53,12 +53,18 @@ class F1Repository(
         }
 
         val seasonSessions = openF1Api.getSessionsForYear(year)
-        chooseSession(seasonSessions)?.let { return@withContext it }
+        val selectedSeasonSession = chooseSession(seasonSessions)
+        val selectedStart = selectedSeasonSession?.let { TimeUtils.parseUtc(it.dateStart) }
+        val selectedIsCurrentOrUpcoming = selectedSeasonSession != null &&
+            (TimeUtils.isCurrentlyLive(selectedSeasonSession.dateStart, selectedSeasonSession.dateEnd) ||
+                (selectedStart != null && selectedStart.after(now)))
 
-        // Fallback for a partially populated season endpoint.
+        if (selectedIsCurrentOrUpcoming) return@withContext selectedSeasonSession
+
+        // If the season feed has only historical rows, merge the next meeting's sessions.
         val selectedMeeting = findSmartSelectedMeeting(year)
         val meetingSessions = selectedMeeting?.let { openF1Api.getSessions(it.meetingKey) }.orEmpty()
-        chooseSession(meetingSessions)
+        chooseSession(seasonSessions + meetingSessions) ?: selectedSeasonSession
     }
 
     /**
