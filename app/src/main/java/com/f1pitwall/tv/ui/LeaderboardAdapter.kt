@@ -48,6 +48,25 @@ class LeaderboardAdapter(
             tvGap.text = item.gapToLeader
             tvLastLap.text = item.lastLap
 
+            // Sectors color-coding
+            when {
+                item.position == 1 -> {
+                    tvS1.setBackgroundColor(Color.parseColor("#A855F7"))
+                    tvS2.setBackgroundColor(Color.parseColor("#A855F7"))
+                    tvS3.setBackgroundColor(Color.parseColor("#A855F7"))
+                }
+                item.position in 2..6 -> {
+                    tvS1.setBackgroundColor(Color.parseColor("#22C55E"))
+                    tvS2.setBackgroundColor(Color.parseColor("#22C55E"))
+                    tvS3.setBackgroundColor(Color.parseColor("#22C55E"))
+                }
+                else -> {
+                    tvS1.setBackgroundColor(Color.parseColor("#EAB308"))
+                    tvS2.setBackgroundColor(Color.parseColor("#EAB308"))
+                    tvS3.setBackgroundColor(Color.parseColor("#EAB308"))
+                }
+            }
+
             // Parse Team Color
             try {
                 val colorHex = if (item.teamColor.startsWith("#")) item.teamColor else "#${item.teamColor}"

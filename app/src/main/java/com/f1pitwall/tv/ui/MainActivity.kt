@@ -524,9 +524,35 @@ class MainActivity : AppCompatActivity() {
             pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, isUpcoming, title)
 
             if (!isLive) {
+                val isHeadingToRace = session.sessionName?.contains("Race", ignoreCase = true) == true
+                        || session.sessionName?.contains("Carrera", ignoreCase = true) == true
+                        || session.sessionType?.equals("Race", ignoreCase = true) == true
+
+                var startingGridItems: List<DriverLeaderboardItem> = emptyList()
+                if (isHeadingToRace) {
+                    startingGridItems = repository.getStartingGrid(selectedYear)
+                }
+
+                if (startingGridItems.isNotEmpty()) {
+                    pitWallViewManager.leaderboardAdapter.updateData(startingGridItems)
+                    tvRaceFlag.text = "🏁 SALIDA EN CARRERA"
+                    tvRaceFlag.setTextColor(Color.parseColor("#38BDF8"))
+                    tvWeather.text = "🏎️ PARRILLA DEFINIDA"
+                    val gridTitle = "${session.circuitShortName ?: "F1"} • PARRILLA / SALIDA EN CARRERA"
+                    pitWallViewManager.onSessionUpdated(session.sessionKey, isLive = false, isUpcoming = true, gridTitle)
+                    return
+                }
+
                 val standings = repository.getDriverStandings(selectedYear)
                 if (standings.isNotEmpty()) {
+                    val leaderPts = standings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
                     val fallbackItems = standings.map { st ->
+                        val driverPts = st.points.toDoubleOrNull() ?: 0.0
+                        val diff = leaderPts - driverPts
+                        val diffFormatted = if (diff % 1.0 == 0.0) "${diff.toInt()}" else String.format(Locale.US, "%.1f", diff)
+                        val diffText = if (st.position == 1) "LÍDER" else "-$diffFormatted PTS"
+                        val ptsText = "${st.points} PTS"
+
                         DriverLeaderboardItem(
                             driverNumber = st.driverNumber,
                             position = st.position,
@@ -534,9 +560,9 @@ class MainActivity : AppCompatActivity() {
                             fullName = st.fullName,
                             teamName = st.teamName,
                             teamColor = st.teamColor,
-                            gapToLeader = st.gapToLeader ?: if (st.position == 1) "LÍDER" else "+${st.points} pts",
-                            interval = "${st.points} pts",
-                            lastLap = "--:--",
+                            gapToLeader = ptsText,
+                            interval = diffText,
+                            lastLap = diffText,
                             s1 = "--",
                             s2 = "--",
                             s3 = "--",
@@ -583,7 +609,14 @@ class MainActivity : AppCompatActivity() {
             if (items.isEmpty()) {
                 val standings = repository.getDriverStandings(selectedYear)
                 if (standings.isNotEmpty()) {
+                    val leaderPts = standings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
                     items = standings.map { st ->
+                        val driverPts = st.points.toDoubleOrNull() ?: 0.0
+                        val diff = leaderPts - driverPts
+                        val diffFormatted = if (diff % 1.0 == 0.0) "${diff.toInt()}" else String.format(Locale.US, "%.1f", diff)
+                        val diffText = if (st.position == 1) "LÍDER" else "-$diffFormatted PTS"
+                        val ptsText = "${st.points} PTS"
+
                         DriverLeaderboardItem(
                             driverNumber = st.driverNumber,
                             position = st.position,
@@ -591,9 +624,9 @@ class MainActivity : AppCompatActivity() {
                             fullName = st.fullName,
                             teamName = st.teamName,
                             teamColor = st.teamColor,
-                            gapToLeader = st.gapToLeader ?: if (st.position == 1) "LÍDER" else "+${st.points} pts",
-                            interval = "${st.points} pts",
-                            lastLap = "--:--",
+                            gapToLeader = ptsText,
+                            interval = diffText,
+                            lastLap = diffText,
                             s1 = "--",
                             s2 = "--",
                             s3 = "--",

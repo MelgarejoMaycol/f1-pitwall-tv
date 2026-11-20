@@ -22,6 +22,7 @@ import android.webkit.WebViewClient
 import android.widget.*
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -30,6 +31,7 @@ import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.BroadcastSource
 import com.f1pitwall.tv.core.storage.PreferencesManager
 import com.f1pitwall.tv.core.util.BroadcastDetectorUtils
+import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.FlxExtractor
@@ -42,6 +44,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
+import java.util.Locale
 
 class PitWallViewManager(
     private val rootView: View,
@@ -126,6 +129,15 @@ class PitWallViewManager(
     private val tvTelemetryBrake: TextView = rootView.findViewById(R.id.tvTelemetryBrake)
     private val pbTelemetryBrake: ProgressBar = rootView.findViewById(R.id.pbTelemetryBrake)
     private val btnTelemetryDemoToggle: Button = rootView.findViewById(R.id.btnTelemetryDemoToggle)
+
+    // Sector Telemetry Views
+    private val tvTelemetryS1: TextView = rootView.findViewById(R.id.tvTelemetryS1)
+    private val tvTelemetryS1Speed: TextView = rootView.findViewById(R.id.tvTelemetryS1Speed)
+    private val tvTelemetryS2: TextView = rootView.findViewById(R.id.tvTelemetryS2)
+    private val tvTelemetryS2Speed: TextView = rootView.findViewById(R.id.tvTelemetryS2Speed)
+    private val tvTelemetryS3: TextView = rootView.findViewById(R.id.tvTelemetryS3)
+    private val tvTelemetryS3Speed: TextView = rootView.findViewById(R.id.tvTelemetryS3Speed)
+    private val tvTelemetryLapTime: TextView = rootView.findViewById(R.id.tvTelemetryLapTime)
 
     // State & Players
     private var exoPlayer: ExoPlayer? = null
@@ -826,6 +838,17 @@ class PitWallViewManager(
         playerView.player = exoPlayer
 
         radioPlayer = ExoPlayer.Builder(context).build()
+        radioPlayer?.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                btnPlayRadio.text = if (isPlaying) "⏸ PAUSA" else "▶ RADIO"
+            }
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) {
+                    btnPlayRadio.text = "▶ RADIO"
+                    tvRadioTitle.text = "📻 Radio Oficial: Fin de transmisión"
+                }
+            }
+        })
 
         // By default off-race: Standby visible, playerView hidden, NO auto-playing demo video!
         switchToStandby()
@@ -878,14 +901,17 @@ class PitWallViewManager(
 
         // Radio Player
         btnPlayRadio.setOnClickListener {
-            latestRadioUrl?.let { url ->
-                val mediaItem = MediaItem.fromUri(url)
-                radioPlayer?.setMediaItem(mediaItem)
-                radioPlayer?.prepare()
-                radioPlayer?.play()
-                Toast.makeText(context, "Reproduciendo audio de radio...", Toast.LENGTH_SHORT).show()
-            } ?: run {
-                Toast.makeText(context, "No hay audio de radio disponible en este momento", Toast.LENGTH_SHORT).show()
+            val player = radioPlayer ?: return@setOnClickListener
+            if (player.isPlaying) {
+                player.pause()
+                btnPlayRadio.text = "▶ REANUDAR"
+                Toast.makeText(context, "Radio pausada", Toast.LENGTH_SHORT).show()
+            } else if (player.playbackState == Player.STATE_READY) {
+                player.play()
+                btnPlayRadio.text = "⏸ PAUSA"
+                Toast.makeText(context, "Reanudando radio...", Toast.LENGTH_SHORT).show()
+            } else {
+                playCurrentOrSessionRadio()
             }
         }
 
@@ -1192,25 +1218,98 @@ class PitWallViewManager(
         updateScheduleBanner()
     }
 
+    fun playCurrentOrSessionRadio() {
+        tvRadioTitle.text = "📻 Buscando radio oficial de la sesión..."
+        scope.launch {
+            try {
+                val key = currentSessionKey
+                val radios = if (key != null) {
+                    repository.getSessionTeamRadios(key)
+                } else emptyList()
+
+                val playableRadios = radios.filter { !it.recordingUrl.isNullOrEmpty() }
+                if (playableRadios.isNotEmpty()) {
+                    latestRadioUrl = playableRadios.first().recordingUrl
+                    tvRadioTitle.text = "📻 Radio Oficial de Sesión • ${playableRadios.size} audios"
+                    radioPlayer?.let { player ->
+                        player.stop()
+                        player.clearMediaItems()
+                        for (r in playableRadios) {
+                            r.recordingUrl?.let { url ->
+                                player.addMediaItem(MediaItem.fromUri(url))
+                            }
+                        }
+                        player.repeatMode = Player.REPEAT_MODE_OFF
+                        player.prepare()
+                        player.play()
+                        btnPlayRadio.text = "⏸ PAUSA"
+                    }
+                    Toast.makeText(context, "Reproduciendo radios de la sesión (${playableRadios.size} audios)", Toast.LENGTH_SHORT).show()
+                } else {
+                    latestRadioUrl?.let { url ->
+                        val mediaItem = MediaItem.fromUri(url)
+                        radioPlayer?.clearMediaItems()
+                        radioPlayer?.setMediaItem(mediaItem)
+                        radioPlayer?.prepare()
+                        radioPlayer?.play()
+                        btnPlayRadio.text = "⏸ PAUSA"
+                        Toast.makeText(context, "Reproduciendo último audio guardado", Toast.LENGTH_SHORT).show()
+                    } ?: run {
+                        Toast.makeText(context, "No hay audios de radio disponibles para esta sesión", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun tuneRadioDriver(driverNumber: Int, driverName: String) {
         tvRadioTitle.text = "📻 Sintonizando Radio: $driverName (#$driverNumber)..."
         scope.launch {
             try {
                 val key = currentSessionKey
-                if (key == null) {
-                    tvRadioTitle.text = "📻 Radio: espera a que el calendario identifique una sesión"
-                    Toast.makeText(context, "No hay una sesión F1 seleccionada", Toast.LENGTH_SHORT).show()
-                    return@launch
+                var radios = if (key != null) {
+                    repository.getDriverTeamRadios(key, driverNumber)
+                } else emptyList()
+
+                // Si es Verstappen (#1), en 2026 corre con el #3 en OpenF1
+                if (radios.isEmpty() && (driverNumber == 1 || driverNumber == 3) && key != null) {
+                    val altNum = if (driverNumber == 1) 3 else 1
+                    radios = repository.getDriverTeamRadios(key, altNum)
                 }
-                val radio = repository.getDriverTeamRadio(key, driverNumber)
-                if (radio != null && !radio.recordingUrl.isNullOrEmpty()) {
-                    latestRadioUrl = radio.recordingUrl
-                    tvRadioTitle.text = "📻 Radio Oficial: $driverName (#$driverNumber) • Conectado"
-                    val mediaItem = MediaItem.fromUri(radio.recordingUrl)
-                    radioPlayer?.setMediaItem(mediaItem)
-                    radioPlayer?.prepare()
-                    radioPlayer?.play()
-                    Toast.makeText(context, "Reproduciendo radio de $driverName", Toast.LENGTH_SHORT).show()
+
+                // Si no hay clips en la sesión actual, buscar en la sesión más reciente con radios
+                if (radios.isEmpty()) {
+                    radios = repository.getDriverTeamRadiosLatest(driverNumber)
+                    if (radios.isEmpty() && (driverNumber == 1 || driverNumber == 3)) {
+                        radios = repository.getDriverTeamRadiosLatest(if (driverNumber == 1) 3 else 1)
+                    }
+                }
+
+                // Si aún está vacío, fallback a radios de la sesión general
+                if (radios.isEmpty() && key != null) {
+                    radios = repository.getSessionTeamRadios(key)
+                }
+
+                val playableRadios = radios.filter { !it.recordingUrl.isNullOrEmpty() }
+                if (playableRadios.isNotEmpty()) {
+                    latestRadioUrl = playableRadios.first().recordingUrl
+                    tvRadioTitle.text = "📻 Radio: $driverName (#$driverNumber) • ${playableRadios.size} clips en cola"
+                    radioPlayer?.let { player ->
+                        player.stop()
+                        player.clearMediaItems()
+                        for (r in playableRadios) {
+                            r.recordingUrl?.let { url ->
+                                player.addMediaItem(MediaItem.fromUri(url))
+                            }
+                        }
+                        player.repeatMode = Player.REPEAT_MODE_OFF
+                        player.prepare()
+                        player.play()
+                        btnPlayRadio.text = "⏸ PAUSA"
+                    }
+                    Toast.makeText(context, "Reproduciendo radios de $driverName (${playableRadios.size} audios)", Toast.LENGTH_SHORT).show()
                 } else {
                     tvRadioTitle.text = "📻 Radio: $driverName (#$driverNumber) [Canal en espera]"
                     Toast.makeText(context, "Sin transmisión de radio activa para $driverName", Toast.LENGTH_SHORT).show()
@@ -1229,7 +1328,34 @@ class PitWallViewManager(
                     Toast.makeText(context, "No hay una sesión F1 seleccionada", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                val telemetry = repository.getTelemetryForDriver(key, driverNumber)
+                val targetDriver = driverNumber
+                val telemetry = repository.getTelemetryForDriver(key, targetDriver)
+                    ?: if (targetDriver == 1) repository.getTelemetryForDriver(key, 3) else null
+
+                val lap = repository.getLatestLapForDriver(key, targetDriver)
+                    ?: if (targetDriver == 1) repository.getLatestLapForDriver(key, 3) else null
+
+                if (lap != null) {
+                    tvTelemetryS1.text = lap.s1?.let { String.format(Locale.US, "%.3f s", it) } ?: "--.---"
+                    tvTelemetryS1Speed.text = lap.i1Speed?.let { "Trampa: $it km/h" } ?: "Trampa: --- km/h"
+
+                    tvTelemetryS2.text = lap.s2?.let { String.format(Locale.US, "%.3f s", it) } ?: "--.---"
+                    tvTelemetryS2Speed.text = lap.i2Speed?.let { "Trampa: $it km/h" } ?: "Trampa: --- km/h"
+
+                    tvTelemetryS3.text = lap.s3?.let { String.format(Locale.US, "%.3f s", it) } ?: "--.---"
+                    tvTelemetryS3Speed.text = lap.stSpeed?.let { "Trampa: $it km/h" } ?: "Trampa: --- km/h"
+
+                    val lapDurationStr = TimeUtils.formatLapDuration(lap.lapDuration)
+                    tvTelemetryLapTime.text = "⏱️ TIEMPO VUELTA: $lapDurationStr"
+                } else {
+                    tvTelemetryS1.text = "--.---"
+                    tvTelemetryS1Speed.text = "Trampa: --- km/h"
+                    tvTelemetryS2.text = "--.---"
+                    tvTelemetryS2Speed.text = "Trampa: --- km/h"
+                    tvTelemetryS3.text = "--.---"
+                    tvTelemetryS3Speed.text = "Trampa: --- km/h"
+                    tvTelemetryLapTime.text = "⏱️ TIEMPO VUELTA: --:--.---"
+                }
 
                 if (telemetry != null && (telemetry.speed ?: 0) > 0) {
                     val spd = telemetry.speed ?: 0
@@ -1259,9 +1385,9 @@ class PitWallViewManager(
                         tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
                     }
                 } else {
-                    tvTelemetrySpeed.text = "--"
+                    tvTelemetrySpeed.text = lap?.stSpeed?.toString() ?: "--"
                     tvTelemetryGear.text = "--"
-                    tvTelemetryRpm.text = "Sin datos disponibles"
+                    tvTelemetryRpm.text = if (lap != null) "Sectores y trampas registrados" else "Sin datos disponibles"
                     pbTelemetryRpm.progress = 0
                     tvTelemetryThrottle.text = "Acelerador: --"
                     pbTelemetryThrottle.progress = 0
@@ -1269,12 +1395,14 @@ class PitWallViewManager(
                     pbTelemetryBrake.progress = 0
                     tvTelemetryDrs.text = "DRS --"
                     tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
-                    val message = if (isUpcomingSession) {
-                        "La telemetría estará disponible cuando comience $currentScheduleTitle"
-                    } else {
-                        "OpenF1 todavía no ha publicado telemetría para esta sesión"
+                    if (lap == null) {
+                        val message = if (isUpcomingSession) {
+                            "La telemetría estará disponible cuando comience $currentScheduleTitle"
+                        } else {
+                            "OpenF1 todavía no ha publicado telemetría para esta sesión"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     }
-                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

@@ -63,7 +63,10 @@ data class Lap(
     @SerializedName("duration_sector_1") val s1: Double?,
     @SerializedName("duration_sector_2") val s2: Double?,
     @SerializedName("duration_sector_3") val s3: Double?,
-    @SerializedName("is_pit_out_lap") val isPitOutLap: Boolean?
+    @SerializedName("i1_speed") val i1Speed: Int? = null,
+    @SerializedName("i2_speed") val i2Speed: Int? = null,
+    @SerializedName("st_speed") val stSpeed: Int? = null,
+    @SerializedName("is_pit_out_lap") val isPitOutLap: Boolean? = null
 )
 
 data class Stint(

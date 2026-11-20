@@ -4,6 +4,7 @@ import com.f1pitwall.tv.core.config.AppConfig
 import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.model.*
 import com.f1pitwall.tv.model.CarTelemetry
+import com.f1pitwall.tv.model.DriverLeaderboardItem
 import com.f1pitwall.tv.model.Meeting
 import com.f1pitwall.tv.model.Session
 import com.f1pitwall.tv.network.JolpicaApiClient
@@ -298,6 +299,39 @@ class F1Repository(
                 radios = openF1Api.getTeamRadiosForDriverLatest(3)
             }
             radios.firstOrNull { !it.recordingUrl.isNullOrEmpty() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getDriverTeamRadios(sessionKey: Long, driverNumber: Int): List<com.f1pitwall.tv.model.TeamRadio> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getTeamRadiosForDriver(sessionKey, driverNumber)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getSessionTeamRadios(sessionKey: Long): List<com.f1pitwall.tv.model.TeamRadio> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getTeamRadios(sessionKey)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getDriverTeamRadiosLatest(driverNumber: Int): List<com.f1pitwall.tv.model.TeamRadio> = withContext(Dispatchers.IO) {
+        try {
+            openF1Api.getTeamRadiosForDriverLatest(driverNumber)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getLatestLapForDriver(sessionKey: Long, driverNumber: Int): com.f1pitwall.tv.model.Lap? = withContext(Dispatchers.IO) {
+        try {
+            val laps = openF1Api.getLapsForDriver(sessionKey, driverNumber)
+            laps.firstOrNull { it.s1 != null || it.s2 != null || it.s3 != null || it.lapDuration != null }
         } catch (e: Exception) {
             null
         }
@@ -600,6 +634,55 @@ class F1Repository(
     }
 
     suspend fun getRaceResults(year: Int = AppConfig.DEFAULT_SEASON, round: Int) = jolpicaApi.getRaceResults(year, round)
+
+    /**
+     * Obtiene la parrilla de salida (salida en carrera) a partir de la clasificación del Gran Premio.
+     */
+    suspend fun getStartingGrid(year: Int = AppConfig.DEFAULT_SEASON, round: Int? = null): List<DriverLeaderboardItem> = withContext(Dispatchers.IO) {
+        try {
+            val qResults = if (round != null) {
+                jolpicaApi.getQualifyingResults(year, round)
+            } else {
+                jolpicaApi.getLatestQualifyingResults(year)?.second ?: emptyList()
+            }
+
+            if (qResults.isEmpty()) return@withContext emptyList()
+
+            qResults.mapIndexed { index, item ->
+                val pos = item.position?.toIntOrNull() ?: (index + 1)
+                val row = (pos + 1) / 2
+                val side = if (pos % 2 == 1) "I" else "D"
+                val bestQ = item.q3?.takeIf { it.isNotBlank() }
+                    ?: item.q2?.takeIf { it.isNotBlank() }
+                    ?: item.q1?.takeIf { it.isNotBlank() }
+                    ?: "--:--.---"
+
+                val gapStr = if (pos == 1) "POLE POSITION" else "FILA $row ($side)"
+
+                DriverLeaderboardItem(
+                    driverNumber = item.number?.toIntOrNull()
+                        ?: item.driver?.permanentNumber?.toIntOrNull()
+                        ?: (index + 1),
+                    position = pos,
+                    acronym = item.driver?.code ?: "F1",
+                    fullName = item.driver?.fullName ?: "Piloto",
+                    teamName = item.constructor?.name ?: "",
+                    teamColor = getTeamColor(item.constructor?.name ?: ""),
+                    gapToLeader = gapStr,
+                    interval = bestQ,
+                    lastLap = bestQ,
+                    s1 = item.q1 ?: "--",
+                    s2 = item.q2 ?: "--",
+                    s3 = item.q3 ?: "--",
+                    tyreCompound = "SOFT",
+                    tyreAge = 1
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 
     suspend fun getCircuits(year: Int = AppConfig.DEFAULT_SEASON): List<CircuitCardItem> = withContext(Dispatchers.IO) {
         val meetings = getMeetings(year)

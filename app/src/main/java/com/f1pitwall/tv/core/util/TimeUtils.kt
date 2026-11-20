@@ -94,4 +94,11 @@ object TimeUtils {
         format.timeZone = TimeZone.getTimeZone("UTC")
         return format.format(target)
     }
+
+    fun formatLapDuration(duration: Double?): String {
+        if (duration == null || duration <= 0.0) return "--:--.---"
+        val minutes = (duration / 60).toInt()
+        val seconds = duration % 60
+        return String.format(Locale.US, "%d:%06.3f", minutes, seconds)
+    }
 }

@@ -65,6 +65,19 @@ class JolpicaApiClient {
         return response?.mrData?.raceTable?.races?.firstOrNull()?.results ?: emptyList()
     }
 
+    suspend fun getQualifyingResults(year: Int = 2026, round: Int): List<com.f1pitwall.tv.data.model.JolpicaQualifyingResult> {
+        val type = object : TypeToken<JolpicaResponse<RaceTableContainer>>() {}
+        val response = get("$baseUrl/$year/$round/qualifying.json", type, useCache = true)
+        return response?.mrData?.raceTable?.races?.firstOrNull()?.qualifyingResults ?: emptyList()
+    }
+
+    suspend fun getLatestQualifyingResults(year: Int = 2026): Pair<JolpicaRace, List<com.f1pitwall.tv.data.model.JolpicaQualifyingResult>>? {
+        val type = object : TypeToken<JolpicaResponse<RaceTableContainer>>() {}
+        val response = get("$baseUrl/$year/last/qualifying.json", type, useCache = true)
+        val race = response?.mrData?.raceTable?.races?.firstOrNull() ?: return null
+        return Pair(race, race.qualifyingResults ?: emptyList())
+    }
+
     suspend fun getLatestRaceResults(year: Int = 2026): Pair<JolpicaRace, List<JolpicaResult>>? {
         val type = object : TypeToken<JolpicaResponse<RaceTableContainer>>() {}
         val response = get("$baseUrl/$year/last/results.json", type, useCache = true)

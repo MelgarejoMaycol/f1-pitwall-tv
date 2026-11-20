@@ -132,6 +132,12 @@ class OpenF1ApiClient {
         return all.groupBy { it.driverNumber }.mapNotNull { it.value.lastOrNull() }
     }
 
+    suspend fun getLapsForDriver(sessionKey: Long, driverNumber: Int): List<Lap> {
+        val type = object : TypeToken<List<Lap>>() {}
+        val all = get("$baseUrl/laps?session_key=$sessionKey&driver_number=$driverNumber", type, useCache = false) ?: emptyList()
+        return all.reversed()
+    }
+
     suspend fun getStints(sessionKey: Long): List<Stint> {
         val type = object : TypeToken<List<Stint>>() {}
         val all = get("$baseUrl/stints?session_key=$sessionKey", type, useCache = false) ?: emptyList()

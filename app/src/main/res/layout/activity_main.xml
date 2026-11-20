@@ -846,6 +846,163 @@
                         android:progress="0"
                         android:progressTint="#EF4444" />
 
+                    <!-- Sectors Telemetry Card -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        app:cardBackgroundColor="@color/glass_surface_dock"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="⏱️ TIEMPOS Y VELOCIDADES POR SECTOR"
+                                android:textColor="@color/f1_red"
+                                android:textSize="10.5sp"
+                                android:textStyle="bold" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:orientation="horizontal">
+
+                                <!-- Sector 1 -->
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:background="#161B26"
+                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="SECTOR 1"
+                                        android:textColor="@color/text_secondary"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTelemetryS1"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="--.---"
+                                        android:textColor="@color/sector_purple"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTelemetryS1Speed"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Trampa: --- km/h"
+                                        android:textColor="@color/text_muted"
+                                        android:textSize="8sp" />
+                                </LinearLayout>
+
+                                <!-- Sector 2 -->
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="4dp"
+                                    android:layout_weight="1"
+                                    android:background="#161B26"
+                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="SECTOR 2"
+                                        android:textColor="@color/text_secondary"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTelemetryS2"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="--.---"
+                                        android:textColor="@color/sector_green"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTelemetryS2Speed"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Trampa: --- km/h"
+                                        android:textColor="@color/text_muted"
+                                        android:textSize="8sp" />
+                                </LinearLayout>
+
+                                <!-- Sector 3 -->
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="4dp"
+                                    android:layout_weight="1"
+                                    android:background="#161B26"
+                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="SECTOR 3"
+                                        android:textColor="@color/text_secondary"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTelemetryS3"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="--.---"
+                                        android:textColor="@color/sector_yellow"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTelemetryS3Speed"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Meta: --- km/h"
+                                        android:textColor="@color/text_muted"
+                                        android:textSize="8sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Lap Time -->
+                            <TextView
+                                android:id="@+id/tvTelemetryLapTime"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:gravity="center"
+                                android:text="⏱️ TIEMPO VUELTA: --:--.---"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+
                     <View
                         android:layout_width="0dp"
                         android:layout_height="0dp"
