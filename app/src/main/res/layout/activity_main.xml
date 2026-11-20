@@ -74,7 +74,7 @@
             android:layout_marginStart="8dp"
             android:background="@drawable/btn_tab_selector"
             android:focusable="true"
-            android:nextFocusDown="@+id/btnServer1"
+            android:nextFocusDown="@+id/btnSourceBadgePitWall"
             android:paddingHorizontal="14dp"
             android:text="🏎️ Muro de Pits"
             android:textColor="@color/text_primary"
@@ -215,180 +215,50 @@
                             android:orientation="horizontal"
                             android:visibility="visible">
 
-                            <TextView
-                                android:id="@+id/tvServerLabel"
+                            <!-- Fuente Activa Selector / Indicador -->
+                            <Button
+                                android:id="@+id/btnSourceBadgePitWall"
                                 android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                                android:layout_height="28dp"
                                 android:layout_marginEnd="5dp"
-                                android:text="📡 TRANSMISIÓN:"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="9sp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:nextFocusUp="@+id/btnTabPitWall"
+                                android:nextFocusRight="@+id/btnSessionSelector"
+                                android:nextFocusDown="@+id/webVideoView"
+                                android:paddingHorizontal="8dp"
+                                android:text="📡 FUENTE: FÚTBOL LIBRE ▼"
+                                android:textColor="@color/f1_red"
+                                android:textSize="10sp"
                                 android:textStyle="bold" />
 
                             <Button
                                 android:id="@+id/btnSessionSelector"
                                 android:layout_width="wrap_content"
                                 android:layout_height="28dp"
-                                android:layout_marginEnd="6dp"
+                                android:layout_marginEnd="5dp"
                                 android:background="@drawable/btn_tab_selector"
                                 android:clickable="true"
                                 android:focusable="true"
                                 android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusRight="@+id/btnServer1"
+                                android:nextFocusLeft="@+id/btnSourceBadgePitWall"
                                 android:nextFocusDown="@+id/webVideoView"
                                 android:paddingHorizontal="9dp"
                                 android:text="📅 Sesión: F1 ▼"
-                                android:textColor="@color/f1_red"
-                                android:textSize="10sp"
-                                android:textStyle="bold"
-                                android:visibility="gone" />
-
-                            <Button
-                                android:id="@+id/btnServer1"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusRight="@+id/btnServer2"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 1"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
-
-                            <Button
-                                android:id="@+id/btnServer2"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer1"
-                                android:nextFocusRight="@+id/btnServer3"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 2"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
-
-                            <Button
-                                android:id="@+id/btnServer3"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer2"
-                                android:nextFocusRight="@+id/btnServer4"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 3"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
-
-                            <Button
-                                android:id="@+id/btnServer4"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer3"
-                                android:nextFocusRight="@+id/btnServer5"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 4"
                                 android:textColor="@color/text_primary"
                                 android:textSize="10sp"
                                 android:textStyle="bold"
                                 android:visibility="gone" />
 
-                            <Button
-                                android:id="@+id/btnServer5"
+                            <!-- Contenedor dinámico de canales (reemplaza límite fijo de 8 botones) -->
+                            <LinearLayout
+                                android:id="@+id/llDynamicChannelsContainer"
                                 android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer4"
-                                android:nextFocusRight="@+id/btnServer6"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 5"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold"
-                                android:visibility="gone" />
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal" />
 
-                            <Button
-                                android:id="@+id/btnServer6"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer5"
-                                android:nextFocusRight="@+id/btnServer7"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 6"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold"
-                                android:visibility="gone" />
-
-                            <Button
-                                android:id="@+id/btnServer7"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer6"
-                                android:nextFocusRight="@+id/btnServer8"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 7"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold"
-                                android:visibility="gone" />
-
-                            <Button
-                                android:id="@+id/btnServer8"
-                                android:layout_width="wrap_content"
-                                android:layout_height="28dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:nextFocusUp="@+id/btnTabPitWall"
-                                android:nextFocusLeft="@+id/btnServer7"
-                                android:nextFocusRight="@+id/btnLiveSessionAction"
-                                android:nextFocusDown="@+id/webVideoView"
-                                android:paddingHorizontal="9dp"
-                                android:text="Transmisión 8"
-                                android:textColor="@color/text_primary"
-                                android:textSize="10sp"
-                                android:textStyle="bold"
-                                android:visibility="gone" />
                         </LinearLayout>
                     </HorizontalScrollView>
 
@@ -400,7 +270,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:nextFocusUp="@+id/btnTabPitWall"
-                        android:nextFocusLeft="@+id/btnServer3"
+                        android:nextFocusLeft="@+id/btnSessionSelector"
                         android:nextFocusDown="@+id/webVideoView"
                         android:paddingHorizontal="10dp"
                         android:text="🔄 Refrescar"
@@ -1189,13 +1059,19 @@
         </LinearLayout>
 
         <!-- 3. SETTINGS / STREAM CONFIGURATION VIEW -->
-        <LinearLayout
+        <ScrollView
             android:id="@+id/layoutSettings"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="16dp"
+            android:fillViewport="true"
+            android:scrollbars="vertical"
             android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1485,6 +1361,30 @@
             </LinearLayout>
 
             <TextView
+                android:id="@+id/tvRemoteCatalogStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="📡 Catálogo Git: Inicializando..."
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <HorizontalScrollView
+                android:id="@+id/scrollDirectChannels"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/llDynamicDirectPresets"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -1492,6 +1392,7 @@
                 android:text="📁 Control de Fuentes vía Git: Puedes añadir, cambiar proveedores o actualizar enlaces desde tu computadora editando 'app/src/main/assets/video_sources.json' y 'season_config.json'. Al hacer commit de los cambios, la aplicación los adoptará de forma nativa."
                 android:textColor="@color/text_muted"
                 android:textSize="11sp" />
-        </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
     </FrameLayout>
 </LinearLayout>

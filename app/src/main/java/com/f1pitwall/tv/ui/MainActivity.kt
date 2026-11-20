@@ -17,14 +17,22 @@ import com.f1pitwall.tv.core.config.VideoSourcesConfig
 import com.f1pitwall.tv.core.storage.PreferencesManager
 import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.repository.F1Repository
+import com.f1pitwall.tv.data.repository.RemoteBroadcastConfigRepository
+import com.f1pitwall.tv.data.repository.ConfigSyncResult
+import com.f1pitwall.tv.data.repository.ConfigOrigin
+import com.f1pitwall.tv.data.model.RemoteBroadcastConfig
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
 import com.f1pitwall.tv.ui.home.HomeViewManager
 import com.f1pitwall.tv.ui.pitwall.PitWallViewManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.core.content.ContextCompat
+import android.view.ViewGroup
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -85,6 +93,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPresetDemo1: Button
     private lateinit var btnPresetDemo2: Button
     private lateinit var btnReloadGitSources: Button
+    private lateinit var tvRemoteCatalogStatus: TextView
+    private lateinit var llDynamicDirectPresets: LinearLayout
+    private lateinit var remoteConfigRepo: RemoteBroadcastConfigRepository
 
     private var sessionRefreshJob: Job? = null
     private var selectedMeeting: Meeting? = null
@@ -99,11 +110,17 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         initViews()
+        remoteConfigRepo = RemoteBroadcastConfigRepository(this)
         setupManagers()
         setupNavigation()
         setupArchiveView()
         setupSettingsView()
         loadInitialData()
+
+        // Sincronización asíncrona del catálogo de fuentes desde GitHub
+        lifecycleScope.launch {
+            syncRemoteBroadcastConfig(forceRemote = false)
+        }
     }
 
     private fun initViews() {
@@ -149,6 +166,8 @@ class MainActivity : AppCompatActivity() {
         btnPresetDemo1 = findViewById(R.id.btnPresetDemo1)
         btnPresetDemo2 = findViewById(R.id.btnPresetDemo2)
         btnReloadGitSources = findViewById(R.id.btnReloadGitSources)
+        tvRemoteCatalogStatus = findViewById(R.id.tvRemoteCatalogStatus)
+        llDynamicDirectPresets = findViewById(R.id.llDynamicDirectPresets)
     }
 
     private fun setupManagers() {
@@ -214,9 +233,10 @@ class MainActivity : AppCompatActivity() {
 
         btnTabPitWall.setOnKeyListener { _, keyCode, event ->
             if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                val server1 = findViewById<View>(R.id.btnServer1)
-                if (server1 != null && server1.visibility == View.VISIBLE) {
-                    server1.requestFocus()
+                val target = findViewById<View>(R.id.btnSourceBadgePitWall)
+                    ?: findViewById<View>(R.id.btnSessionSelector)
+                if (target != null && target.visibility == View.VISIBLE) {
+                    target.requestFocus()
                     return@setOnKeyListener true
                 }
             }
@@ -326,8 +346,74 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnReloadGitSources.setOnClickListener {
-            val providers = VideoSourcesConfig.loadProviders(this)
-            Toast.makeText(this, "Fuentes Git recargadas (${providers.size} proveedores disponibles)", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch {
+                Toast.makeText(this@MainActivity, "Consultando catálogo remoto en GitHub...", Toast.LENGTH_SHORT).show()
+                syncRemoteBroadcastConfig(forceRemote = true)
+            }
+        }
+    }
+
+    private suspend fun syncRemoteBroadcastConfig(forceRemote: Boolean) {
+        val result = withContext(Dispatchers.IO) {
+            remoteConfigRepo.syncConfig(forceRemote)
+        }
+
+        when (result) {
+            is ConfigSyncResult.Success -> {
+                val originLabel = when (result.origin) {
+                    ConfigOrigin.REMOTE_GITHUB -> "GitHub Remoto"
+                    ConfigOrigin.LOCAL_CACHE -> "Caché Local"
+                    ConfigOrigin.LOCAL_ASSETS -> "Assets APK"
+                }
+                val infoText = "📡 Catálogo Git: ${result.providerCount} proveedores | ${result.enabledChannelCount} canales activos • Actualizado: ${result.updatedAt} ($originLabel)"
+                tvRemoteCatalogStatus.text = infoText
+                updateDynamicDirectPresets(result.config)
+                if (forceRemote) {
+                    Toast.makeText(
+                        this,
+                        "Catálogo sincronizado ($originLabel)\nProveedores: ${result.providerCount} | Canales: ${result.enabledChannelCount}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            is ConfigSyncResult.Error -> {
+                val errText = "⚠️ Error al descargar catálogo de GitHub: ${result.errorMessage}"
+                tvRemoteCatalogStatus.text = errText
+                result.fallbackConfig?.let { updateDynamicDirectPresets(it) }
+                if (forceRemote) {
+                    Toast.makeText(this, errText, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun updateDynamicDirectPresets(config: RemoteBroadcastConfig) {
+        llDynamicDirectPresets.removeAllViews()
+        val channels = config.getEnabledChannels()
+        val density = resources.displayMetrics.density
+
+        channels.forEach { ch ->
+            val btn = Button(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    (38 * density).toInt()
+                ).apply {
+                    marginEnd = (10 * density).toInt()
+                }
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.btn_tab_selector)
+                text = "${ch.name} [${ch.type}]"
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                textSize = 11f
+                isFocusable = true
+                isClickable = true
+                setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
+                setOnClickListener {
+                    etStreamUrl.setText(ch.url)
+                    pitWallViewManager.playStream(ch.url, "${ch.name} (${ch.type})")
+                    btnTabPitWall.performClick()
+                }
+            }
+            llDynamicDirectPresets.addView(btn)
         }
     }
 

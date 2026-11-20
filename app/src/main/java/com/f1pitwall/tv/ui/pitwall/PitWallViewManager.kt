@@ -75,19 +75,12 @@ class PitWallViewManager(
     private val tvLiveSessionAlertTitle: TextView = rootView.findViewById(R.id.tvLiveSessionAlertTitle)
     private val btnLiveSessionAction: Button = rootView.findViewById(R.id.btnLiveSessionAction)
     private val layoutServerSelector: View = rootView.findViewById(R.id.layoutServerSelector)
-    private val tvServerLabel: TextView = rootView.findViewById(R.id.tvServerLabel)
+    private val scrollServerSelector: HorizontalScrollView? = rootView.findViewById(R.id.scrollServerSelector)
+    private val btnSourceBadgePitWall: Button? = rootView.findViewById(R.id.btnSourceBadgePitWall)
     private val btnSessionSelector: Button? = rootView.findViewById(R.id.btnSessionSelector)
-    private val btnServer1: Button = rootView.findViewById(R.id.btnServer1)
-    private val btnServer2: Button = rootView.findViewById(R.id.btnServer2)
-    private val btnServer3: Button = rootView.findViewById(R.id.btnServer3)
-    private val btnServer4: Button? = rootView.findViewById(R.id.btnServer4)
-    private val btnServer5: Button? = rootView.findViewById(R.id.btnServer5)
-    private val btnServer6: Button? = rootView.findViewById(R.id.btnServer6)
-    private val btnServer7: Button? = rootView.findViewById(R.id.btnServer7)
-    private val btnServer8: Button? = rootView.findViewById(R.id.btnServer8)
-    private val serverButtons: List<Button> by lazy {
-        listOfNotNull(btnServer1, btnServer2, btnServer3, btnServer4, btnServer5, btnServer6, btnServer7, btnServer8)
-    }
+    private val llDynamicChannelsContainer: LinearLayout? = rootView.findViewById(R.id.llDynamicChannelsContainer)
+    private val dynamicChannelButtons = mutableListOf<Button>()
+    private val serverButtons: List<Button> get() = dynamicChannelButtons
     private var selectedServerIndex: Int = 0
     private var activeSpanishBroadcasts: List<SpanishBroadcast> = emptyList()
     private var selectedBroadcastIndex: Int = 0
@@ -727,12 +720,12 @@ class PitWallViewManager(
         if (w <= 0 || h <= 0) return
         val density = context.resources.displayMetrics.density
 
-        val focusedView = rootView.findFocus() ?: btnServer1
+        val focusedView = rootView.findFocus() ?: btnSourceBadgePitWall ?: btnSessionSelector ?: dynamicChannelButtons.firstOrNull()
 
         sendTouch(w / 2f, h / 2f)
         webVideoView.postDelayed({
             sendTouch(w / 2f, 35f * density)
-            focusedView.post {
+            focusedView?.post {
                 focusedView.requestFocus()
             }
         }, 300)
@@ -812,7 +805,8 @@ class PitWallViewManager(
         btnStandbyStopVideo.visibility = View.VISIBLE
         tvLiveSessionAlertTitle.text = "🏎️ " + title
         webVideoView.loadUrl(targetUrl)
-        btnServer1.post { btnServer1.requestFocus() }
+        val targetBtn = btnSourceBadgePitWall ?: btnSessionSelector ?: dynamicChannelButtons.firstOrNull()
+        targetBtn?.post { targetBtn.requestFocus() }
     }
 
     fun handleBackPressed(): Boolean {
@@ -847,58 +841,31 @@ class PitWallViewManager(
             switchToStandby()
         }
 
-        // Selección de servidores / transmisiones en español
-        btnServer1.setOnClickListener { selectSpanishBroadcast(0) }
-        btnServer2.setOnClickListener { selectSpanishBroadcast(1) }
-        btnServer3.setOnClickListener { selectSpanishBroadcast(2) }
-        btnServer4?.setOnClickListener { selectSpanishBroadcast(3) }
-        btnServer5?.setOnClickListener { selectSpanishBroadcast(4) }
-        btnServer1.isSelected = true
-
-        // TV Remote Focus Chain
-        btnServer1.nextFocusUpId = R.id.btnTabPitWall
-        btnServer1.nextFocusRightId = R.id.btnServer2
-        btnServer1.nextFocusDownId = R.id.btnPlayRadio
-        btnServer1.nextFocusLeftId = R.id.btnServer1
-
-        btnServer2.nextFocusUpId = R.id.btnTabPitWall
-        btnServer2.nextFocusLeftId = R.id.btnServer1
-        btnServer2.nextFocusRightId = R.id.btnServer3
-        btnServer2.nextFocusDownId = R.id.btnPlayRadio
-
-        btnServer3.nextFocusUpId = R.id.btnTabPitWall
-        btnServer3.nextFocusLeftId = R.id.btnServer2
-        btnServer3.nextFocusRightId = if (btnServer4?.visibility == View.VISIBLE) R.id.btnServer4 else R.id.btnLiveSessionAction
-        btnServer3.nextFocusDownId = R.id.btnPlayRadio
-
-        btnServer4?.nextFocusUpId = R.id.btnTabPitWall
-        btnServer4?.nextFocusLeftId = R.id.btnServer3
-        btnServer4?.nextFocusRightId = if (btnServer5?.visibility == View.VISIBLE) R.id.btnServer5 else R.id.btnLiveSessionAction
-        btnServer4?.nextFocusDownId = R.id.btnPlayRadio
-
-        btnServer5?.nextFocusUpId = R.id.btnTabPitWall
-        btnServer5?.nextFocusLeftId = R.id.btnServer4
-        btnServer5?.nextFocusRightId = R.id.btnLiveSessionAction
-        btnServer5?.nextFocusDownId = R.id.btnPlayRadio
-
-        btnLiveSessionAction.nextFocusUpId = R.id.btnTabPitWall
-        btnLiveSessionAction.nextFocusLeftId = when {
-            btnServer5?.visibility == View.VISIBLE -> R.id.btnServer5
-            btnServer4?.visibility == View.VISIBLE -> R.id.btnServer4
-            btnServer3.visibility == View.VISIBLE -> R.id.btnServer3
-            btnServer2.visibility == View.VISIBLE -> R.id.btnServer2
-            else -> R.id.btnServer1
+        // Selección de fuentes y agenda
+        btnSourceBadgePitWall?.setOnClickListener {
+            showSourceSelectionDialog()
         }
-        btnLiveSessionAction.nextFocusRightId = R.id.btnMetricsTiming
-        btnLiveSessionAction.nextFocusDownId = R.id.btnPlayRadio
+        btnSessionSelector?.setOnClickListener {
+            if (futbolLibreEvents.isNotEmpty()) {
+                showSessionSelectionDialog(futbolLibreEvents)
+            } else if (preferencesManager.broadcastSource == BroadcastSource.FUTBOL_LIBRE) {
+                loadBroadcastSource(BroadcastSource.FUTBOL_LIBRE, forceReload = true)
+            } else {
+                preferencesManager.broadcastSource = BroadcastSource.FUTBOL_LIBRE
+                updateSourceBadgeUI()
+                loadBroadcastSource(BroadcastSource.FUTBOL_LIBRE, forceReload = true)
+            }
+        }
+        updateSourceBadgeUI()
+        updateDynamicServerFocusChain()
 
-        btnPlayRadio.nextFocusUpId = R.id.btnServer1
-        btnRadioVer.nextFocusUpId = R.id.btnServer1
-        btnRadioNor.nextFocusUpId = R.id.btnServer1
-        btnRadioLec.nextFocusUpId = R.id.btnServer2
-        btnRadioHam.nextFocusUpId = R.id.btnServer2
-        btnRadioRus.nextFocusUpId = R.id.btnServer3
-        btnRadioPia.nextFocusUpId = R.id.btnServer3
+        btnPlayRadio.nextFocusUpId = R.id.btnSourceBadgePitWall
+        btnRadioVer.nextFocusUpId = R.id.btnSourceBadgePitWall
+        btnRadioNor.nextFocusUpId = R.id.btnSourceBadgePitWall
+        btnRadioLec.nextFocusUpId = R.id.btnSessionSelector
+        btnRadioHam.nextFocusUpId = R.id.btnSessionSelector
+        btnRadioRus.nextFocusUpId = R.id.btnSessionSelector
+        btnRadioPia.nextFocusUpId = R.id.btnSessionSelector
         btnRadioAlo.nextFocusUpId = R.id.btnLiveSessionAction
 
         // Botón de refrescar / recargar la señal en vivo si cae
@@ -992,7 +959,15 @@ class PitWallViewManager(
 
         when (source) {
             BroadcastSource.FLX -> {
-                btnSessionSelector?.visibility = View.GONE
+                btnSessionSelector?.visibility = View.VISIBLE
+                btnSessionSelector?.text = "📅 Ver Agenda F1"
+                btnSessionSelector?.setOnClickListener {
+                    preferencesManager.broadcastSource = BroadcastSource.FUTBOL_LIBRE
+                    updateSourceBadgeUI()
+                    loadBroadcastSource(BroadcastSource.FUTBOL_LIBRE, forceReload = true)
+                    Toast.makeText(context, "Cambiando a Fútbol Libre — Agenda...", Toast.LENGTH_SHORT).show()
+                }
+                updateDynamicServerFocusChain()
                 futbolVivoExtractor.stop()
                 futbolLibreExtractor.destroy()
                 flxExtractor.onSpanishBroadcastsDetected = { list ->
@@ -1004,7 +979,15 @@ class PitWallViewManager(
                 flxExtractor.startExtraction(source.defaultUrl)
             }
             BroadcastSource.FUTBOL_VIVO -> {
-                btnSessionSelector?.visibility = View.GONE
+                btnSessionSelector?.visibility = View.VISIBLE
+                btnSessionSelector?.text = "📅 Ver Agenda F1"
+                btnSessionSelector?.setOnClickListener {
+                    preferencesManager.broadcastSource = BroadcastSource.FUTBOL_LIBRE
+                    updateSourceBadgeUI()
+                    loadBroadcastSource(BroadcastSource.FUTBOL_LIBRE, forceReload = true)
+                    Toast.makeText(context, "Cambiando a Fútbol Libre — Agenda...", Toast.LENGTH_SHORT).show()
+                }
+                updateDynamicServerFocusChain()
                 flxExtractor.destroy()
                 futbolLibreExtractor.destroy()
                 futbolVivoExtractor.onF1EventDetected = { event ->
@@ -1032,6 +1015,12 @@ class PitWallViewManager(
             BroadcastSource.FUTBOL_LIBRE -> {
                 flxExtractor.destroy()
                 futbolVivoExtractor.stop()
+                btnSessionSelector?.visibility = View.VISIBLE
+                btnSessionSelector?.text = "⏳ Cargando agenda..."
+                btnSessionSelector?.setOnClickListener {
+                    Toast.makeText(context, "Consultando agenda de carreras en futbol-libre.app/agenda...", Toast.LENGTH_SHORT).show()
+                }
+                updateDynamicServerFocusChain()
                 futbolLibreExtractor.onEventsDetected = { events ->
                     onFutbolLibreEventsFound(events)
                 }
@@ -1052,7 +1041,7 @@ class PitWallViewManager(
             return
         }
 
-        btnSessionSelector?.visibility = if (events.size > 1) View.VISIBLE else View.GONE
+        btnSessionSelector?.visibility = View.VISIBLE
         btnSessionSelector?.setOnClickListener {
             showSessionSelectionDialog(futbolLibreEvents)
         }
@@ -1061,7 +1050,8 @@ class PitWallViewManager(
     }
 
     private fun updateSessionSelectorButton(event: FutbolLibreEvent) {
-        btnSessionSelector?.text = "📅 ${event.getShortLabel()} ▼"
+        val count = futbolLibreEvents.size
+        btnSessionSelector?.text = "📅 ${event.getShortLabel()} ($count) ▼"
     }
 
     fun selectFutbolLibreEvent(index: Int) {
@@ -1145,7 +1135,9 @@ class PitWallViewManager(
     }
 
     fun onPitWallTabSelected() {
-        btnServer1.post { btnServer1.requestFocus() }
+        updateSourceBadgeUI()
+        val targetFocus = btnSourceBadgePitWall ?: btnSessionSelector ?: dynamicChannelButtons.firstOrNull()
+        targetFocus?.post { targetFocus.requestFocus() }
         val selectedSource = preferencesManager.broadcastSource
 
         if (currentLoadedSource != selectedSource) {
@@ -1405,22 +1397,91 @@ class PitWallViewManager(
         }
     }
 
+    fun showSourceSelectionDialog() {
+        val sources = BroadcastSource.entries.toTypedArray()
+        val sourceNames = sources.map {
+            val activeMarker = if (it == preferencesManager.broadcastSource) "✓ " else "  "
+            "$activeMarker${it.displayName} (${it.defaultUrl})"
+        }.toTypedArray()
+        val currentIndex = sources.indexOf(preferencesManager.broadcastSource).coerceAtLeast(0)
+
+        androidx.appcompat.app.AlertDialog.Builder(context)
+            .setTitle("Seleccionar Fuente de Transmisiones")
+            .setSingleChoiceItems(sourceNames, currentIndex) { dialog, which ->
+                dialog.dismiss()
+                val chosen = sources[which]
+                if (chosen != preferencesManager.broadcastSource) {
+                    preferencesManager.broadcastSource = chosen
+                    updateSourceBadgeUI()
+                    loadBroadcastSource(chosen, forceReload = true)
+                    Toast.makeText(context, "Fuente cambiada a: ${chosen.displayName}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    fun updateSourceBadgeUI() {
+        val source = preferencesManager.broadcastSource
+        btnSourceBadgePitWall?.text = "📡 FUENTE: ${source.displayName.uppercase()} ▼"
+        btnSourceBadgePitWall?.visibility = View.VISIBLE
+    }
+
+    private fun renderDynamicChannelButtons(list: List<SpanishBroadcast>) {
+        val container = llDynamicChannelsContainer ?: return
+        container.removeAllViews()
+        dynamicChannelButtons.clear()
+
+        if (list.isEmpty()) {
+            updateDynamicServerFocusChain()
+            return
+        }
+
+        val density = context.resources.displayMetrics.density
+        val targetIdx = if (selectedBroadcastIndex in list.indices) selectedBroadcastIndex else 0
+
+        list.forEachIndexed { idx, broadcast ->
+            val btn = Button(context).apply {
+                id = View.generateViewId()
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    (28 * density).toInt()
+                ).apply {
+                    marginEnd = (4 * density).toInt()
+                }
+                background = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.btn_tab_selector)
+                text = broadcast.getButtonLabel()
+                setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_primary))
+                textSize = 10f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setPadding((9 * density).toInt(), 0, (9 * density).toInt(), 0)
+                isFocusable = true
+                isClickable = true
+                isSelected = (idx == targetIdx)
+
+                setOnClickListener {
+                    selectSpanishBroadcast(idx)
+                }
+
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) {
+                        scrollServerSelector?.smoothScrollTo(left - (50 * density).toInt(), 0)
+                    }
+                }
+            }
+            dynamicChannelButtons.add(btn)
+            container.addView(btn)
+        }
+
+        updateDynamicServerFocusChain()
+    }
+
     private fun onSpanishBroadcastsFound(list: List<SpanishBroadcast>, source: BroadcastSource) {
         activeSpanishBroadcasts = list
         layoutServerSelector.visibility = View.VISIBLE
-        tvServerLabel.text = "📡 TRANSMISIÓN:"
+        updateSourceBadgeUI()
+        renderDynamicChannelButtons(list)
 
-        serverButtons.forEachIndexed { idx, btn ->
-            if (idx < list.size) {
-                btn.visibility = View.VISIBLE
-                btn.text = list[idx].getButtonLabel()
-                btn.setOnClickListener { selectSpanishBroadcast(idx) }
-            } else {
-                btn.visibility = View.GONE
-            }
-        }
-
-        updateServerFocusChain()
         val targetIdx = if (selectedBroadcastIndex in list.indices) selectedBroadcastIndex else 0
         highlightBroadcastButton(targetIdx)
 
@@ -1439,49 +1500,80 @@ class PitWallViewManager(
         }
     }
 
-    private fun updateServerFocusChain() {
-        val visibleButtons = serverButtons.filter { it.visibility == View.VISIBLE }
-        val isSessionSelectorVisible = btnSessionSelector?.visibility == View.VISIBLE
+    private fun updateDynamicServerFocusChain() {
+        val buttons = dynamicChannelButtons
+        val hasSessionSelector = btnSessionSelector?.visibility == View.VISIBLE && btnSessionSelector != null
+        val hasSourceBadge = btnSourceBadgePitWall?.visibility == View.VISIBLE && btnSourceBadgePitWall != null
 
-        visibleButtons.forEachIndexed { index, button ->
+        val leftAnchorId = when {
+            hasSessionSelector -> btnSessionSelector!!.id
+            hasSourceBadge -> btnSourceBadgePitWall!!.id
+            else -> View.NO_ID
+        }
+
+        buttons.forEachIndexed { index, button ->
             button.nextFocusUpId = R.id.btnTabPitWall
             button.nextFocusDownId = R.id.webVideoView
-            val prevId = visibleButtons.getOrNull(index - 1)?.id
-            if (prevId != null) {
-                button.nextFocusLeftId = prevId
-            } else if (isSessionSelectorVisible && btnSessionSelector != null) {
-                button.nextFocusLeftId = btnSessionSelector.id
+            button.nextFocusLeftId = if (index > 0) {
+                buttons[index - 1].id
+            } else if (leftAnchorId != View.NO_ID) {
+                leftAnchorId
             } else {
-                button.nextFocusLeftId = button.id
+                button.id
             }
-            button.nextFocusRightId = visibleButtons.getOrNull(index + 1)?.id ?: R.id.btnLiveSessionAction
+            button.nextFocusRightId = if (index < buttons.size - 1) {
+                buttons[index + 1].id
+            } else {
+                R.id.btnLiveSessionAction
+            }
         }
 
-        if (isSessionSelectorVisible && btnSessionSelector != null) {
-            btnSessionSelector.nextFocusUpId = R.id.btnTabPitWall
-            btnSessionSelector.nextFocusDownId = R.id.webVideoView
-            btnSessionSelector.nextFocusLeftId = btnSessionSelector.id
-            btnSessionSelector.nextFocusRightId = visibleButtons.firstOrNull()?.id ?: R.id.btnLiveSessionAction
+        btnSessionSelector?.let { sel ->
+            sel.nextFocusUpId = R.id.btnTabPitWall
+            sel.nextFocusDownId = R.id.webVideoView
+            sel.nextFocusLeftId = if (hasSourceBadge) btnSourceBadgePitWall!!.id else sel.id
+            sel.nextFocusRightId = buttons.firstOrNull()?.id ?: R.id.btnLiveSessionAction
         }
 
-        btnLiveSessionAction.nextFocusLeftId = visibleButtons.lastOrNull()?.id ?: btnSessionSelector?.takeIf { isSessionSelectorVisible }?.id ?: R.id.btnServer1
+        btnSourceBadgePitWall?.let { src ->
+            src.nextFocusUpId = R.id.btnTabPitWall
+            src.nextFocusDownId = R.id.webVideoView
+            src.nextFocusLeftId = src.id
+            src.nextFocusRightId = if (hasSessionSelector) btnSessionSelector!!.id else buttons.firstOrNull()?.id ?: R.id.btnLiveSessionAction
+        }
+
+        btnLiveSessionAction.nextFocusLeftId = buttons.lastOrNull()?.id ?: btnSessionSelector?.id ?: btnSourceBadgePitWall?.id ?: R.id.btnLiveSessionAction
     }
 
     private fun onNoSpanishBroadcastsFound(source: BroadcastSource) {
         activeSpanishBroadcasts = emptyList()
-        layoutServerSelector.visibility = View.GONE
-        btnSessionSelector?.visibility = View.GONE
+        renderDynamicChannelButtons(emptyList())
+        updateSourceBadgeUI()
 
         if (source == BroadcastSource.FUTBOL_LIBRE) {
+            btnSessionSelector?.visibility = View.VISIBLE
+            btnSessionSelector?.text = "⚠️ Agenda vacía (Reintentar)"
+            btnSessionSelector?.setOnClickListener {
+                Toast.makeText(context, "Reintentando conectar a Fútbol Libre Agenda...", Toast.LENGTH_SHORT).show()
+                loadBroadcastSource(BroadcastSource.FUTBOL_LIBRE, forceReload = true)
+            }
             tvLiveSessionAlertTitle.text = "⚠️ No hay eventos de Fórmula 1 disponibles actualmente en Fútbol Libre Agenda"
             tvStandbySubtitle.text = "No se encontraron eventos o sesiones de F1 en la agenda de Fútbol Libre. Puedes cambiar la fuente en Ajustes o recargar."
             tvStandbyStatusBadge.text = "FÚTBOL LIBRE • SIN EVENTOS F1"
         } else {
+            btnSessionSelector?.visibility = View.VISIBLE
+            btnSessionSelector?.text = "📅 Ver Agenda F1"
+            btnSessionSelector?.setOnClickListener {
+                preferencesManager.broadcastSource = BroadcastSource.FUTBOL_LIBRE
+                updateSourceBadgeUI()
+                loadBroadcastSource(BroadcastSource.FUTBOL_LIBRE, forceReload = true)
+            }
             tvLiveSessionAlertTitle.text = "⚠️ No hay transmisiones en español disponibles actualmente para ${source.displayName}"
             tvStandbySubtitle.text = "No se encontraron transmisiones en español disponibles en ${source.displayName}. Puedes cambiar la fuente en Ajustes o recargar."
             tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • SIN TRANSMISIONES EN ESPAÑOL"
         }
         btnLiveSessionAction.text = "🔄 Refrescar"
+        updateDynamicServerFocusChain()
     }
 
     fun selectSpanishBroadcast(index: Int) {
@@ -1502,7 +1594,8 @@ class PitWallViewManager(
     }
 
     private fun highlightBroadcastButton(index: Int) {
-        serverButtons.forEachIndexed { i, btn ->
+        selectedBroadcastIndex = index
+        dynamicChannelButtons.forEachIndexed { i, btn ->
             btn.isSelected = (i == index)
         }
     }
@@ -1538,7 +1631,7 @@ class PitWallViewManager(
 
             webVideoView.postDelayed({ triggerPlayerTap() }, 1800)
             webVideoView.postDelayed({ triggerPlayerTap() }, 4000)
-            serverButtons.firstOrNull { it.visibility == View.VISIBLE }?.let { targetBtn ->
+            dynamicChannelButtons.firstOrNull()?.let { targetBtn ->
                 targetBtn.post { targetBtn.requestFocus() }
             }
             return
@@ -1552,7 +1645,7 @@ class PitWallViewManager(
         } else if (!broadcast.streamUrl.isNullOrBlank()) {
             currentWebUrl = broadcast.streamUrl
             webVideoView.loadUrl(broadcast.streamUrl)
-            serverButtons.firstOrNull { it.visibility == View.VISIBLE }?.let { targetBtn ->
+            dynamicChannelButtons.firstOrNull()?.let { targetBtn ->
                 targetBtn.post { targetBtn.requestFocus() }
             }
         } else {
@@ -1572,22 +1665,24 @@ class PitWallViewManager(
         } else {
             emptyList()
         }
-        val visibleCount = count.coerceIn(0, serverButtons.size)
-        serverButtons.forEachIndexed { index, button ->
-            val available = index < visibleCount
-            button.visibility = if (available) View.VISIBLE else View.GONE
-            if (available) {
-                button.text = titles.getOrNull(index)?.let { formatServerTitle(it, index + 1) }
-                    ?: ("Opción " + (index + 1))
-                button.setOnClickListener { selectServer(index) }
-            }
-        }
 
-        selectedServerIndex = if (visibleCount == 0) 0 else activeIdx.coerceIn(0, visibleCount - 1)
-        serverButtons.forEachIndexed { index, button ->
-            button.isSelected = index == selectedServerIndex
+        val syntheticBroadcasts = (0 until count).map { i ->
+            val title = titles.getOrNull(i)?.let { formatServerTitle(it, i + 1) } ?: ("Opción " + (i + 1))
+            SpanishBroadcast(
+                index = i + 1,
+                network = title,
+                language = "",
+                serverName = title,
+                originalTitle = title,
+                streamUrl = currentWebUrl.orEmpty(),
+                clickActionJs = "window.switchServer && window.switchServer($i);",
+                sourceId = "$i",
+                customFormattedTitle = title,
+                customButtonLabel = "S${i + 1}: $title"
+            )
         }
-        updateServerFocusChain()
+        renderDynamicChannelButtons(syntheticBroadcasts)
+        highlightBroadcastButton(activeIdx.coerceIn(0, (count - 1).coerceAtLeast(0)))
     }
 
     private fun formatServerTitle(raw: String, fallbackNum: Int): String {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="btnServer1" type="id" />
+    <item name="btnServer2" type="id" />
+    <item name="btnServer3" type="id" />
+    <item name="btnServer4" type="id" />
+    <item name="btnServer5" type="id" />
+    <item name="btnServer6" type="id" />
+    <item name="btnServer7" type="id" />
+    <item name="btnServer8" type="id" />
+</resources>

@@ -1,6 +1,7 @@
 package com.f1pitwall.tv.core.config
 
 import android.content.Context
+import com.f1pitwall.tv.data.repository.RemoteBroadcastConfigRepository
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 
@@ -43,6 +44,21 @@ object VideoSourcesConfig {
 
     fun loadProviders(context: Context): List<VideoProviderItem> {
         return try {
+            val repo = RemoteBroadcastConfigRepository(context)
+            val current = repo.getCurrentConfig()
+            val dynamicList = current.getEnabledProviders().map {
+                VideoProviderItem(
+                    id = it.id,
+                    name = it.name,
+                    streamUrl = it.url,
+                    type = it.type,
+                    isDefault = it.order == 1
+                )
+            }
+            if (dynamicList.isNotEmpty()) {
+                return dynamicList
+            }
+
             val json = context.assets.open("video_sources.json").bufferedReader().use { it.readText() }
             val parsed = Gson().fromJson(json, VideoSourcesFile::class.java)
             parsed.providers ?: emptyList()
@@ -57,6 +73,25 @@ object VideoSourcesConfig {
                     isDefault = true
                 )
             )
+        }
+    }
+
+    fun loadDirectChannels(context: Context): List<VideoProviderItem> {
+        return try {
+            val repo = RemoteBroadcastConfigRepository(context)
+            val current = repo.getCurrentConfig()
+            current.getEnabledChannels().map {
+                VideoProviderItem(
+                    id = it.id,
+                    name = it.name,
+                    streamUrl = it.url,
+                    type = it.type,
+                    isDefault = it.order == 1
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 
