@@ -33,6 +33,6 @@ adb -s "$TV" install -r "$APK"
 
 echo "Abriendo F1PitWallTV..."
 adb -s "$TV" shell am force-stop "$PACKAGE"
-adb -s "$TV" shell monkey -p "$PACKAGE" 1
+adb -s "$TV" shell am start -n "$PACKAGE/.ui.MainActivity"
 
 echo "Instalación finalizada correctamente."
