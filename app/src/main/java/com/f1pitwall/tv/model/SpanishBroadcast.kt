@@ -1,8 +1,9 @@
 package com.f1pitwall.tv.model
 
 /**
- * Representa una transmisión identificada en español con su cadena (ESPN, DAZN, FOX Sports, etc.)
- * y servidor (Server 1, Server 2).
+ * Represents a selectable broadcast source, including its channel/provider label,
+ * language metadata when available, source page and optional provider-side click action.
+ * Fútbol Libre may expose sources in multiple languages, so consumers must not assume Spanish.
  *
  * Ejemplo requerido por especificación:
  * - Transmisión 1 — ESPN — Español — Server 1

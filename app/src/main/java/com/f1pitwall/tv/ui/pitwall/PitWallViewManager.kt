@@ -37,6 +37,7 @@ import com.f1pitwall.tv.network.FutbolVivoExtractor
 import com.f1pitwall.tv.ui.LeaderboardAdapter
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -92,6 +93,7 @@ class PitWallViewManager(
     private var currentLoadedSource: BroadcastSource? = null
     private var futbolLibreEvents: List<FutbolLibreEvent> = emptyList()
     private var selectedFutbolLibreEventIndex: Int = 0
+    private var futbolLibreSourcesJob: Job? = null
     private val btnContentPreview: Button = rootView.findViewById(R.id.btnContentPreview)
     private val btnContentRecap: Button = rootView.findViewById(R.id.btnContentRecap)
     private val btnContentBoxes: Button = rootView.findViewById(R.id.btnContentBoxes)
@@ -387,7 +389,52 @@ class PitWallViewManager(
 
                             function scanSpanishBroadcasts() {
                                 try {
-                                    if (window.location.hostname.indexOf('futbolvivo') === -1 && window.location.hostname.indexOf('futbollibre') === -1) return;
+                                    var host = (window.location.hostname || '').toLowerCase();
+                                    var isFutbolLibreAgenda = host === 'futbol-libre.app' || host.endsWith('.futbol-libre.app');
+                                    if (isFutbolLibreAgenda) {
+                                        var libreBroadcasts = [];
+                                        var sourceButtons = Array.prototype.slice.call(
+                                            document.querySelectorAll('button.event-source-choice[data-source]')
+                                        );
+                                        sourceButtons.forEach(function(button, idx) {
+                                            var sourceId = (button.getAttribute('data-source') || '').trim();
+                                            if (!/^[A-Za-z0-9_-]{1,32}$/.test(sourceId)) return;
+                                            var providerNode = button.querySelector('.source-provider');
+                                            var channelNode = button.querySelector('.source-channel');
+                                            var provider = (providerNode && providerNode.textContent || '').trim() || ('Fuente ' + (idx + 1));
+                                            var channel = (channelNode && channelNode.textContent || '').trim() || provider;
+                                            var pageUrl = window.location.href.split('#')[0];
+                                            var targetUrl = pageUrl + '#source=' + encodeURIComponent(sourceId);
+                                            var clickJs = "(function(){var id=" + JSON.stringify(sourceId) +
+                                                ";var b=Array.prototype.find.call(document.querySelectorAll('button.event-source-choice[data-source]')," +
+                                                "function(el){return el.getAttribute('data-source')===id;});" +
+                                                "if(b){b.click();}else{window.location.hash='source='+encodeURIComponent(id);}})();";
+                                            libreBroadcasts.push({
+                                                index: idx + 1,
+                                                network: channel,
+                                                language: '',
+                                                serverName: provider,
+                                                originalTitle: provider + ' · ' + channel,
+                                                streamUrl: targetUrl,
+                                                clickActionJs: clickJs,
+                                                sourceId: sourceId,
+                                                customFormattedTitle: 'Transmisión ' + (idx + 1) + ' — ' + channel,
+                                                customButtonLabel: 'T' + (idx + 1) + ': ' + channel
+                                            });
+                                        });
+
+                                        if (libreBroadcasts.length > 0 &&
+                                            window.AndroidPitWallBridge &&
+                                            typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
+                                            window.AndroidPitWallBridge.onSpanishBroadcastsDetected(JSON.stringify(libreBroadcasts));
+                                        } else if (window.AndroidPitWallBridge &&
+                                            typeof window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected === 'function') {
+                                            window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected();
+                                        }
+                                        return;
+                                    }
+
+                                    if (host.indexOf('futbolvivo') === -1 && host.indexOf('futbollibre') === -1) return;
                                     let broadcasts = [];
                                     let counter = 1;
                                     function isEsp(txt) {
@@ -407,8 +454,6 @@ class PitWallViewManager(
                                         if (l.indexOf('star+') !== -1) return 'Star+';
                                         return null;
                                     }
-
-                                    // 1. Check currentMatch.channels
                                     if (window.currentMatch && Array.isArray(window.currentMatch.channels)) {
                                         window.currentMatch.channels.forEach((ch, idx) => {
                                             const combined = [ch.name, ch.channel, ch.server_name, ch.language].filter(Boolean).join(' ');
@@ -425,7 +470,6 @@ class PitWallViewManager(
                                             }
                                         });
                                     }
-                                    // 2. Check currentMatch.streams
                                     if (broadcasts.length === 0 && window.currentMatch && Array.isArray(window.currentMatch.streams)) {
                                         window.currentMatch.streams.forEach((st, idx) => {
                                             const combined = [st.name, st.language].filter(Boolean).join(' ');
@@ -442,7 +486,6 @@ class PitWallViewManager(
                                             }
                                         });
                                     }
-                                    // 3. Check tabs in DOM
                                     if (broadcasts.length === 0) {
                                         const tabs = document.querySelectorAll('#streamTabs .se-tab-btn');
                                         tabs.forEach((t, idx) => {
@@ -460,9 +503,11 @@ class PitWallViewManager(
                                         });
                                     }
 
-                                    if (broadcasts.length > 0 && window.AndroidPitWallBridge && typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
+                                    if (broadcasts.length > 0 && window.AndroidPitWallBridge &&
+                                        typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
                                         window.AndroidPitWallBridge.onSpanishBroadcastsDetected(JSON.stringify(broadcasts));
-                                    } else if (broadcasts.length === 0 && window.AndroidPitWallBridge && typeof window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected === 'function') {
+                                    } else if (broadcasts.length === 0 && window.AndroidPitWallBridge &&
+                                        typeof window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected === 'function') {
                                         window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected();
                                     }
                                 } catch(e) {}
@@ -762,9 +807,16 @@ class PitWallViewManager(
         if (!forceReload && !isSourceChange && activeSpanishBroadcasts.isNotEmpty() && isVideoPlaying()) {
             return
         }
+        futbolLibreSourcesJob?.cancel()
         currentLoadedSource = source
         activeSpanishBroadcasts = emptyList()
         selectedBroadcastIndex = 0
+        selectedServerIndex = 0
+        layoutServerSelector.visibility = View.GONE
+        if (source != BroadcastSource.FUTBOL_LIBRE) {
+            futbolLibreEvents = emptyList()
+            selectedFutbolLibreEventIndex = 0
+        }
 
         if (forceReload || isSourceChange) {
             currentWebUrl = null
@@ -858,32 +910,44 @@ class PitWallViewManager(
 
     fun selectFutbolLibreEvent(index: Int) {
         if (index !in futbolLibreEvents.indices) return
+        futbolLibreSourcesJob?.cancel()
         selectedFutbolLibreEventIndex = index
         selectedBroadcastIndex = 0
+        activeSpanishBroadcasts = emptyList()
+        layoutServerSelector.visibility = View.GONE
+
         val event = futbolLibreEvents[index]
         updateSessionSelectorButton(event)
-
         tvStandbyTitle.text = event.gpName.uppercase()
-        tvStandbySubtitle.text = "${event.title} • ${event.colombiaTime}"
-        tvStandbyStatusBadge.text = "FÚTBOL LIBRE • ${event.sources.size} TRANSMISIÓN(ES)"
+        tvStandbySubtitle.text = event.title + " • " + event.colombiaTime
+        tvStandbyStatusBadge.text = "FÚTBOL LIBRE • " + event.sources.size + " TRANSMISIÓN(ES)"
 
         if (event.sources.isNotEmpty()) {
             onSpanishBroadcastsFound(event.sources, BroadcastSource.FUTBOL_LIBRE)
             val currentBroadcast = event.sources[0]
-            tvLiveSessionAlertTitle.text = "🏎️ ${event.gpName} — ${event.sessionName} — ${currentBroadcast.getFormattedTitle()}"
-        } else {
-            scope.launch(Dispatchers.IO) {
-                val matchSources = futbolLibreExtractor.fetchSourcesForMatch(event.fullMatchUrl)
-                withContext(Dispatchers.Main) {
-                    if (matchSources.isNotEmpty()) {
-                        onSpanishBroadcastsFound(matchSources, BroadcastSource.FUTBOL_LIBRE)
-                        val currentBroadcast = matchSources[0]
-                        tvLiveSessionAlertTitle.text = "🏎️ ${event.gpName} — ${event.sessionName} — ${currentBroadcast.getFormattedTitle()}"
-                    } else {
-                        layoutServerSelector.visibility = View.GONE
-                        tvLiveSessionAlertTitle.text = "🏎️ ${event.title}"
-                        playWebPage(event.fullMatchUrl, event.title)
+            tvLiveSessionAlertTitle.text = "🏎️ " + event.gpName + " — " + event.sessionName + " — " + currentBroadcast.getFormattedTitle()
+            return
+        }
+
+        tvLiveSessionAlertTitle.text = "Consultando fuentes de " + event.sessionName + "..."
+        futbolLibreSourcesJob = scope.launch(Dispatchers.IO) {
+            val matchSources = futbolLibreExtractor.fetchSourcesForMatch(event.fullMatchUrl)
+            withContext(Dispatchers.Main) {
+                val selectedEvent = futbolLibreEvents.getOrNull(selectedFutbolLibreEventIndex)
+                if (selectedEvent?.id != event.id || currentLoadedSource != BroadcastSource.FUTBOL_LIBRE) {
+                    return@withContext
+                }
+                if (matchSources.isNotEmpty()) {
+                    futbolLibreEvents = futbolLibreEvents.toMutableList().also { events ->
+                        events[index] = events[index].copy(sources = matchSources)
                     }
+                    onSpanishBroadcastsFound(matchSources, BroadcastSource.FUTBOL_LIBRE)
+                    val currentBroadcast = matchSources[0]
+                    tvLiveSessionAlertTitle.text = "🏎️ " + event.gpName + " — " + event.sessionName + " — " + currentBroadcast.getFormattedTitle()
+                } else {
+                    tvLiveSessionAlertTitle.text = event.title
+                    tvStandbySubtitle.text = "No se encontraron fuentes en el HTML inicial. Abriendo la ficha del evento..."
+                    playWebPage(event.fullMatchUrl, event.title)
                 }
             }
         }
@@ -1166,6 +1230,7 @@ class PitWallViewManager(
             }
         }
 
+        updateServerFocusChain()
         val targetIdx = if (selectedBroadcastIndex in list.indices) selectedBroadcastIndex else 0
         highlightBroadcastButton(targetIdx)
 
@@ -1182,6 +1247,17 @@ class PitWallViewManager(
         if (!isVideoPlaying() || currentWebUrl != target.streamUrl) {
             playSpanishBroadcast(target)
         }
+    }
+
+    private fun updateServerFocusChain() {
+        val visibleButtons = serverButtons.filter { it.visibility == View.VISIBLE }
+        visibleButtons.forEachIndexed { index, button ->
+            button.nextFocusUpId = R.id.btnTabPitWall
+            button.nextFocusDownId = R.id.webVideoView
+            button.nextFocusLeftId = visibleButtons.getOrNull(index - 1)?.id ?: button.id
+            button.nextFocusRightId = visibleButtons.getOrNull(index + 1)?.id ?: R.id.btnLiveSessionAction
+        }
+        btnLiveSessionAction.nextFocusLeftId = visibleButtons.lastOrNull()?.id ?: R.id.btnServer1
     }
 
     private fun onNoSpanishBroadcastsFound(source: BroadcastSource) {
@@ -1231,9 +1307,34 @@ class PitWallViewManager(
         layoutPlayerStandby.visibility = View.GONE
         webVideoView.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.VISIBLE
-
         tvLiveSessionAlertTitle.text = "🏎️ " + broadcast.getFormattedTitle()
 
+        if (currentLoadedSource == BroadcastSource.FUTBOL_LIBRE) {
+            val targetUrl = broadcast.streamUrl?.takeIf { it.isNotBlank() }
+            if (targetUrl.isNullOrBlank()) {
+                Toast.makeText(context, "La fuente seleccionada no tiene una página de evento válida.", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val targetPage = targetUrl.substringBefore("#")
+            val loadedPage = (webVideoView.url ?: currentWebUrl.orEmpty()).substringBefore("#")
+            currentWebUrl = targetUrl
+
+            // Load the public event page first; its visible source selector then changes
+            // the provider inside that page. Do not extract private media URLs.
+            if (loadedPage.equals(targetPage, ignoreCase = true) && !broadcast.clickActionJs.isNullOrBlank()) {
+                webVideoView.evaluateJavascript(broadcast.clickActionJs, null)
+            } else {
+                webVideoView.loadUrl(targetUrl)
+            }
+
+            webVideoView.postDelayed({ triggerPlayerTap() }, 2000)
+            webVideoView.postDelayed({ triggerPlayerTap() }, 4500)
+            serverButtons.firstOrNull { it.visibility == View.VISIBLE }?.post { it.requestFocus() }
+            return
+        }
+
+        // Keep the existing FLX and Fútbol Vivo playback path unchanged.
         if (!broadcast.clickActionJs.isNullOrBlank()) {
             webVideoView.evaluateJavascript(broadcast.clickActionJs, null)
             webVideoView.postDelayed({ triggerPlayerTap() }, 2000)
@@ -1254,25 +1355,29 @@ class PitWallViewManager(
             return
         }
         android.util.Log.d("PitWallServer", "updateServerButtons: count=$count, active=$activeIdx, titles=$titlesJson")
-        btnServer1.visibility = View.VISIBLE
-        btnServer2.visibility = View.VISIBLE
-        btnServer3.visibility = View.VISIBLE
 
-        if (!titlesJson.isNullOrBlank()) {
-            try {
-                val list = Gson().fromJson(titlesJson, Array<String>::class.java)
-                if (list != null) {
-                    if (list.isNotEmpty()) btnServer1.text = formatServerTitle(list[0], 1)
-                    if (list.size > 1) btnServer2.text = formatServerTitle(list[1], 2)
-                    if (list.size > 2) btnServer3.text = formatServerTitle(list[2], 3)
-                }
-            } catch (_: Exception) {}
+        val titles = if (!titlesJson.isNullOrBlank()) {
+            runCatching { Gson().fromJson(titlesJson, Array<String>::class.java)?.toList().orEmpty() }
+                .getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+        val visibleCount = count.coerceIn(0, serverButtons.size)
+        serverButtons.forEachIndexed { index, button ->
+            val available = index < visibleCount
+            button.visibility = if (available) View.VISIBLE else View.GONE
+            if (available) {
+                button.text = titles.getOrNull(index)?.let { formatServerTitle(it, index + 1) }
+                    ?: ("Opción " + (index + 1))
+                button.setOnClickListener { selectServer(index) }
+            }
         }
 
-        selectedServerIndex = activeIdx
-        btnServer1.isSelected = (activeIdx == 0)
-        btnServer2.isSelected = (activeIdx == 1)
-        btnServer3.isSelected = (activeIdx == 2)
+        selectedServerIndex = if (visibleCount == 0) 0 else activeIdx.coerceIn(0, visibleCount - 1)
+        serverButtons.forEachIndexed { index, button ->
+            button.isSelected = index == selectedServerIndex
+        }
+        updateServerFocusChain()
     }
 
     private fun formatServerTitle(raw: String, fallbackNum: Int): String {
@@ -1284,9 +1389,9 @@ class PitWallViewManager(
 
     fun selectServer(index: Int) {
         selectedServerIndex = index
-        btnServer1.isSelected = (index == 0)
-        btnServer2.isSelected = (index == 1)
-        btnServer3.isSelected = (index == 2)
+        serverButtons.forEachIndexed { buttonIndex, button ->
+            button.isSelected = buttonIndex == index
+        }
 
         Toast.makeText(context, "Conectando a Opción ${index + 1}...", Toast.LENGTH_SHORT).show()
 
@@ -1370,6 +1475,7 @@ class PitWallViewManager(
     }
 
     fun onDestroy() {
+        futbolLibreSourcesJob?.cancel()
         flxExtractor.destroy()
         futbolVivoExtractor.destroy()
         futbolLibreExtractor.destroy()

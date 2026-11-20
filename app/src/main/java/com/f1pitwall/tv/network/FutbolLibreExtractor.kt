@@ -84,43 +84,40 @@ class FutbolLibreExtractor(
             val utcInstant = div.attr("data-source-instant").takeIf { it.isNotBlank() }
             val colombiaTime = formatToColombiaTime(utcInstant, timeRaw)
 
-            val openMatch = div.selectFirst("a.agenda-open-match")
-            val matchHref = openMatch?.attr("href")?.trim().orEmpty()
-            val matchUrl = if (matchHref.startsWith("http")) matchHref else "https://futbol-libre.app$matchHref"
-            val slug = matchHref.removePrefix("/match/").substringBefore("#")
+            // Source hrefs identify the event page even if no separate open link is present.
+            val sourceLinks = div.select("a.agenda-source-button")
+            val openMatchHref = div.selectFirst("a.agenda-open-match")?.attr("href")?.trim().orEmpty()
+            val fallbackMatchHref = sourceLinks.firstOrNull()?.attr("href")?.substringBefore("#").orEmpty()
+            val matchUrl = resolveFutbolLibreUrl(openMatchHref.ifBlank { fallbackMatchHref }) ?: continue
+            val matchPath = runCatching { URL(matchUrl).path }.getOrNull().orEmpty()
+            val slug = matchPath.removePrefix("/match/").substringBefore("/")
+                .takeIf { matchPath.startsWith("/match/") && it.isNotBlank() } ?: continue
 
-            // Extraer fuentes asociadas al evento
-            val sourceLinks = div.select("div.source-agenda-sources a.agenda-source-button")
-            val broadcastList = mutableListOf<SpanishBroadcast>()
-            var counter = 1
+            // Preserve the actual order and source IDs announced on the agenda.
+            val broadcastList = sourceLinks.mapIndexedNotNull { sourceIndex, anchor ->
+                val provider = anchor.selectFirst("span")?.text()?.trim().orEmpty()
+                    .ifBlank { "Fuente " + (sourceIndex + 1) }
+                val channel = anchor.selectFirst("small")?.text()?.trim().orEmpty()
+                    .ifBlank { provider }
+                val href = anchor.attr("href").trim()
+                val sourceId = extractSourceId(href)
+                val resolvedSourceUrl = if (href.startsWith("#")) {
+                    matchUrl.substringBefore("#") + href
+                } else {
+                    resolveFutbolLibreUrl(href)
+                }
+                val targetUrl = when {
+                    !sourceId.isNullOrBlank() -> matchUrl.substringBefore("#") + "#source=" + sourceId
+                    !resolvedSourceUrl.isNullOrBlank() -> resolvedSourceUrl
+                    else -> matchUrl
+                }
 
-            for (a in sourceLinks) {
-                val sProvider = a.selectFirst("span")?.text()?.trim().orEmpty().ifBlank { "Fuente $counter" }
-                val sChannel = a.selectFirst("small")?.text()?.trim().orEmpty().ifBlank { sProvider }
-                val sHref = a.attr("href").trim()
-                val sourceId = sHref.substringAfter("#source=", "").takeIf { it.isNotBlank() }
-                val targetUrl = if (sHref.startsWith("http")) sHref else "https://futbol-libre.app$sHref"
-
-                val customTitle = "Transmisión $counter — $sChannel"
-                val customBtn = "T$counter: $sChannel"
-                val clickJs = if (!sourceId.isNullOrBlank()) {
-                    "(function() { const b = document.querySelector('button.event-source-choice[data-source=\"$sourceId\"]'); if (b) b.click(); else if (typeof window.location !== 'undefined') window.location.hash = 'source=$sourceId'; })();"
-                } else null
-
-                broadcastList.add(
-                    SpanishBroadcast(
-                        index = counter++,
-                        network = sChannel,
-                        language = "",
-                        serverName = sProvider,
-                        originalTitle = "$sProvider · $sChannel",
-                        streamUrl = targetUrl,
-                        isOnline = true,
-                        clickActionJs = clickJs,
-                        sourceId = sourceId,
-                        customFormattedTitle = customTitle,
-                        customButtonLabel = customBtn
-                    )
+                createBroadcast(
+                    index = sourceIndex + 1,
+                    provider = provider,
+                    channel = channel,
+                    sourceId = sourceId,
+                    targetUrl = targetUrl
                 )
             }
 
@@ -135,7 +132,7 @@ class FutbolLibreExtractor(
                     gpName = gpName,
                     utcInstant = utcInstant,
                     colombiaTime = colombiaTime,
-                    matchPath = matchHref,
+                    matchPath = matchPath,
                     fullMatchUrl = matchUrl,
                     sources = broadcastList
                 )
@@ -150,41 +147,82 @@ class FutbolLibreExtractor(
     suspend fun fetchSourcesForMatch(matchUrl: String): List<SpanishBroadcast> = withContext(Dispatchers.IO) {
         try {
             val html = fetchHtml(matchUrl) ?: return@withContext emptyList()
-            val doc = Jsoup.parse(html)
-            val buttons = doc.select("button.event-source-choice")
-            val broadcasts = mutableListOf<SpanishBroadcast>()
-            var counter = 1
-
-            for (btn in buttons) {
-                val prov = btn.selectFirst(".source-provider")?.text()?.trim().orEmpty().ifBlank { "Fuente $counter" }
-                val chan = btn.selectFirst(".source-channel")?.text()?.trim().orEmpty().ifBlank { prov }
-                val sourceId = btn.attr("data-source").trim()
-                val targetUrl = if (sourceId.isNotBlank()) "$matchUrl#source=$sourceId" else matchUrl
-
-                val clickJs = if (sourceId.isNotBlank()) {
-                    "(function() { const b = document.querySelector('button.event-source-choice[data-source=\"$sourceId\"]'); if (b) b.click(); else if (typeof window.location !== 'undefined') window.location.hash = 'source=$sourceId'; })();"
-                } else null
-
-                broadcasts.add(
-                    SpanishBroadcast(
-                        index = counter++,
-                        network = chan,
-                        language = "",
-                        serverName = prov,
-                        originalTitle = "$prov · $chan",
-                        streamUrl = targetUrl,
-                        isOnline = true,
-                        clickActionJs = clickJs,
-                        sourceId = sourceId,
-                        customFormattedTitle = "Transmisión $counter — $chan",
-                        customButtonLabel = "T$counter: $chan"
-                    )
-                )
-            }
-            broadcasts
+            parseMatchSourcesHtml(html, matchUrl)
         } catch (e: Exception) {
-            Log.e("FutbolLibreExtractor", "Error fetching match sources: ${e.message}")
+            Log.e("FutbolLibreExtractor", "Error fetching match sources: " + e.message, e)
             emptyList()
+        }
+    }
+
+    /**
+     * Parses the visible source choices from an individual event page.
+     * It does not call private playback endpoints or extract media URLs.
+     */
+    fun parseMatchSourcesHtml(html: String, matchUrl: String): List<SpanishBroadcast> {
+        val baseMatchUrl = resolveFutbolLibreUrl(matchUrl)?.substringBefore("#") ?: return emptyList()
+        val doc = Jsoup.parse(html, baseMatchUrl)
+        return doc.select("button.event-source-choice[data-source]").mapIndexedNotNull { index, button ->
+            val provider = button.selectFirst(".source-provider")?.text()?.trim().orEmpty()
+                .ifBlank { "Fuente " + (index + 1) }
+            val channel = button.selectFirst(".source-channel")?.text()?.trim().orEmpty()
+                .ifBlank { provider }
+            val sourceId = button.attr("data-source").trim()
+                .takeIf { SOURCE_ID_PATTERN.matches(it) } ?: return@mapIndexedNotNull null
+
+            createBroadcast(
+                index = index + 1,
+                provider = provider,
+                channel = channel,
+                sourceId = sourceId,
+                targetUrl = baseMatchUrl + "#source=" + sourceId
+            )
+        }
+    }
+
+    private fun createBroadcast(
+        index: Int,
+        provider: String,
+        channel: String,
+        sourceId: String?,
+        targetUrl: String
+    ): SpanishBroadcast {
+        val safeSourceId = sourceId?.takeIf { SOURCE_ID_PATTERN.matches(it) }
+        val clickJs = safeSourceId?.let {
+            "(function(){var id='" + it + "';var b=Array.prototype.find.call(document.querySelectorAll('button.event-source-choice[data-source]'),function(el){return el.getAttribute('data-source')===id;});if(b){b.click();}else{window.location.hash='source='+encodeURIComponent(id);}})();"
+        }
+        return SpanishBroadcast(
+            index = index,
+            network = channel,
+            language = "",
+            serverName = provider,
+            originalTitle = "$provider · $channel",
+            streamUrl = targetUrl,
+            isOnline = true,
+            clickActionJs = clickJs,
+            sourceId = safeSourceId,
+            customFormattedTitle = "Transmisión " + index + " — " + channel,
+            customButtonLabel = "T" + index + ": " + channel
+        )
+    }
+
+    private fun extractSourceId(reference: String): String? {
+        return Regex("""(?:[?#&])source=([A-Za-z0-9_-]+)""", RegexOption.IGNORE_CASE)
+            .find(reference)?.groupValues?.getOrNull(1)
+    }
+
+    private fun resolveFutbolLibreUrl(reference: String): String? {
+        if (reference.isBlank()) return null
+        return try {
+            val resolved = URL(URL(AGENDA_URL), reference)
+            val host = resolved.host.lowercase(Locale.ROOT)
+            val allowedHost = host == "futbol-libre.app" || host == "www.futbol-libre.app"
+            if (resolved.protocol.equals("https", ignoreCase = true) && allowedHost) {
+                resolved.toExternalForm()
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -222,6 +260,9 @@ class FutbolLibreExtractor(
     }
 
     companion object {
+        private const val AGENDA_URL = "https://futbol-libre.app/agenda"
+        private val SOURCE_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,32}$")
+
         fun isFormulaOneEvent(title: String): Boolean {
             val t = title.lowercase(Locale.ROOT)
             val hasF1 = Regex("""\bf1\b|f[oó]rmula\s*(?:1|one)|f1\s*academy|motorsport.*f1|f[oó]rmula\s*1\s*academy""").containsMatchIn(t)
@@ -247,13 +288,20 @@ class FutbolLibreExtractor(
 
         fun extractSessionName(title: String): String {
             val t = title.replace(Regex("\\s+"), " ").trim()
-            val sessionMatch = Regex("""(Prácticas?\s*Libres?\s*#?[123]|Práctica\s*[123]|Clasificación|Carrera\s*Sprint|Carrera\s*Principal|Carrera\s*#?[123]|Cámara\s*On\s*Board[^:]*|F1\s*Academy[^:]*)""", RegexOption.IGNORE_CASE).find(t)
+            val sessionMatch = Regex(
+                """(Prácticas?\s*Libres?\s*#?[123]|Práctica\s*[123]|Free\s*Practice\s*[123]|\bFP[123]\b|Practice\s*[123]|Clasificación|Qualifying|Carrera\s*Sprint|Sprint\s*Race|Sprint|Carrera\s*Principal|Main\s*Race|Carrera\s*#?[123]|\bRace\b|Cámara\s*On\s*Board[^:]*|On\s*Board[^:]*|F1\s*Academy)""",
+                RegexOption.IGNORE_CASE
+            ).find(t)
             return sessionMatch?.value?.trim() ?: t.substringAfterLast(":").trim().ifBlank { t }
         }
 
         fun extractGpName(title: String): String {
-            val gpMatch = Regex("""(GP\s*(?:de\s*)?[A-Za-z\s]+|Gran\s*Premio\s*(?:de\s*)?[A-Za-z\s]+)""", RegexOption.IGNORE_CASE).find(title)
-            return gpMatch?.value?.trim() ?: "Gran Premio"
+            val gpMatch = Regex(
+                """(?:GP|Gran\s*Premio|Grand\s*Prix)\s*(?:de\s*|of\s*)?([^:|–—-]+)""",
+                RegexOption.IGNORE_CASE
+            ).find(title)
+            val location = gpMatch?.groupValues?.getOrNull(1)?.trim()
+            return if (location.isNullOrBlank()) "Gran Premio" else "GP de " + location
         }
     }
 }

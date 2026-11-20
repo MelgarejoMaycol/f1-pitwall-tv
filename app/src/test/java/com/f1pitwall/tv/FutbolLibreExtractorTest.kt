@@ -157,6 +157,75 @@ class FutbolLibreExtractorTest {
     }
 
     @Test
+    fun testParseMatchSourcesHtmlUsesConsistentOneBasedLabels() {
+        val extractor = FutbolLibreExtractor()
+        val html = """
+            <button class="source-pill event-source-choice" data-source="1">
+                <span class="source-provider">Fuente 1</span>
+                <span class="source-channel">ESPN 2</span>
+            </button>
+            <button class="source-pill event-source-choice" data-source="2">
+                <span class="source-provider">Fuente 2</span>
+                <span class="source-channel">FOX Sports</span>
+            </button>
+        """.trimIndent()
+
+        val sources = extractor.parseMatchSourcesHtml(
+            html,
+            "https://futbol-libre.app/match/gp-las-vegas-practice-1"
+        )
+
+        assertEquals(2, sources.size)
+        assertEquals(1, sources[0].index)
+        assertEquals("Transmisión 1 — ESPN 2", sources[0].getFormattedTitle())
+        assertEquals("T1: ESPN 2", sources[0].getButtonLabel())
+        assertEquals("1", sources[0].sourceId)
+        assertTrue(sources[0].clickActionJs.orEmpty().contains("event-source-choice"))
+        assertEquals(
+            "https://futbol-libre.app/match/gp-las-vegas-practice-1#source=1",
+            sources[0].streamUrl
+        )
+        assertEquals(2, sources[1].index)
+        assertEquals("Transmisión 2 — FOX Sports", sources[1].getFormattedTitle())
+        assertEquals("T2: FOX Sports", sources[1].getButtonLabel())
+    }
+
+    @Test
+    fun testAgendaCanResolveMatchFromSourceHrefWhenOpenLinkIsAbsent() {
+        val extractor = FutbolLibreExtractor()
+        val html = """
+            <div class="source-agenda-event" data-source-instant="2026-11-21T00:30:00+00:00">
+                <button class="source-agenda-eventbtn">
+                    <span class="source-agenda-time">00:30</span>
+                    <span class="source-agenda-competition">Formula 1</span>
+                    <span class="source-agenda-eventtext">Las Vegas - Free Practice 1</span>
+                </button>
+                <div class="source-agenda-sources">
+                    <a class="agenda-source-button" href="/match/gp-las-vegas-practice-1#source=1">
+                        <span>Fuente 1</span><small>ESPN 2</small>
+                    </a>
+                </div>
+            </div>
+        """.trimIndent()
+
+        val events = extractor.parseAgendaHtml(html)
+        assertEquals(1, events.size)
+        assertEquals("gp-las-vegas-practice-1", events[0].id)
+        assertEquals(
+            "https://futbol-libre.app/match/gp-las-vegas-practice-1",
+            events[0].fullMatchUrl
+        )
+        assertEquals("ESPN 2", events[0].sources.single().network)
+    }
+
+    @Test
+    fun testEnglishSessionNamesAreRecognized() {
+        assertEquals("Free Practice 1", FutbolLibreExtractor.extractSessionName("Formula 1 - Las Vegas - Free Practice 1"))
+        assertEquals("Qualifying", FutbolLibreExtractor.extractSessionName("F1 - Grand Prix - Qualifying"))
+        assertEquals("Sprint Race", FutbolLibreExtractor.extractSessionName("F1 - Sprint Race"))
+    }
+
+    @Test
     fun testBroadcastSourceThreeOptions() {
         assertEquals("FUTBOL_LIBRE", BroadcastSource.FUTBOL_LIBRE.key)
         assertEquals("Fútbol Libre", BroadcastSource.FUTBOL_LIBRE.displayName)
