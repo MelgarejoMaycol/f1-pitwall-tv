@@ -1137,7 +1137,7 @@ class VideoPlaybackManager(
     /** Resume WebView timers and media after MainActivity returns to the foreground. */
     fun resume() {
         webVideoView.onResume()
-        WebView.resumeTimers()
+        webVideoView.resumeTimers()
     }
 
     fun stop() {
