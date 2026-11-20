@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.model.Meeting
+import com.f1pitwall.tv.core.util.TimeUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -79,33 +80,31 @@ class MeetingAdapter(
         }
 
         private fun formatDatesAndStatus(startIso: String?, endIso: String?): Triple<String, String, Int> {
-            if (startIso == null) return Triple("--", "PROGRAMADA", Color.parseColor("#3B82F6"))
-            return try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-                inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+            val meeting = items.getOrNull(bindingAdapterPosition)
+            if (meeting?.isCancelled == true) {
+                return Triple("Evento cancelado", "CANCELADO", Color.parseColor("#6B7280"))
+            }
 
-                val startDate = inputFormat.parse(startIso.substring(0, 19))
-                val endDate = endIso?.let { inputFormat.parse(it.substring(0, 19)) }
+            val startDate = TimeUtils.parseUtc(startIso)
+                ?: return Triple("Horario por confirmar", "FECHA PENDIENTE", Color.parseColor("#6B7280"))
+            val endDate = TimeUtils.parseUtc(endIso)
 
-                val outFormat = SimpleDateFormat("d MMM", Locale("es", "ES"))
-                outFormat.timeZone = TimeZone.getDefault()
+            val outFormat = SimpleDateFormat("d MMM", Locale("es", "CO"))
+            outFormat.timeZone = TimeZone.getTimeZone("America/Bogota")
+            val dateStr = if (endDate != null) {
+                "${outFormat.format(startDate)} - ${outFormat.format(endDate)}"
+            } else {
+                outFormat.format(startDate)
+            }
 
-                val now = Date()
-                val dateStr = if (startDate != null && endDate != null) {
-                    "${outFormat.format(startDate)} - ${outFormat.format(endDate)}"
-                } else if (startDate != null) {
-                    outFormat.format(startDate)
-                } else "--"
-
-                if (endDate != null && now.after(endDate)) {
-                    Triple(dateStr, "FINALIZADA", Color.parseColor("#15803D")) // Green
-                } else if (startDate != null && endDate != null && now.after(startDate) && now.before(endDate)) {
-                    Triple(dateStr, "🔴 EN VIVO", Color.parseColor("#E10600")) // Red Live
-                } else {
-                    Triple(dateStr, "PRÓXIMA", Color.parseColor("#2563EB")) // Blue
-                }
-            } catch (e: Exception) {
-                Triple(startIso.take(10), "PROGRAMADA", Color.parseColor("#3B82F6"))
+            val now = Date()
+            return when {
+                endDate != null && now.after(endDate) ->
+                    Triple(dateStr, "FINALIZADA", Color.parseColor("#15803D"))
+                !now.before(startDate) && (endDate == null || !now.after(endDate)) ->
+                    Triple(dateStr, "🔴 EN VIVO", Color.parseColor("#E10600"))
+                else ->
+                    Triple(dateStr, "PRÓXIMA", Color.parseColor("#2563EB"))
             }
         }
     }
