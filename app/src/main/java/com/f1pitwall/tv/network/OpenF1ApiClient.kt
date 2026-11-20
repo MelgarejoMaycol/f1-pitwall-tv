@@ -104,7 +104,7 @@ class OpenF1ApiClient {
      */
     suspend fun getSessionsForYear(year: Int): List<Session> {
         val type = object : TypeToken<List<Session>>() {}
-        return get("$baseUrl/sessions?year=$year&limit=300", type, useCache = false) ?: emptyList()
+        return get("$baseUrl/sessions?year=$year", type, useCache = false) ?: emptyList()
     }
 
     suspend fun getDrivers(sessionKey: Long): List<Driver> {
