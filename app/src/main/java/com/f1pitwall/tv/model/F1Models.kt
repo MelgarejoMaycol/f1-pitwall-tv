@@ -28,7 +28,8 @@ data class Session(
     @SerializedName("date_end") val dateEnd: String?,
     @SerializedName("meeting_key") val meetingKey: Long,
     @SerializedName("circuit_short_name") val circuitShortName: String?,
-    @SerializedName("country_name") val countryName: String?
+    @SerializedName("country_name") val countryName: String?,
+    @SerializedName("is_cancelled") val isCancelled: Boolean? = false
 )
 
 data class Driver(
