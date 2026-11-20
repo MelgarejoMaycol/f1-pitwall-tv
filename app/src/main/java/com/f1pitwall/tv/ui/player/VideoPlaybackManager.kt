@@ -239,7 +239,9 @@ class VideoPlaybackManager(
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         webVideoView.apply {
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // Use the normal accelerated compositor. A forced offscreen hardware layer can
+            // interfere with the separate video surface used by HTML5 playback on Android TV.
+            setLayerType(View.LAYER_TYPE_NONE, null)
             isFocusable = true
             isFocusableInTouchMode = true
             setBackgroundColor(Color.BLACK)
@@ -498,7 +500,8 @@ class VideoPlaybackManager(
     @SuppressLint("SetJavaScriptEnabled")
     private fun createChildWebView(): WebView {
         val child = WebView(context).apply {
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // Keep popup WebViews on the default compositor path as well.
+            setLayerType(View.LAYER_TYPE_NONE, null)
             isFocusable = false
             // Chromium must keep the transport WebView attached while resolving the popup URL.
             visibility = View.VISIBLE
