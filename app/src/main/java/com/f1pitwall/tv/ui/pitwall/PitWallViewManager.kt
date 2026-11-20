@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
+import com.f1pitwall.tv.network.FutbolVivoExtractor
 import com.f1pitwall.tv.ui.LeaderboardAdapter
 import kotlinx.coroutines.launch
 
@@ -34,6 +35,7 @@ class PitWallViewManager(
     private val defaultWebSourceUrl: String? = null
 ) {
     private val context: Context = rootView.context
+    private val futbolVivoExtractor = FutbolVivoExtractor(context)
 
     // Video Player & Standby
     private val playerSurface: FrameLayout = rootView.findViewById(R.id.framePitWallSurface)
@@ -98,6 +100,7 @@ class PitWallViewManager(
     private var isLiveSessionActive: Boolean = false
     private var isUpcomingSession: Boolean = false
     private var currentScheduleTitle: String = "Calendario F1 en preparación"
+    private var futbolVivoStatusText: String = "FÚTBOL LIBRE • BUSCANDO EVENTOS F1"
     private val activePopupWebViews = mutableListOf<WebView>()
     private var customFullScreenView: View? = null
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
@@ -113,6 +116,7 @@ class PitWallViewManager(
         initPlayers()
         setupListeners()
         setupLeaderboardView()
+        setupFutbolVivoDiscovery()
     }
 
     /**
@@ -391,6 +395,36 @@ class PitWallViewManager(
         }
     }
 
+    private fun setupFutbolVivoDiscovery() {
+        val sourceUrl = defaultWebSourceUrl
+        if (sourceUrl.isNullOrBlank() || !sourceUrl.contains("futbolvivo.tv", ignoreCase = true)) {
+            futbolVivoStatusText = "FÚTBOL LIBRE • FUENTE NO CONFIGURADA"
+            tvStandbySubtitle.text = "Configura futbolvivo.tv como fuente web predeterminada para consultar eventos."
+            updateFutbolVivoStatusBadge()
+            return
+        }
+
+        tvStandbySubtitle.text = "Buscando eventos y sesiones de Fórmula 1 en Fútbol Libre..."
+        futbolVivoExtractor.onF1EventDetected = { event ->
+            val status = if (event.isLive) "EN VIVO" else "PROGRAMADA"
+            futbolVivoStatusText = "FÚTBOL LIBRE • $status"
+            val start = event.startTime?.let { " • $it" }.orEmpty()
+            tvStandbySubtitle.text = "Evento F1 detectado: ${event.title}$start"
+            updateFutbolVivoStatusBadge()
+        }
+        futbolVivoExtractor.onNoEventDetected = {
+            futbolVivoStatusText = "FÚTBOL LIBRE • SIN EVENTO F1"
+            tvStandbySubtitle.text =
+                "No se detectan eventos F1 en la cartelera actual. Abre TV Web para consultar los eventos publicados."
+            updateFutbolVivoStatusBadge()
+        }
+        futbolVivoExtractor.startExtraction(sourceUrl)
+    }
+
+    private fun updateFutbolVivoStatusBadge() {
+        tvStandbyStatusBadge.text = futbolVivoStatusText
+    }
+
     private fun setupLeaderboardView() {
         rvLeaderboard.layoutManager = LinearLayoutManager(context)
         rvLeaderboard.adapter = leaderboardAdapter
@@ -537,6 +571,7 @@ class PitWallViewManager(
         isUpcomingSession = isUpcoming
         currentScheduleTitle = sessionTitleText
         tvSessionTitle.text = sessionTitleText
+        tvStandbyTitle.text = sessionTitleText.uppercase()
         updateScheduleBanner()
     }
 
@@ -546,6 +581,7 @@ class PitWallViewManager(
         isUpcomingSession = false
         currentScheduleTitle = "Calendario de F1 no disponible"
         tvSessionTitle.text = currentScheduleTitle
+        tvStandbyTitle.text = "F1 PIT WALL TV"
         updateScheduleBanner()
     }
 
@@ -554,38 +590,38 @@ class PitWallViewManager(
             isLiveSessionActive -> {
                 tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
                 btnLiveSessionAction.text = "📺 ABRIR TV WEB"
-                tvStandbyStatusBadge.text = "🔴 SESIÓN ACTIVA • EN DIRECTO"
             }
             isUpcomingSession -> {
                 tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA SESIÓN: $currentScheduleTitle"
                 btnLiveSessionAction.text = "📺 ABRIR TV WEB"
-                tvStandbyStatusBadge.text = "⏳ PRÓXIMA SESIÓN"
             }
             currentScheduleTitle == "Calendario de F1 no disponible" -> {
                 tvLiveSessionAlertTitle.text = "⚠️ Calendario F1 no disponible"
                 btnLiveSessionAction.text = "📺 ABRIR TV WEB"
-                tvStandbyStatusBadge.text = "CALENDARIO NO DISPONIBLE"
             }
             else -> {
                 tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
                 btnLiveSessionAction.text = "📺 ABRIR TV WEB"
-                tvStandbyStatusBadge.text = "SIN SESIÓN ACTIVA"
             }
         }
+        updateFutbolVivoStatusBadge()
     }
 
     fun onPause() {
         exoPlayer?.pause()
         webVideoView.onPause()
+        futbolVivoExtractor.onPause()
     }
 
     fun onResume() {
         webVideoView.onResume()
         webVideoView.resumeTimers()
+        futbolVivoExtractor.onResume()
     }
 
     fun onDestroy() {
         activePopupWebViews.toList().forEach { closePopup(it) }
+        futbolVivoExtractor.destroy()
         webVideoView.stopLoading()
         webVideoView.destroy()
         exoPlayer?.release()
