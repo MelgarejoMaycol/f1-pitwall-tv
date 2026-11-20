@@ -96,6 +96,8 @@ class PitWallViewManager(
     private var latestRadioUrl: String? = null
     private var currentSessionKey: Long? = null
     private var isLiveSessionActive: Boolean = false
+    private var isUpcomingSession: Boolean = false
+    private var currentScheduleTitle: String = "Calendario F1 en preparación"
     private val activePopupWebViews = mutableListOf<WebView>()
     private var customFullScreenView: View? = null
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
@@ -275,6 +277,16 @@ class PitWallViewManager(
         return listOf(".m3u8", ".mpd", ".mp4", ".m4v").any { path.endsWith(it) }
     }
 
+    private fun openDefaultWebSource(title: String) {
+        val url = defaultWebSourceUrl
+        if (url.isNullOrBlank()) {
+            onNavigateToSettings()
+            Toast.makeText(context, "Configura una fuente web en Ajustes de Video", Toast.LENGTH_LONG).show()
+        } else {
+            playWebPage(url, title)
+        }
+    }
+
     fun playWebPage(url: String, title: String = "Fuente web") {
         val parsed = runCatching { Uri.parse(url) }.getOrNull()
         if (parsed == null || (parsed.scheme != "http" && parsed.scheme != "https") || parsed.host.isNullOrBlank()) {
@@ -316,43 +328,24 @@ class PitWallViewManager(
     }
 
     private fun setupListeners() {
-        // Video Standby Controls
-        btnStandbyPreview.setOnClickListener {
-            playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", "Previa Oficial: GP Las Vegas 2026")
-        }
-
-        btnStandbyRecap.setOnClickListener {
-            playStream("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", "Resumen Oficial: GP São Paulo 2026")
-        }
-
-        btnStandbyOpenWeb.setOnClickListener {
-            val url = defaultWebSourceUrl
-            if (url.isNullOrBlank()) {
-                onNavigateToSettings()
-            } else {
-                playWebPage(url, "Fútbol Vivo / Fútbol Libre")
-            }
-        }
+        // Los accesos de contenido abren la fuente web configurada; no muestran vídeos de prueba.
+        btnStandbyPreview.setOnClickListener { openDefaultWebSource("Fútbol Vivo / Fútbol Libre") }
+        btnStandbyRecap.setOnClickListener { openDefaultWebSource("Archivo F1 en la fuente web") }
+        btnStandbyOpenWeb.setOnClickListener { openDefaultWebSource("Fútbol Vivo / Fútbol Libre") }
 
         btnStandbyStopVideo.setOnClickListener {
             switchToStandby()
         }
 
-        // Live Action Button
+        // Durante una sesión activa o próxima, abrir la web real del proveedor configurado.
         btnLiveSessionAction.setOnClickListener {
-            if (isLiveSessionActive) {
-                playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", "Transmisión en Vivo: F1 PitWall")
-            } else {
-                onNavigateToSettings()
-            }
+            openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
         }
 
-        // Content Hub Bar
-        btnContentPreview.setOnClickListener { btnStandbyPreview.performClick() }
-        btnContentRecap.setOnClickListener { btnStandbyRecap.performClick() }
-        btnContentBoxes.setOnClickListener {
-            playStream("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", "Feed Técnico de Boxes y Pista")
-        }
+        // Contenido y telemetría: no reproducir HLS de demostración como si fuese F1.
+        btnContentPreview.setOnClickListener { openDefaultWebSource("Fútbol Vivo / Fútbol Libre") }
+        btnContentRecap.setOnClickListener { openDefaultWebSource("Archivo F1 en la fuente web") }
+        btnContentBoxes.setOnClickListener { btnMetricsTelemetry.performClick() }
 
         // Radio Player
         btnPlayRadio.setOnClickListener {
@@ -440,12 +433,7 @@ class PitWallViewManager(
         playerView.visibility = View.GONE
         layoutPlayerStandby.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.GONE
-
-        if (!isLiveSessionActive) {
-            tvLiveSessionAlertTitle.text = "⏸️ Sin carrera en vivo • Próxima: GP Las Vegas (Jue 19 nov, 7:30 PM Col)"
-            btnLiveSessionAction.text = "⚡ Señal y Ajustes"
-            tvStandbyStatusBadge.text = "⏸️ SEÑAL EN ESPERA • PRÓXIMA: GP LAS VEGAS"
-        }
+        updateScheduleBanner()
     }
 
     fun tuneRadioDriver(driverNumber: Int, driverName: String) {
@@ -524,19 +512,51 @@ class PitWallViewManager(
         }
     }
 
-    fun onSessionUpdated(sessionKey: Long, isLive: Boolean, sessionTitleText: String) {
+    fun onSessionUpdated(
+        sessionKey: Long,
+        isLive: Boolean,
+        isUpcoming: Boolean,
+        sessionTitleText: String
+    ) {
         currentSessionKey = sessionKey
         isLiveSessionActive = isLive
+        isUpcomingSession = isUpcoming
+        currentScheduleTitle = sessionTitleText
         tvSessionTitle.text = sessionTitleText
+        updateScheduleBanner()
+    }
 
-        if (isLive) {
-            tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $sessionTitleText"
-            btnLiveSessionAction.text = "⚡ Ver Señal en Vivo"
-            tvStandbyStatusBadge.text = "🔴 SESIÓN ACTIVA • EN DIRECTO"
-        } else {
-            tvLiveSessionAlertTitle.text = "⏸️ Sin carrera en vivo • Próxima: GP Las Vegas (Jue 19 nov, 7:30 PM Col)"
-            btnLiveSessionAction.text = "⚡ Señal y Ajustes"
-            tvStandbyStatusBadge.text = "⏸️ SEÑAL EN ESPERA • PRÓXIMA: GP LAS VEGAS"
+    fun onScheduleUnavailable() {
+        currentSessionKey = null
+        isLiveSessionActive = false
+        isUpcomingSession = false
+        currentScheduleTitle = "Calendario de F1 no disponible"
+        tvSessionTitle.text = currentScheduleTitle
+        updateScheduleBanner()
+    }
+
+    private fun updateScheduleBanner() {
+        when {
+            isLiveSessionActive -> {
+                tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
+                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
+                tvStandbyStatusBadge.text = "🔴 SESIÓN ACTIVA • EN DIRECTO"
+            }
+            isUpcomingSession -> {
+                tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA SESIÓN: $currentScheduleTitle"
+                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
+                tvStandbyStatusBadge.text = "⏳ PRÓXIMA SESIÓN"
+            }
+            currentScheduleTitle == "Calendario de F1 no disponible" -> {
+                tvLiveSessionAlertTitle.text = "⚠️ Calendario F1 no disponible"
+                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
+                tvStandbyStatusBadge.text = "CALENDARIO NO DISPONIBLE"
+            }
+            else -> {
+                tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
+                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
+                tvStandbyStatusBadge.text = "SIN SESIÓN ACTIVA"
+            }
         }
     }
 
