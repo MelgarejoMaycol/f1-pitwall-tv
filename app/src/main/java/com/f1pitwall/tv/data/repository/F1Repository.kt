@@ -19,14 +19,46 @@ class F1Repository(
 
     private var cachedMeetings: MutableMap<Int, List<Meeting>> = mutableMapOf()
     private var cachedDrivers: List<DriverCardItem> = emptyList()
+    private var cachedJolpicaRacesByYear: MutableMap<Int, List<JolpicaRace>> = mutableMapOf()
+    private var cachedJolpicaMeetings: MutableMap<Long, JolpicaRace> = mutableMapOf()
 
     suspend fun getMeetings(year: Int = AppConfig.DEFAULT_SEASON): List<Meeting> = withContext(Dispatchers.IO) {
         if (cachedMeetings.containsKey(year) && cachedMeetings[year]!!.isNotEmpty()) {
             return@withContext cachedMeetings[year]!!
         }
-        val meetings = openF1Api.getMeetings(year)
-        cachedMeetings[year] = meetings
+        var meetings = openF1Api.getMeetings(year)
+        if (meetings.isEmpty()) {
+            val schedule = jolpicaApi.getSchedule(year)
+            if (schedule.isNotEmpty()) {
+                cachedJolpicaRacesByYear[year] = schedule
+                meetings = schedule.mapIndexed { index, race ->
+                    val meeting = mapJolpicaRaceToMeeting(race, year, index + 1)
+                    cachedJolpicaMeetings[meeting.meetingKey] = race
+                    meeting
+                }
+            }
+        }
+        if (meetings.isNotEmpty()) {
+            cachedMeetings[year] = meetings
+        }
         meetings
+    }
+
+    suspend fun getSessions(meetingKey: Long, year: Int = AppConfig.DEFAULT_SEASON): List<Session> = withContext(Dispatchers.IO) {
+        val openF1Sessions = openF1Api.getSessions(meetingKey)
+        if (openF1Sessions.isNotEmpty()) return@withContext openF1Sessions
+
+        val race = cachedJolpicaMeetings[meetingKey] ?: run {
+            getMeetings(year)
+            cachedJolpicaMeetings[meetingKey]
+        } ?: cachedJolpicaRacesByYear[year]?.find { r ->
+            (year * 1000L + (r.round.toLongOrNull() ?: 1L)) == meetingKey
+        }
+
+        if (race != null) {
+            return@withContext mapJolpicaRaceToSessions(race, meetingKey, year)
+        }
+        emptyList()
     }
 
     /**
@@ -52,7 +84,12 @@ class F1Repository(
                     .maxByOrNull { it.third.time }?.first
         }
 
-        val seasonSessions = openF1Api.getSessionsForYear(year)
+        var seasonSessions = openF1Api.getSessionsForYear(year)
+        if (seasonSessions.isEmpty()) {
+            val meetings = getMeetings(year)
+            seasonSessions = meetings.flatMap { m -> getSessions(m.meetingKey, year) }
+        }
+
         val selectedSeasonSession = chooseSession(seasonSessions)
         val selectedStart = selectedSeasonSession?.let { TimeUtils.parseUtc(it.dateStart) }
         val selectedIsCurrentOrUpcoming = selectedSeasonSession != null &&
@@ -63,7 +100,7 @@ class F1Repository(
 
         // If the season feed has only historical rows, merge the next meeting's sessions.
         val selectedMeeting = findSmartSelectedMeeting(year)
-        val meetingSessions = selectedMeeting?.let { openF1Api.getSessions(it.meetingKey) }.orEmpty()
+        val meetingSessions = selectedMeeting?.let { getSessions(it.meetingKey, year) }.orEmpty()
         chooseSession(seasonSessions + meetingSessions) ?: selectedSeasonSession
     }
 
@@ -124,7 +161,7 @@ class F1Repository(
         }
 
         if (currentWeekendMeeting != null) {
-            val sessions = openF1Api.getSessions(currentWeekendMeeting.meetingKey)
+            val sessions = getSessions(currentWeekendMeeting.meetingKey, year)
             val liveSession = sessions.find { TimeUtils.isCurrentlyLive(it.dateStart, it.dateEnd) }
             if (liveSession != null) {
                 return@withContext HeroBannerData(
@@ -155,7 +192,7 @@ class F1Repository(
         }
 
         if (upcomingMeeting != null) {
-            val sessions = openF1Api.getSessions(upcomingMeeting.meetingKey)
+            val sessions = getSessions(upcomingMeeting.meetingKey, year)
             val nextSession = sessions.firstOrNull { s ->
                 val sStart = TimeUtils.parseUtc(s.dateStart)
                 sStart != null && sStart.after(now)
@@ -184,7 +221,7 @@ class F1Repository(
 
         // 3. Si la temporada terminó, mostrar el último evento
         val lastMeeting = meetings.lastOrNull { it.meetingName?.contains("Grand Prix", true) == true } ?: meetings.last()
-        val sessions = openF1Api.getSessions(lastMeeting.meetingKey)
+        val sessions = getSessions(lastMeeting.meetingKey, year)
         val raceSession = sessions.find { it.sessionType.equals("Race", true) } ?: sessions.lastOrNull()
 
         return@withContext HeroBannerData(
@@ -538,7 +575,7 @@ class F1Repository(
         }
     }
 
-    private fun getTeamColor(team: String): String {
+    fun getTeamColor(team: String): String {
         val lower = team.lowercase()
         return when {
             lower.contains("mercedes") -> "27F4D2"
@@ -556,19 +593,200 @@ class F1Repository(
         }
     }
 
+    suspend fun getRaceResults(year: Int = AppConfig.DEFAULT_SEASON, round: Int) = jolpicaApi.getRaceResults(year, round)
+
     suspend fun getCircuits(year: Int = AppConfig.DEFAULT_SEASON): List<CircuitCardItem> = withContext(Dispatchers.IO) {
         val meetings = getMeetings(year)
         val seen = mutableSetOf<Int>()
-        meetings.filter { it.circuitKey != null && it.circuitImage != null }
+        meetings.filter { it.circuitKey != null }
             .filter { seen.add(it.circuitKey!!) }
             .map { m ->
+                val img = m.circuitImage?.takeIf { it.isNotBlank() }
+                    ?: getCircuitSilhouetteUrl(m.location.orEmpty(), m.countryName.orEmpty())
                 CircuitCardItem(
                     circuitKey = m.circuitKey!!,
                     circuitName = m.circuitShortName ?: m.location ?: "Circuito",
                     location = m.location ?: "",
                     country = m.countryName ?: "",
-                    circuitImageUrl = m.circuitImage
+                    circuitImageUrl = img
                 )
             }
+    }
+
+    private fun mapJolpicaRaceToMeeting(race: JolpicaRace, year: Int, index: Int): Meeting {
+        val roundNum = race.round.toLongOrNull() ?: index.toLong()
+        val meetingKey = year * 1000L + roundNum
+        val locality = race.circuit?.location?.locality ?: ""
+        val country = race.circuit?.location?.country ?: ""
+        val circuitName = race.circuit?.circuitName ?: "Circuito $locality"
+        val flag = getCountryFlagUrl(country)
+        val circuitImg = getCircuitSilhouetteUrl(locality, country)
+
+        val dateStart = race.firstPractice?.toIsoUtc() ?: "${race.date}T00:00:00Z"
+        val dateEnd = if (!race.time.isNullOrEmpty()) "${race.date}T${race.time}" else "${race.date}T23:59:59Z"
+
+        return Meeting(
+            meetingKey = meetingKey,
+            meetingName = race.raceName,
+            officialName = "Formula 1 ${race.raceName} $year",
+            location = locality,
+            countryName = country,
+            countryCode = "",
+            countryFlag = flag,
+            circuitKey = roundNum.toInt(),
+            circuitShortName = circuitName,
+            circuitImage = circuitImg,
+            dateStart = dateStart,
+            dateEnd = dateEnd,
+            gmtOffset = null,
+            year = year,
+            isCancelled = false
+        )
+    }
+
+    private fun mapJolpicaRaceToSessions(race: JolpicaRace, meetingKey: Long, year: Int): List<Session> {
+        val sessions = mutableListOf<Session>()
+        val circuit = race.circuit?.circuitName ?: "Circuito"
+        val country = race.circuit?.location?.country ?: ""
+
+        fun addSession(keySuffix: Long, name: String, type: String, sessionTime: JolpicaSessionTime?, defaultDurationHours: Long = 1) {
+            val startIso = sessionTime?.toIsoUtc() ?: return
+            val endIso = TimeUtils.addHoursToIso(startIso, defaultDurationHours) ?: startIso
+            sessions.add(
+                Session(
+                    sessionKey = meetingKey * 10L + keySuffix,
+                    sessionName = name,
+                    sessionType = type,
+                    dateStart = startIso,
+                    dateEnd = endIso,
+                    meetingKey = meetingKey,
+                    circuitShortName = circuit,
+                    countryName = country,
+                    isCancelled = false
+                )
+            )
+        }
+
+        // Practice 1
+        addSession(1L, "Práctica Libre 1", "Practice", race.firstPractice)
+
+        // Practice 2 (or Sprint Qualifying)
+        if (race.sprintQualifying != null) {
+            addSession(2L, "Sprint Shootout", "Qualifying", race.sprintQualifying)
+        } else if (race.secondPractice != null) {
+            addSession(2L, "Práctica Libre 2", "Practice", race.secondPractice)
+        }
+
+        // Practice 3 (or Sprint)
+        if (race.sprint != null) {
+            addSession(3L, "Carrera Sprint", "Sprint", race.sprint)
+        } else if (race.thirdPractice != null) {
+            addSession(3L, "Práctica Libre 3", "Practice", race.thirdPractice)
+        }
+
+        // Qualifying
+        addSession(4L, "Clasificación", "Qualifying", race.qualifying)
+
+        // Race
+        val raceStart = if (!race.time.isNullOrEmpty()) "${race.date}T${race.time}" else "${race.date}T13:00:00Z"
+        val raceEnd = TimeUtils.addHoursToIso(raceStart, 2) ?: raceStart
+        sessions.add(
+            Session(
+                sessionKey = meetingKey * 10L + 5L,
+                sessionName = "Carrera Principal",
+                sessionType = "Race",
+                dateStart = raceStart,
+                dateEnd = raceEnd,
+                meetingKey = meetingKey,
+                circuitShortName = circuit,
+                countryName = country,
+                isCancelled = false
+            )
+        )
+
+        return sessions.sortedBy { TimeUtils.parseUtc(it.dateStart)?.time ?: Long.MAX_VALUE }
+    }
+
+    fun getCircuitSilhouetteUrl(location: String, country: String): String {
+        val loc = "$location $country".lowercase()
+        return when {
+            loc.contains("albert") || loc.contains("australia") || loc.contains("melbourne") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Australia_Circuit.png"
+            loc.contains("shanghai") || loc.contains("china") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/China_Circuit.png"
+            loc.contains("suzuka") || loc.contains("japan") || loc.contains("japón") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Japan_Circuit.png"
+            loc.contains("miami") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Miami_Circuit.png"
+            loc.contains("canada") || loc.contains("canadá") || loc.contains("montreal") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Canada_Circuit.png"
+            loc.contains("monaco") || loc.contains("mónaco") || loc.contains("monte carlo") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Monaco_Circuit.png"
+            loc.contains("catalunya") || loc.contains("barcelona") || loc.contains("spain") || loc.contains("españa") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Spain_Circuit.png"
+            loc.contains("red bull ring") || loc.contains("austria") || loc.contains("spielberg") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Austria_Circuit.png"
+            loc.contains("silverstone") || loc.contains("great britain") || loc.contains("gran bretaña") || loc.contains("uk") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Great_Britain_Circuit.png"
+            loc.contains("spa") || loc.contains("belgium") || loc.contains("bélgica") || loc.contains("francorchamps") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Belgium_Circuit.png"
+            loc.contains("hungaroring") || loc.contains("hungary") || loc.contains("hungría") || loc.contains("budapest") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Hungary_Circuit.png"
+            loc.contains("zandvoort") || loc.contains("netherlands") || loc.contains("países bajos") || loc.contains("holanda") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Netherlands_Circuit.png"
+            loc.contains("monza") || loc.contains("italy") || loc.contains("italia") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Italy_Circuit.png"
+            loc.contains("baku") || loc.contains("azerbaijan") || loc.contains("azerbaiyán") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Baku_Circuit.png"
+            loc.contains("singapore") || loc.contains("singapur") || loc.contains("marina bay") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Singapore_Circuit.png"
+            loc.contains("austin") || loc.contains("americas") || loc.contains("united states") || loc.contains("estados unidos") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/USA_Circuit.png"
+            loc.contains("mexico") || loc.contains("méxico") || loc.contains("rodriguez") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Mexico_Circuit.png"
+            loc.contains("interlagos") || loc.contains("brazil") || loc.contains("brasil") || loc.contains("são paulo") || loc.contains("sao paulo") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Brazil_Circuit.png"
+            loc.contains("vegas") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Las_Vegas_Circuit.png"
+            loc.contains("qatar") || loc.contains("losail") || loc.contains("lusail") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Qatar_Circuit.png"
+            loc.contains("abu dhabi") || loc.contains("yas marina") || loc.contains("uae") || loc.contains("emiratos") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Abu_Dhabi_Circuit.png"
+            loc.contains("bahrain") || loc.contains("barein") || loc.contains("sakhir") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Bahrain_Circuit.png"
+            loc.contains("jeddah") || loc.contains("saudi") || loc.contains("arabia") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Saudi_Arabia_Circuit.png"
+            else -> "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/USA_Circuit.png"
+        }
+    }
+
+    fun getCountryFlagUrl(country: String): String {
+        val lower = country.lowercase()
+        val code = when {
+            lower.contains("australia") -> "au"
+            lower.contains("china") -> "cn"
+            lower.contains("japan") || lower.contains("japón") -> "jp"
+            lower.contains("united states") || lower.contains("usa") || lower.contains("estados unidos") -> "us"
+            lower.contains("canada") || lower.contains("canadá") -> "ca"
+            lower.contains("monaco") || lower.contains("mónaco") -> "mc"
+            lower.contains("spain") || lower.contains("españa") -> "es"
+            lower.contains("austria") -> "at"
+            lower.contains("great britain") || lower.contains("uk") || lower.contains("gran bretaña") || lower.contains("united kingdom") -> "gb"
+            lower.contains("belgium") || lower.contains("bélgica") -> "be"
+            lower.contains("hungary") || lower.contains("hungría") -> "hu"
+            lower.contains("netherlands") || lower.contains("países bajos") || lower.contains("holanda") -> "nl"
+            lower.contains("italy") || lower.contains("italia") -> "it"
+            lower.contains("azerbaijan") || lower.contains("azerbaiyán") -> "az"
+            lower.contains("singapore") || lower.contains("singapur") -> "sg"
+            lower.contains("mexico") || lower.contains("méxico") -> "mx"
+            lower.contains("brazil") || lower.contains("brasil") -> "br"
+            lower.contains("qatar") -> "qa"
+            lower.contains("uae") || lower.contains("emirates") || lower.contains("emiratos") -> "ae"
+            lower.contains("bahrain") || lower.contains("barein") -> "bh"
+            lower.contains("saudi") -> "sa"
+            lower.contains("malaysia") -> "my"
+            else -> "un"
+        }
+        return "https://flagcdn.com/w160/$code.png"
     }
 }

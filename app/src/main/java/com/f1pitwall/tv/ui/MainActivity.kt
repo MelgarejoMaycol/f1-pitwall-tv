@@ -197,6 +197,7 @@ class MainActivity : AppCompatActivity() {
         btnTabPitWall.setOnClickListener {
             homeViewManager.saveFocusAndScroll()
             switchToTab(layoutPitWall, btnTabPitWall)
+            pitWallViewManager.onPitWallTabSelected()
         }
 
         btnTabArchive.setOnClickListener {
@@ -371,7 +372,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun loadLiveSessionData() {
         try {
-            val session = repository.getCurrentOrNextSession(AppConfig.DEFAULT_SEASON)
+            val session = repository.getCurrentOrNextSession(selectedYear)
             if (session == null) {
                 pitWallViewManager.onScheduleUnavailable()
                 pitWallViewManager.leaderboardAdapter.updateData(emptyList())
@@ -390,7 +391,30 @@ class MainActivity : AppCompatActivity() {
             pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, isUpcoming, title)
 
             if (!isLive) {
-                pitWallViewManager.leaderboardAdapter.updateData(emptyList())
+                val standings = repository.getDriverStandings(selectedYear)
+                if (standings.isNotEmpty()) {
+                    val fallbackItems = standings.map { st ->
+                        DriverLeaderboardItem(
+                            driverNumber = st.driverNumber,
+                            position = st.position,
+                            acronym = st.acronym,
+                            fullName = st.fullName,
+                            teamName = st.teamName,
+                            teamColor = st.teamColor,
+                            gapToLeader = st.gapToLeader ?: if (st.position == 1) "LÍDER" else "+${st.points} pts",
+                            interval = "${st.points} pts",
+                            lastLap = "--:--",
+                            s1 = "--",
+                            s2 = "--",
+                            s3 = "--",
+                            tyreCompound = "SOFT",
+                            tyreAge = 1
+                        )
+                    }
+                    pitWallViewManager.leaderboardAdapter.updateData(fallbackItems)
+                } else {
+                    pitWallViewManager.leaderboardAdapter.updateData(emptyList())
+                }
                 tvRaceFlag.text = if (isUpcoming) "🏁 PRÓXIMA SESIÓN" else "🏁 ÚLTIMA SESIÓN"
                 tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
                 tvWeather.text = "⛅ Pista: -- | Aire: --"
@@ -422,7 +446,30 @@ class MainActivity : AppCompatActivity() {
             val laps = api.getLatestLaps(session.sessionKey)
             val stints = api.getStints(session.sessionKey)
 
-            val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
+            var items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
+            if (items.isEmpty()) {
+                val standings = repository.getDriverStandings(selectedYear)
+                if (standings.isNotEmpty()) {
+                    items = standings.map { st ->
+                        DriverLeaderboardItem(
+                            driverNumber = st.driverNumber,
+                            position = st.position,
+                            acronym = st.acronym,
+                            fullName = st.fullName,
+                            teamName = st.teamName,
+                            teamColor = st.teamColor,
+                            gapToLeader = st.gapToLeader ?: if (st.position == 1) "LÍDER" else "+${st.points} pts",
+                            interval = "${st.points} pts",
+                            lastLap = "--:--",
+                            s1 = "--",
+                            s2 = "--",
+                            s3 = "--",
+                            tyreCompound = "SOFT",
+                            tyreAge = 1
+                        )
+                    }
+                }
+            }
             pitWallViewManager.leaderboardAdapter.updateData(items)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -524,7 +571,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadSessionsForMeeting(meetingKey: Long) {
         lifecycleScope.launch {
             try {
-                val sessions = api.getSessions(meetingKey).sortedBy { TimeUtils.parseUtc(it.dateStart)?.time ?: Long.MAX_VALUE }
+                val sessions = repository.getSessions(meetingKey, selectedYear).sortedBy { TimeUtils.parseUtc(it.dateStart)?.time ?: Long.MAX_VALUE }
                 sessionScheduleAdapter.updateData(sessions)
 
                 if (sessions.isEmpty()) {
@@ -537,7 +584,8 @@ class MainActivity : AppCompatActivity() {
 
                 val raceSession = sessions.find { it.sessionType.equals("Race", true) } ?: sessions.lastOrNull()
                 raceSession?.let { s ->
-                    loadHistoricalSession(s.sessionKey)
+                    val round = (selectedMeeting?.circuitKey ?: 1)
+                    loadHistoricalSession(s.sessionKey, round)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -545,7 +593,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadHistoricalSession(sessionKey: Long) {
+    private fun loadHistoricalSession(sessionKey: Long, round: Int = 1) {
         lifecycleScope.launch {
             try {
                 val drivers = api.getDrivers(sessionKey)
@@ -554,7 +602,35 @@ class MainActivity : AppCompatActivity() {
                 val laps = api.getLatestLaps(sessionKey)
                 val stints = api.getStints(sessionKey)
 
-                val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
+                var items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
+                if (items.isEmpty()) {
+                    val r = repository.getRaceResults(selectedYear, round)
+                    if (r.isNotEmpty()) {
+                        items = r.mapIndexed { idx, res ->
+                            val pos = res.position?.toIntOrNull() ?: (idx + 1)
+                            val driverNum = res.number?.toIntOrNull() ?: (idx + 1)
+                            val acronym = res.driver?.code ?: res.driver?.familyName?.take(3)?.uppercase() ?: "F1"
+                            val team = res.constructor?.name ?: "Equipo F1"
+                            val teamColor = repository.getTeamColor(team)
+                            DriverLeaderboardItem(
+                                driverNumber = driverNum,
+                                position = pos,
+                                acronym = acronym,
+                                fullName = res.driver?.fullName ?: "Piloto F1",
+                                teamName = team,
+                                teamColor = teamColor,
+                                gapToLeader = if (pos == 1) "GANADOR" else (res.time?.time ?: "+${res.points ?: "0"} pts"),
+                                interval = "${res.points ?: "0"} pts",
+                                lastLap = res.time?.time ?: "--",
+                                s1 = "--",
+                                s2 = "--",
+                                s3 = "--",
+                                tyreCompound = "HARD",
+                                tyreAge = 1
+                            )
+                        }
+                    }
+                }
                 archiveResultsAdapter.updateData(items)
             } catch (e: Exception) {
                 e.printStackTrace()

@@ -108,7 +108,7 @@ class FutbolVivoExtractor(private val context: Context) {
 
                 function isFormulaOne(title) {
                     const value = title.toLowerCase();
-                    const isF1 = /\bf1\b|formula\s*1|formula\s*one|gran\s*premio|grand\s*prix/.test(value);
+                    const isF1 = /\bf1\b|formula\s*1|formula\s*one|gran\s*premio|grand\s*prix|motorsport.*f1|racing.*f1|las\s*vegas\s*gp/.test(value);
                     const isOtherSeries = /f1\s*academy|formula\s*2|formula\s*3/.test(value);
                     return isF1 && !isOtherSeries;
                 }
@@ -198,7 +198,8 @@ class FutbolVivoExtractor(private val context: Context) {
                             live: isLive(item, entry.extra),
                             startTime: startOf(item),
                             eventUrl: (() => {
-                                const candidate = item.url || item.href || item.link || null;
+                                const candidate = item.url || item.href || item.link ||
+                                    (typeof window.seStreamUrl === "function" ? window.seStreamUrl(item) : null);
                                 return typeof candidate === "string" ? candidate : null;
                             })()
                         };
@@ -214,19 +215,19 @@ class FutbolVivoExtractor(private val context: Context) {
                     if (f1Matches.length) {
                         noEventSent = false;
                         const target = f1Matches[0];
-                        const key = [target.title, target.live, target.startTime || ""].join("|");
+                        const key = [target.title, target.live, target.startTime || "", target.eventUrl || ""].join("|");
                         if (key !== lastEventKey && window.AndroidBridge) {
                             lastEventKey = key;
                             window.AndroidBridge.postF1Event(JSON.stringify(target));
                         }
-                    } else if (attempts >= 6 && !noEventSent && window.AndroidBridge) {
+                    } else if (attempts >= 8 && !noEventSent && window.AndroidBridge) {
                         noEventSent = true;
                         window.AndroidBridge.postNoF1();
                     }
                 }
 
                 scan();
-                window.__f1PitwallWatcher = setInterval(scan, 10000);
+                window.__f1PitwallWatcher = setInterval(scan, 2500);
             })();
         """.trimIndent()
 

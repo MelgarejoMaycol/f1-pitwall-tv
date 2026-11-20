@@ -78,4 +78,20 @@ object TimeUtils {
         val end = parseUtc(endIso) ?: return false
         return Date().after(end)
     }
+
+    fun addHoursToIso(isoDate: String?, hours: Long): String? {
+        val date = parseUtc(isoDate) ?: return null
+        val target = Date(date.time + hours * 3600000L)
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        format.timeZone = TimeZone.getTimeZone("UTC")
+        return format.format(target)
+    }
+
+    fun addMinutesToIso(isoDate: String?, minutes: Long): String? {
+        val date = parseUtc(isoDate) ?: return null
+        val target = Date(date.time + minutes * 60000L)
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        format.timeZone = TimeZone.getTimeZone("UTC")
+        return format.format(target)
+    }
 }

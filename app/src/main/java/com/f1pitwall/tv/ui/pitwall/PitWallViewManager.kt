@@ -5,12 +5,16 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Message
+import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.*
@@ -26,6 +30,7 @@ import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.FutbolVivoExtractor
 import com.f1pitwall.tv.ui.LeaderboardAdapter
 import kotlinx.coroutines.launch
+import java.io.ByteArrayInputStream
 
 class PitWallViewManager(
     private val rootView: View,
@@ -103,7 +108,7 @@ class PitWallViewManager(
     private var futbolVivoStatusText: String = "FÚTBOL LIBRE • BUSCANDO EVENTOS F1"
     private var discoveredFutbolEventUrl: String? = null
     private var discoveredFutbolEventTitle: String = "Evento de Fórmula 1"
-    private val activePopupWebViews = mutableListOf<WebView>()
+    private var currentWebUrl: String? = null
     private var customFullScreenView: View? = null
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
 
@@ -128,7 +133,7 @@ class PitWallViewManager(
      */
     private fun setupWebView() {
         webVideoView.apply {
-            setLayerType(View.LAYER_TYPE_NONE, null)
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             setBackgroundColor(Color.BLACK)
             isFocusable = true
             isFocusableInTouchMode = true
@@ -137,19 +142,17 @@ class PitWallViewManager(
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
-                javaScriptCanOpenWindowsAutomatically = true
-                setSupportMultipleWindows(true)
+                javaScriptCanOpenWindowsAutomatically = false
+                setSupportMultipleWindows(false)
                 mediaPlaybackRequiresUserGesture = false
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
-                // Use a desktop-style UA for TV layouts while retaining the installed WebView's
-                // actual Chromium version, rather than spoofing an obsolete browser build.
                 userAgentString = userAgentString
                     .replace("; wv", "")
                     .replace(" Mobile", "")
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                    mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 }
             }
 
@@ -160,13 +163,52 @@ class PitWallViewManager(
                 }
             }
 
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN &&
+                    (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    triggerPlayerTap()
+                    true
+                } else {
+                    false
+                }
+            }
+
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): WebResourceResponse? {
+                    val url = request?.url?.toString()?.lowercase() ?: return null
+                    val isAd = listOf(
+                        "acscdn.com", "al5sm.com", "deltalcherup.com", "histats.com",
+                        "popads", "adsterra", "doubleclick", "googlesyndication",
+                        "googleads", "adnxs", "propellerads", "trafficjunky",
+                        "exoclick", "juicyads", "syndication", "adsystem", "adservice"
+                    ).any { url.contains(it) }
+                    if (isAd) {
+                        return WebResourceResponse("text/javascript", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                    }
+                    return super.shouldInterceptRequest(view, request)
+                }
+
                 override fun shouldOverrideUrlLoading(
                     view: WebView?,
                     request: WebResourceRequest?
                 ): Boolean {
-                    val scheme = request?.url?.scheme?.lowercase() ?: return false
-                    return scheme != "http" && scheme != "https"
+                    val uri = request?.url ?: return false
+                    val scheme = uri.scheme?.lowercase() ?: ""
+                    val host = uri.host?.lowercase() ?: ""
+                    if (scheme != "http" && scheme != "https") return true
+
+                    val isStreamHost = listOf(
+                        "vivogoal", "futbol", "golygoals", "kora-plus",
+                        "sport", "streameast", "strm-api", "cdn"
+                    ).any { host.contains(it) }
+
+                    if (!isStreamHost && request.isForMainFrame) {
+                        return true
+                    }
+                    return false
                 }
 
                 override fun onReceivedError(
@@ -196,8 +238,93 @@ class PitWallViewManager(
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    val pageTitle = webVideoView.title?.takeIf { it.isNotBlank() } ?: "Fuente web"
-                    tvLiveSessionAlertTitle.text = "🌐 " + pageTitle
+                    val pageTitle = webVideoView.title?.takeIf { it.isNotBlank() } ?: "Señal F1"
+                    tvLiveSessionAlertTitle.text = "🏎️ " + pageTitle
+
+                    val cleanJs = """
+                        (function() {
+                            try { window.open = function() { return null; }; } catch(e) {}
+                            function cleanAndMaximize() {
+                                const iframe = document.getElementById('liveIframe') || document.querySelector('.se-player-wrap iframe');
+                                if (iframe && iframe.src && iframe.src.indexOf('frame.html') !== -1) {
+                                    window.location.replace(iframe.src);
+                                    return;
+                                }
+
+                                const style = document.createElement('style');
+                                style.id = '__f1_tv_clean';
+                                style.innerHTML = `
+                                    html, body {
+                                        margin: 0 !important;
+                                        padding: 0 !important;
+                                        width: 100vw !important;
+                                        height: 100vh !important;
+                                        background: #000000 !important;
+                                        overflow: hidden !important;
+                                    }
+                                    header, footer, nav, .se-match-head, .se-teams, .se-match-title,
+                                    .se-tabs, .navbar, .se-footer, .nav-mobile-only, .se-home-link,
+                                    #streamTabs, #matchTitle, #matchTeams, .se-sport-pill,
+                                    .histats, [id*="histats"], [class*="histats"], [id*="aclib"] {
+                                        display: none !important;
+                                    }
+                                    .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap {
+                                        position: fixed !important;
+                                        top: 0 !important;
+                                        left: 0 !important;
+                                        width: 100vw !important;
+                                        height: 100vh !important;
+                                        max-width: 100vw !important;
+                                        max-height: 100vh !important;
+                                        margin: 0 !important;
+                                        padding: 0 !important;
+                                        border: none !important;
+                                        border-radius: 0 !important;
+                                        background: #000000 !important;
+                                        z-index: 999999 !important;
+                                    }
+                                    iframe {
+                                        position: absolute !important;
+                                        top: 0 !important;
+                                        left: 0 !important;
+                                        width: 100% !important;
+                                        height: 100% !important;
+                                        border: none !important;
+                                        background: #000 !important;
+                                    }
+                                `;
+                                if (!document.getElementById('__f1_tv_clean')) {
+                                    document.head.appendChild(style);
+                                }
+
+                                document.querySelectorAll('video').forEach(v => {
+                                    v.muted = false;
+                                    v.play().catch(() => {
+                                        v.muted = true;
+                                        v.play().catch(() => {});
+                                    });
+                                });
+
+                                document.querySelectorAll('div').forEach(d => {
+                                    if (d.id !== 'playerWrap' && !d.classList.contains('se-player-wrap') && !d.classList.contains('se-player')) {
+                                        const s = window.getComputedStyle(d);
+                                        if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) > 999999) {
+                                            d.remove();
+                                        }
+                                    }
+                                });
+                            }
+
+                            cleanAndMaximize();
+                            setTimeout(cleanAndMaximize, 600);
+                            setTimeout(cleanAndMaximize, 1500);
+                            setTimeout(cleanAndMaximize, 3000);
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(cleanJs, null)
+
+                    view?.postDelayed({ triggerPlayerTap() }, 3000)
+                    view?.postDelayed({ triggerPlayerTap() }, 5500)
                 }
             }
 
@@ -207,7 +334,7 @@ class PitWallViewManager(
                     isDialog: Boolean,
                     isUserGesture: Boolean,
                     resultMsg: Message?
-                ): Boolean = createPopupWindow(resultMsg)
+                ): Boolean = false
 
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
@@ -231,41 +358,33 @@ class PitWallViewManager(
                 }
             }
         }
+
+        playerSurface.setOnClickListener {
+            triggerPlayerTap()
+        }
     }
 
-    private fun createPopupWindow(resultMsg: Message?): Boolean {
-        val message = resultMsg ?: return false
-        val transport = message.obj as? WebView.WebViewTransport ?: return false
-        val popup = WebView(context)
-        activePopupWebViews.add(popup)
-        playerSurface.addView(popup, FrameLayout.LayoutParams(1, 1))
-        popup.settings.javaScriptEnabled = true
-        popup.settings.domStorageEnabled = true
-        popup.settings.mediaPlaybackRequiresUserGesture = false
-        CookieManager.getInstance().setAcceptThirdPartyCookies(popup, true)
-        popup.webViewClient = object : WebViewClient() {
-            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                if (!url.isNullOrBlank() && url != "about:blank") {
-                    webVideoView.loadUrl(url)
-                    closePopup(popup)
-                }
-            }
-        }
-        popup.webChromeClient = object : WebChromeClient() {
-            override fun onCloseWindow(window: WebView?) {
-                closePopup(popup)
-            }
-        }
-        transport.webView = popup
-        message.sendToTarget()
-        return true
+    fun triggerPlayerTap() {
+        if (webVideoView.visibility != View.VISIBLE) return
+        val w = webVideoView.width.toFloat()
+        val h = webVideoView.height.toFloat()
+        if (w <= 0 || h <= 0) return
+        val density = context.resources.displayMetrics.density
+
+        sendTouch(w / 2f, h / 2f)
+        webVideoView.postDelayed({
+            sendTouch(w / 2f, 35f * density)
+        }, 250)
     }
 
-    private fun closePopup(popup: WebView) {
-        activePopupWebViews.remove(popup)
-        (popup.parent as? ViewGroup)?.removeView(popup)
-        popup.stopLoading()
-        popup.destroy()
+    private fun sendTouch(x: Float, y: Float) {
+        val now = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0)
+        val up = MotionEvent.obtain(now, now + 40, MotionEvent.ACTION_UP, x, y, 0)
+        webVideoView.dispatchTouchEvent(down)
+        webVideoView.dispatchTouchEvent(up)
+        down.recycle()
+        up.recycle()
     }
 
     private fun hideCustomView() {
@@ -283,7 +402,7 @@ class PitWallViewManager(
         return listOf(".m3u8", ".mpd", ".mp4", ".m4v").any { path.endsWith(it) }
     }
 
-    private fun openDiscoveredFutbolEvent() {
+    fun openDiscoveredFutbolEvent() {
         val eventUrl = discoveredFutbolEventUrl
         if (eventUrl.isNullOrBlank()) {
             openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
@@ -291,15 +410,8 @@ class PitWallViewManager(
         }
 
         val uri = runCatching { Uri.parse(eventUrl) }.getOrNull()
-        val host = uri?.host?.lowercase().orEmpty()
-        val allowedHost = host == "futbolvivo.tv" ||
-            host.endsWith(".futbolvivo.tv") ||
-            host == "golygoals.com" ||
-            host.endsWith(".golygoals.com")
-
         val scheme = uri?.scheme?.lowercase()
-        if (uri == null || !allowedHost || (scheme != "http" && scheme != "https")) {
-            Toast.makeText(context, "El evento fue detectado; abre la cartelera del proveedor para entrar manualmente.", Toast.LENGTH_LONG).show()
+        if (uri == null || (scheme != "http" && scheme != "https") || uri.host.isNullOrBlank()) {
             openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
             return
         }
@@ -324,13 +436,14 @@ class PitWallViewManager(
             return
         }
 
+        currentWebUrl = url
         exoPlayer?.pause()
         exoPlayer?.stop()
         playerView.visibility = View.GONE
         layoutPlayerStandby.visibility = View.GONE
         webVideoView.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.VISIBLE
-        tvLiveSessionAlertTitle.text = "🌐 Cargando " + title
+        tvLiveSessionAlertTitle.text = "🏎️ " + title
         webVideoView.loadUrl(url)
         webVideoView.requestFocus()
     }
@@ -444,6 +557,10 @@ class PitWallViewManager(
             } else {
                 "📺 ABRIR EVENTO F1"
             }
+            // Auto play if Pit Wall is visible and video is not playing
+            if (rootView.visibility == View.VISIBLE && !isVideoPlaying() && !event.eventUrl.isNullOrBlank()) {
+                openDiscoveredFutbolEvent()
+            }
         }
         futbolVivoExtractor.onNoEventDetected = {
             discoveredFutbolEventUrl = null
@@ -463,6 +580,22 @@ class PitWallViewManager(
     private fun setupLeaderboardView() {
         rvLeaderboard.layoutManager = LinearLayoutManager(context)
         rvLeaderboard.adapter = leaderboardAdapter
+    }
+
+    fun isVideoPlaying(): Boolean {
+        val isExoPlaying = exoPlayer?.isPlaying == true && playerView.visibility == View.VISIBLE
+        val isWebPlaying = webVideoView.visibility == View.VISIBLE && currentWebUrl != null && currentWebUrl != "about:blank"
+        return isExoPlaying || isWebPlaying
+    }
+
+    fun onPitWallTabSelected() {
+        if (!isVideoPlaying()) {
+            if (!discoveredFutbolEventUrl.isNullOrBlank()) {
+                openDiscoveredFutbolEvent()
+            } else {
+                futbolVivoExtractor.startExtraction(defaultWebSourceUrl ?: "https://futbolvivo.tv/")
+            }
+        }
     }
 
     fun playStream(url: String, title: String? = null) {
@@ -493,10 +626,10 @@ class PitWallViewManager(
 
     fun switchToStandby() {
         if (customFullScreenView != null) hideCustomView()
-        activePopupWebViews.toList().forEach { closePopup(it) }
         webVideoView.stopLoading()
         webVideoView.loadUrl("about:blank")
         webVideoView.visibility = View.GONE
+        currentWebUrl = null
         exoPlayer?.pause()
         exoPlayer?.stop()
         playerView.visibility = View.GONE
@@ -660,7 +793,6 @@ class PitWallViewManager(
     }
 
     fun onDestroy() {
-        activePopupWebViews.toList().forEach { closePopup(it) }
         futbolVivoExtractor.destroy()
         webVideoView.stopLoading()
         webVideoView.destroy()
