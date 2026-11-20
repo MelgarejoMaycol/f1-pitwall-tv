@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.AppConfig
+import com.f1pitwall.tv.core.config.VideoSourcesConfig
 import com.f1pitwall.tv.core.config.BroadcastSource
 import com.f1pitwall.tv.core.config.VideoSourcesConfig
 import com.f1pitwall.tv.core.storage.PreferencesManager
@@ -19,7 +20,6 @@ import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.data.repository.RemoteBroadcastConfigRepository
 import com.f1pitwall.tv.data.repository.ConfigSyncResult
-import com.f1pitwall.tv.data.repository.ConfigOrigin
 import com.f1pitwall.tv.data.model.RemoteBroadcastConfig
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
@@ -88,22 +88,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSearchChip2: TextView
     private lateinit var tvSearchChip3: TextView
     private lateinit var tvSearchChip4: TextView
-    private lateinit var etStreamUrl: EditText
-    private lateinit var btnApplyStream: Button
-    private lateinit var btnPresetDemo1: Button
-    private lateinit var btnPresetDemo2: Button
     private lateinit var btnReloadGitSources: Button
-    private lateinit var tvRemoteCatalogStatus: TextView
+    private lateinit var scrollDirectChannels: HorizontalScrollView
     private lateinit var llDynamicDirectPresets: LinearLayout
     private lateinit var remoteConfigRepo: RemoteBroadcastConfigRepository
 
     private var sessionRefreshJob: Job? = null
     private var selectedMeeting: Meeting? = null
     private var selectedYear: Int = AppConfig.DEFAULT_SEASON // 2026
-
-    // Demo stream presets
-    private val demoHlsUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
-    private val demoMp4Url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -161,12 +153,8 @@ class MainActivity : AppCompatActivity() {
         tvSearchChip2 = findViewById(R.id.tvSearchChip2)
         tvSearchChip3 = findViewById(R.id.tvSearchChip3)
         tvSearchChip4 = findViewById(R.id.tvSearchChip4)
-        etStreamUrl = findViewById(R.id.etStreamUrl)
-        btnApplyStream = findViewById(R.id.btnApplyStream)
-        btnPresetDemo1 = findViewById(R.id.btnPresetDemo1)
-        btnPresetDemo2 = findViewById(R.id.btnPresetDemo2)
         btnReloadGitSources = findViewById(R.id.btnReloadGitSources)
-        tvRemoteCatalogStatus = findViewById(R.id.tvRemoteCatalogStatus)
+        scrollDirectChannels = findViewById(R.id.scrollDirectChannels)
         llDynamicDirectPresets = findViewById(R.id.llDynamicDirectPresets)
     }
 
@@ -317,37 +305,8 @@ class MainActivity : AppCompatActivity() {
     private fun setupSettingsView() {
         setupBroadcastSourceSelector()
 
-        if (etStreamUrl.text.isNullOrBlank()) {
-            VideoSourcesConfig.loadProviders(this)
-                .firstOrNull { it.isDefault }
-                ?.let { etStreamUrl.setText(it.streamUrl) }
-        }
-
-        btnApplyStream.setOnClickListener {
-            val url = etStreamUrl.text.toString().trim()
-            if (url.isNotEmpty()) {
-                pitWallViewManager.playStream(url, "Señal Personalizada")
-                btnTabPitWall.performClick()
-            } else {
-                Toast.makeText(this, "Introduce una URL válida", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        btnPresetDemo1.setOnClickListener {
-            etStreamUrl.setText(demoHlsUrl)
-            pitWallViewManager.playStream(demoHlsUrl, "Demo 1 (HLS)")
-            btnTabPitWall.performClick()
-        }
-
-        btnPresetDemo2.setOnClickListener {
-            etStreamUrl.setText(demoMp4Url)
-            pitWallViewManager.playStream(demoMp4Url, "Demo 2 (MP4)")
-            btnTabPitWall.performClick()
-        }
-
         btnReloadGitSources.setOnClickListener {
             lifecycleScope.launch {
-                Toast.makeText(this@MainActivity, "Consultando catálogo remoto en GitHub...", Toast.LENGTH_SHORT).show()
                 syncRemoteBroadcastConfig(forceRemote = true)
             }
         }
@@ -360,28 +319,15 @@ class MainActivity : AppCompatActivity() {
 
         when (result) {
             is ConfigSyncResult.Success -> {
-                val originLabel = when (result.origin) {
-                    ConfigOrigin.REMOTE_GITHUB -> "GitHub Remoto"
-                    ConfigOrigin.LOCAL_CACHE -> "Caché Local"
-                    ConfigOrigin.LOCAL_ASSETS -> "Assets APK"
-                }
-                val infoText = "📡 Catálogo Git: ${result.providerCount} proveedores | ${result.enabledChannelCount} canales activos • Actualizado: ${result.updatedAt} ($originLabel)"
-                tvRemoteCatalogStatus.text = infoText
                 updateDynamicDirectPresets(result.config)
                 if (forceRemote) {
-                    Toast.makeText(
-                        this,
-                        "Catálogo sincronizado ($originLabel)\nProveedores: ${result.providerCount} | Canales: ${result.enabledChannelCount}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(this, "Fuentes actualizadas", Toast.LENGTH_SHORT).show()
                 }
             }
             is ConfigSyncResult.Error -> {
-                val errText = "⚠️ Error al descargar catálogo de GitHub: ${result.errorMessage}"
-                tvRemoteCatalogStatus.text = errText
                 result.fallbackConfig?.let { updateDynamicDirectPresets(it) }
                 if (forceRemote) {
-                    Toast.makeText(this, errText, Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "No se pudieron actualizar las fuentes", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -391,30 +337,57 @@ class MainActivity : AppCompatActivity() {
         llDynamicDirectPresets.removeAllViews()
         val channels = config.getEnabledChannels()
         val density = resources.displayMetrics.density
+        val buttons = mutableListOf<Button>()
 
-        channels.forEach { ch ->
-            val btn = Button(this).apply {
+        channels.forEach { channel ->
+            val button = Button(this).apply {
+                id = View.generateViewId()
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     (38 * density).toInt()
                 ).apply {
-                    marginEnd = (10 * density).toInt()
+                    marginEnd = (8 * density).toInt()
                 }
                 background = ContextCompat.getDrawable(this@MainActivity, R.drawable.btn_tab_selector)
-                text = "${ch.name} [${ch.type}]"
+                text = channel.name
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
                 textSize = 11f
                 isFocusable = true
                 isClickable = true
                 setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
                 setOnClickListener {
-                    etStreamUrl.setText(ch.url)
-                    pitWallViewManager.playStream(ch.url, "${ch.name} (${ch.type})")
+                    pitWallViewManager.playStream(channel.url, channel.name)
                     btnTabPitWall.performClick()
                 }
+                setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        scrollDirectChannels.smoothScrollTo(view.left - (24 * density).toInt(), 0)
+                    }
+                }
             }
-            llDynamicDirectPresets.addView(btn)
+            buttons.add(button)
+            llDynamicDirectPresets.addView(button)
         }
+
+        scrollDirectChannels.visibility = if (buttons.isEmpty()) View.GONE else View.VISIBLE
+
+        buttons.forEachIndexed { index, button ->
+            button.nextFocusUpId = R.id.btnSourceFlx
+            button.nextFocusDownId = btnReloadGitSources.id
+            button.nextFocusLeftId = if (index > 0) buttons[index - 1].id else R.id.btnSourceFlx
+            button.nextFocusRightId = if (index < buttons.lastIndex) {
+                buttons[index + 1].id
+            } else {
+                btnReloadGitSources.id
+            }
+        }
+
+        val firstChannelId = buttons.firstOrNull()?.id ?: btnReloadGitSources.id
+        btnSourceFlx.nextFocusDownId = firstChannelId
+        btnSourceFutbolVivo.nextFocusDownId = firstChannelId
+        btnSourceFutbolLibre.nextFocusDownId = firstChannelId
+        btnReloadGitSources.nextFocusUpId = R.id.btnSourceFlx
+        btnReloadGitSources.nextFocusDownId = buttons.firstOrNull()?.id ?: btnReloadGitSources.id
     }
 
     private fun setupBroadcastSourceSelector() {
@@ -424,43 +397,39 @@ class MainActivity : AppCompatActivity() {
         btnSourceFlx.setOnClickListener {
             preferencesManager.broadcastSource = BroadcastSource.FLX
             updateBroadcastSourceUI(BroadcastSource.FLX)
-            Toast.makeText(this, "Fuente seleccionada: FLX (flive.cc.cd/f1)", Toast.LENGTH_SHORT).show()
         }
 
         btnSourceFutbolVivo.setOnClickListener {
             preferencesManager.broadcastSource = BroadcastSource.FUTBOL_VIVO
             updateBroadcastSourceUI(BroadcastSource.FUTBOL_VIVO)
-            Toast.makeText(this, "Fuente seleccionada: Fútbol Vivo (futbolvivo.tv)", Toast.LENGTH_SHORT).show()
         }
 
         btnSourceFutbolLibre.setOnClickListener {
             preferencesManager.broadcastSource = BroadcastSource.FUTBOL_LIBRE
             updateBroadcastSourceUI(BroadcastSource.FUTBOL_LIBRE)
-            Toast.makeText(this, "Fuente seleccionada: Fútbol Libre (futbol-libre.app/agenda)", Toast.LENGTH_SHORT).show()
         }
 
-        // TV Remote Navigation Chain for Broadcast Source
         btnSourceFlx.nextFocusUpId = R.id.btnTabSettings
         btnSourceFlx.nextFocusRightId = R.id.btnSourceFutbolVivo
-        btnSourceFlx.nextFocusDownId = R.id.btnApplyStream
+        btnSourceFlx.nextFocusDownId = btnReloadGitSources.id
         btnSourceFlx.nextFocusLeftId = R.id.btnSourceFlx
 
         btnSourceFutbolVivo.nextFocusUpId = R.id.btnTabSettings
         btnSourceFutbolVivo.nextFocusLeftId = R.id.btnSourceFlx
         btnSourceFutbolVivo.nextFocusRightId = R.id.btnSourceFutbolLibre
-        btnSourceFutbolVivo.nextFocusDownId = R.id.btnApplyStream
+        btnSourceFutbolVivo.nextFocusDownId = btnReloadGitSources.id
 
         btnSourceFutbolLibre.nextFocusUpId = R.id.btnTabSettings
         btnSourceFutbolLibre.nextFocusLeftId = R.id.btnSourceFutbolVivo
         btnSourceFutbolLibre.nextFocusRightId = R.id.btnSourceFutbolLibre
-        btnSourceFutbolLibre.nextFocusDownId = R.id.btnApplyStream
+        btnSourceFutbolLibre.nextFocusDownId = btnReloadGitSources.id
     }
 
     private fun updateBroadcastSourceUI(source: BroadcastSource) {
         btnSourceFlx.isSelected = (source == BroadcastSource.FLX)
         btnSourceFutbolVivo.isSelected = (source == BroadcastSource.FUTBOL_VIVO)
         btnSourceFutbolLibre.isSelected = (source == BroadcastSource.FUTBOL_LIBRE)
-        tvActiveSourceInfo.text = "Fuente activa: ${source.displayName} (${source.defaultUrl})"
+        tvActiveSourceInfo.text = "Activa: ${source.displayName}"
     }
 
     private fun selectYear(year: Int) {
