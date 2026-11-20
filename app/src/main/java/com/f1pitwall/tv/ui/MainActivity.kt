@@ -12,7 +12,9 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.core.config.AppConfig
+import com.f1pitwall.tv.core.config.BroadcastSource
 import com.f1pitwall.tv.core.config.VideoSourcesConfig
+import com.f1pitwall.tv.core.storage.PreferencesManager
 import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
@@ -68,6 +70,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var archiveResultsAdapter: LeaderboardAdapter
 
     // Settings UI & Smart Search
+    private lateinit var btnSourceFlx: Button
+    private lateinit var btnSourceFutbolVivo: Button
+    private lateinit var tvActiveSourceInfo: TextView
+    private val preferencesManager by lazy { PreferencesManager(this) }
     private lateinit var tvDetectedSessionTitle: TextView
     private lateinit var tvSearchChip1: TextView
     private lateinit var tvSearchChip2: TextView
@@ -128,6 +134,9 @@ class MainActivity : AppCompatActivity() {
         rvArchiveResults = findViewById(R.id.rvArchiveResults)
 
         // Settings Views
+        btnSourceFlx = findViewById(R.id.btnSourceFlx)
+        btnSourceFutbolVivo = findViewById(R.id.btnSourceFutbolVivo)
+        tvActiveSourceInfo = findViewById(R.id.tvActiveSourceInfo)
         tvDetectedSessionTitle = findViewById(R.id.tvDetectedSessionTitle)
         tvSearchChip1 = findViewById(R.id.tvSearchChip1)
         tvSearchChip2 = findViewById(R.id.tvSearchChip2)
@@ -221,7 +230,7 @@ class MainActivity : AppCompatActivity() {
         btnTabSettings.setOnClickListener {
             homeViewManager.saveFocusAndScroll()
             switchToTab(layoutSettings, btnTabSettings)
-            btnApplyStream.requestFocus() // Avoid auto-focusing EditText and opening keyboard
+            btnSourceFlx.requestFocus() // Focus on transmission source options
         }
 
         btnTabHome.isSelected = true
@@ -276,6 +285,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSettingsView() {
+        setupBroadcastSourceSelector()
+
         if (etStreamUrl.text.isNullOrBlank()) {
             VideoSourcesConfig.loadProviders(this)
                 .firstOrNull { it.isDefault }
@@ -308,6 +319,40 @@ class MainActivity : AppCompatActivity() {
             val providers = VideoSourcesConfig.loadProviders(this)
             Toast.makeText(this, "Fuentes Git recargadas (${providers.size} proveedores disponibles)", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun setupBroadcastSourceSelector() {
+        val currentSource = preferencesManager.broadcastSource
+        updateBroadcastSourceUI(currentSource)
+
+        btnSourceFlx.setOnClickListener {
+            preferencesManager.broadcastSource = BroadcastSource.FLX
+            updateBroadcastSourceUI(BroadcastSource.FLX)
+            Toast.makeText(this, "Fuente seleccionada: FLX (flive.cc.cd/f1)", Toast.LENGTH_SHORT).show()
+        }
+
+        btnSourceFutbolVivo.setOnClickListener {
+            preferencesManager.broadcastSource = BroadcastSource.FUTBOL_VIVO
+            updateBroadcastSourceUI(BroadcastSource.FUTBOL_VIVO)
+            Toast.makeText(this, "Fuente seleccionada: Fútbol Vivo (futbolvivo.tv)", Toast.LENGTH_SHORT).show()
+        }
+
+        // TV Remote Navigation Chain for Broadcast Source
+        btnSourceFlx.nextFocusUpId = R.id.btnTabSettings
+        btnSourceFlx.nextFocusRightId = R.id.btnSourceFutbolVivo
+        btnSourceFlx.nextFocusDownId = R.id.btnApplyStream
+        btnSourceFlx.nextFocusLeftId = R.id.btnSourceFlx
+
+        btnSourceFutbolVivo.nextFocusUpId = R.id.btnTabSettings
+        btnSourceFutbolVivo.nextFocusLeftId = R.id.btnSourceFlx
+        btnSourceFutbolVivo.nextFocusRightId = R.id.btnSourceFutbolVivo
+        btnSourceFutbolVivo.nextFocusDownId = R.id.btnApplyStream
+    }
+
+    private fun updateBroadcastSourceUI(source: BroadcastSource) {
+        btnSourceFlx.isSelected = (source == BroadcastSource.FLX)
+        btnSourceFutbolVivo.isSelected = (source == BroadcastSource.FUTBOL_VIVO)
+        tvActiveSourceInfo.text = "Fuente activa: ${source.displayName} (${source.defaultUrl})"
     }
 
     private fun selectYear(year: Int) {

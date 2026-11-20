@@ -26,8 +26,12 @@ import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
+import com.f1pitwall.tv.core.config.BroadcastSource
+import com.f1pitwall.tv.core.storage.PreferencesManager
+import com.f1pitwall.tv.core.util.BroadcastDetectorUtils
 import com.f1pitwall.tv.data.repository.F1Repository
 import com.f1pitwall.tv.model.*
+import com.f1pitwall.tv.network.FlxExtractor
 import com.f1pitwall.tv.network.FutbolVivoExtractor
 import com.f1pitwall.tv.ui.LeaderboardAdapter
 import com.google.gson.Gson
@@ -42,7 +46,9 @@ class PitWallViewManager(
     private val defaultWebSourceUrl: String? = null
 ) {
     private val context: Context = rootView.context
+    private val preferencesManager = PreferencesManager(context)
     private val futbolVivoExtractor = FutbolVivoExtractor(context)
+    private val flxExtractor = FlxExtractor(scope)
 
     // Video Player & Standby
     private val playerSurface: FrameLayout = rootView.findViewById(R.id.framePitWallSurface)
@@ -52,6 +58,7 @@ class PitWallViewManager(
     private val tvStandbyStatusBadge: TextView = rootView.findViewById(R.id.tvStandbyStatusBadge)
     private val tvStandbyTitle: TextView = rootView.findViewById(R.id.tvStandbyTitle)
     private val tvStandbySubtitle: TextView = rootView.findViewById(R.id.tvStandbySubtitle)
+    private val tvStandbyCircuitSpecs: TextView? = rootView.findViewById(R.id.tvStandbyCircuitSpecs)
     private val btnStandbyPreview: Button = rootView.findViewById(R.id.btnStandbyPreview)
     private val btnStandbyRecap: Button = rootView.findViewById(R.id.btnStandbyRecap)
     private val btnStandbyOpenWeb: Button = rootView.findViewById(R.id.btnStandbyOpenWeb)
@@ -66,7 +73,15 @@ class PitWallViewManager(
     private val btnServer1: Button = rootView.findViewById(R.id.btnServer1)
     private val btnServer2: Button = rootView.findViewById(R.id.btnServer2)
     private val btnServer3: Button = rootView.findViewById(R.id.btnServer3)
+    private val btnServer4: Button? = rootView.findViewById(R.id.btnServer4)
+    private val btnServer5: Button? = rootView.findViewById(R.id.btnServer5)
+    private val serverButtons: List<Button> by lazy {
+        listOfNotNull(btnServer1, btnServer2, btnServer3, btnServer4, btnServer5)
+    }
     private var selectedServerIndex: Int = 0
+    private var activeSpanishBroadcasts: List<SpanishBroadcast> = emptyList()
+    private var selectedBroadcastIndex: Int = 0
+    private var currentLoadedSource: BroadcastSource? = null
     private val btnContentPreview: Button = rootView.findViewById(R.id.btnContentPreview)
     private val btnContentRecap: Button = rootView.findViewById(R.id.btnContentRecap)
     private val btnContentBoxes: Button = rootView.findViewById(R.id.btnContentBoxes)
@@ -132,7 +147,7 @@ class PitWallViewManager(
         initPlayers()
         setupListeners()
         setupLeaderboardView()
-        setupFutbolVivoDiscovery()
+        initBroadcastSource()
     }
 
     /**
@@ -213,7 +228,8 @@ class PitWallViewManager(
 
                     val isStreamHost = listOf(
                         "vivogoal", "futbol", "golygoals", "kora-plus",
-                        "sport", "streameast", "strm-api", "cdn"
+                        "sport", "streameast", "strm-api", "cdn",
+                        "flive", "taifood", "videocdn", "weellz"
                     ).any { host.contains(it) }
 
                     if (!isStreamHost && request.isForMainFrame) {
@@ -274,7 +290,8 @@ class PitWallViewManager(
                                     .histats, [id*="histats"], [class*="histats"], [id*="aclib"] {
                                         display: none !important;
                                     }
-                                    .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap, #playerContainer {
+                                    .se-hero, .se-container, .se-match-card, .se-player, .se-player-wrap, #playerWrap, #playerContainer,
+                                    .aspect-video, [class*="aspect-video"], #player, [id*="player"] {
                                         position: fixed !important;
                                         top: 0 !important;
                                         left: 0 !important;
@@ -354,11 +371,92 @@ class PitWallViewManager(
                                 } catch(e) {}
                             }
 
+                            function scanSpanishBroadcasts() {
+                                try {
+                                    let broadcasts = [];
+                                    let counter = 1;
+                                    function isEsp(txt) {
+                                        return /(?:\b(?:español|spanish|castellano)\b|\[(?:spanish|español|esp|es)\]|\((?:spanish|español|esp|es)\)|\b(?:esp|es)\b)/i.test(txt || '');
+                                    }
+                                    function detectNet(txt) {
+                                        const l = (txt || '').toLowerCase();
+                                        if (l.indexOf('dazn') !== -1) return 'DAZN';
+                                        if (l.indexOf('fox sports') !== -1 || l.indexOf('foxsports') !== -1) return 'FOX Sports';
+                                        if (l.indexOf('fox') !== -1) return 'FOX Sports';
+                                        if (l.indexOf('espn premium') !== -1) return 'ESPN Premium';
+                                        if (l.indexOf('espn 1') !== -1 || l.indexOf('espn1') !== -1) return 'ESPN 1';
+                                        if (l.indexOf('espn 2') !== -1 || l.indexOf('espn2') !== -1) return 'ESPN 2';
+                                        if (l.indexOf('espn 3') !== -1 || l.indexOf('espn3') !== -1) return 'ESPN 3';
+                                        if (l.indexOf('espn') !== -1) return 'ESPN';
+                                        if (l.indexOf('movistar') !== -1) return 'Movistar';
+                                        if (l.indexOf('star+') !== -1) return 'Star+';
+                                        return null;
+                                    }
+
+                                    // 1. Check currentMatch.channels
+                                    if (window.currentMatch && Array.isArray(window.currentMatch.channels)) {
+                                        window.currentMatch.channels.forEach((ch, idx) => {
+                                            const combined = [ch.name, ch.channel, ch.server_name, ch.language].filter(Boolean).join(' ');
+                                            if (isEsp(combined)) {
+                                                broadcasts.push({
+                                                    index: counter++,
+                                                    network: detectNet(combined),
+                                                    language: 'Español',
+                                                    serverName: ch.server_name || ('Server ' + (idx + 1)),
+                                                    originalTitle: combined,
+                                                    streamUrl: ch.stream_url || ch.url || null,
+                                                    clickActionJs: '(function(){ if(window.updatePlayer && window.currentMatch && window.currentMatch.channels[' + idx + ']) window.updatePlayer(window.currentMatch.channels[' + idx + ']); })()'
+                                                });
+                                            }
+                                        });
+                                    }
+                                    // 2. Check currentMatch.streams
+                                    if (broadcasts.length === 0 && window.currentMatch && Array.isArray(window.currentMatch.streams)) {
+                                        window.currentMatch.streams.forEach((st, idx) => {
+                                            const combined = [st.name, st.language].filter(Boolean).join(' ');
+                                            if (isEsp(combined)) {
+                                                broadcasts.push({
+                                                    index: counter++,
+                                                    network: detectNet(combined),
+                                                    language: 'Español',
+                                                    serverName: st.name || ('Server ' + (idx + 1)),
+                                                    originalTitle: combined,
+                                                    streamUrl: st.url || null,
+                                                    clickActionJs: '(function(){ window.activeStream = ' + idx + '; if(window.renderPlayer) window.renderPlayer(); })()'
+                                                });
+                                            }
+                                        });
+                                    }
+                                    // 3. Check tabs in DOM
+                                    if (broadcasts.length === 0) {
+                                        const tabs = document.querySelectorAll('#streamTabs .se-tab-btn');
+                                        tabs.forEach((t, idx) => {
+                                            const label = (t.innerText || '').trim();
+                                            if (isEsp(label)) {
+                                                broadcasts.push({
+                                                    index: counter++,
+                                                    network: detectNet(label),
+                                                    language: 'Español',
+                                                    serverName: 'Server ' + (idx + 1),
+                                                    originalTitle: label,
+                                                    clickActionJs: 'document.querySelectorAll("#streamTabs .se-tab-btn")[' + idx + '].click()'
+                                                });
+                                            }
+                                        });
+                                    }
+
+                                    if (broadcasts.length > 0 && window.AndroidPitWallBridge && typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
+                                        window.AndroidPitWallBridge.onSpanishBroadcastsDetected(JSON.stringify(broadcasts));
+                                    }
+                                } catch(e) {}
+                            }
+
                             cleanAndMaximize();
                             reportServers();
-                            setTimeout(function() { cleanAndMaximize(); reportServers(); }, 600);
-                            setTimeout(function() { cleanAndMaximize(); reportServers(); }, 1500);
-                            setTimeout(function() { cleanAndMaximize(); reportServers(); }, 3000);
+                            scanSpanishBroadcasts();
+                            setTimeout(function() { cleanAndMaximize(); reportServers(); scanSpanishBroadcasts(); }, 600);
+                            setTimeout(function() { cleanAndMaximize(); reportServers(); scanSpanishBroadcasts(); }, 1500);
+                            setTimeout(function() { cleanAndMaximize(); reportServers(); scanSpanishBroadcasts(); }, 3000);
                         })();
                     """.trimIndent()
                     view?.evaluateJavascript(cleanJs, null)
@@ -531,10 +629,12 @@ class PitWallViewManager(
             switchToStandby()
         }
 
-        // Selección de servidores / opciones de señal
-        btnServer1.setOnClickListener { selectServer(0) }
-        btnServer2.setOnClickListener { selectServer(1) }
-        btnServer3.setOnClickListener { selectServer(2) }
+        // Selección de servidores / transmisiones en español
+        btnServer1.setOnClickListener { selectSpanishBroadcast(0) }
+        btnServer2.setOnClickListener { selectSpanishBroadcast(1) }
+        btnServer3.setOnClickListener { selectSpanishBroadcast(2) }
+        btnServer4?.setOnClickListener { selectSpanishBroadcast(3) }
+        btnServer5?.setOnClickListener { selectSpanishBroadcast(4) }
         btnServer1.isSelected = true
 
         // TV Remote Focus Chain
@@ -550,11 +650,27 @@ class PitWallViewManager(
 
         btnServer3.nextFocusUpId = R.id.btnTabPitWall
         btnServer3.nextFocusLeftId = R.id.btnServer2
-        btnServer3.nextFocusRightId = R.id.btnLiveSessionAction
+        btnServer3.nextFocusRightId = if (btnServer4?.visibility == View.VISIBLE) R.id.btnServer4 else R.id.btnLiveSessionAction
         btnServer3.nextFocusDownId = R.id.btnPlayRadio
 
+        btnServer4?.nextFocusUpId = R.id.btnTabPitWall
+        btnServer4?.nextFocusLeftId = R.id.btnServer3
+        btnServer4?.nextFocusRightId = if (btnServer5?.visibility == View.VISIBLE) R.id.btnServer5 else R.id.btnLiveSessionAction
+        btnServer4?.nextFocusDownId = R.id.btnPlayRadio
+
+        btnServer5?.nextFocusUpId = R.id.btnTabPitWall
+        btnServer5?.nextFocusLeftId = R.id.btnServer4
+        btnServer5?.nextFocusRightId = R.id.btnLiveSessionAction
+        btnServer5?.nextFocusDownId = R.id.btnPlayRadio
+
         btnLiveSessionAction.nextFocusUpId = R.id.btnTabPitWall
-        btnLiveSessionAction.nextFocusLeftId = R.id.btnServer3
+        btnLiveSessionAction.nextFocusLeftId = when {
+            btnServer5?.visibility == View.VISIBLE -> R.id.btnServer5
+            btnServer4?.visibility == View.VISIBLE -> R.id.btnServer4
+            btnServer3.visibility == View.VISIBLE -> R.id.btnServer3
+            btnServer2.visibility == View.VISIBLE -> R.id.btnServer2
+            else -> R.id.btnServer1
+        }
         btnLiveSessionAction.nextFocusRightId = R.id.btnMetricsTiming
         btnLiveSessionAction.nextFocusDownId = R.id.btnPlayRadio
 
@@ -619,41 +735,67 @@ class PitWallViewManager(
         }
     }
 
-    private fun setupFutbolVivoDiscovery() {
-        val sourceUrl = defaultWebSourceUrl
-        if (sourceUrl.isNullOrBlank() || !sourceUrl.contains("futbolvivo.tv", ignoreCase = true)) {
-            futbolVivoStatusText = "FÚTBOL LIBRE • FUENTE NO CONFIGURADA"
-            tvStandbySubtitle.text = "Configura futbolvivo.tv como fuente web predeterminada para consultar eventos."
-            updateFutbolVivoStatusBadge()
+    private fun initBroadcastSource() {
+        val selectedSource = preferencesManager.broadcastSource
+        loadBroadcastSource(selectedSource, forceReload = false)
+    }
+
+    fun loadBroadcastSource(source: BroadcastSource, forceReload: Boolean = false) {
+        if (!forceReload && currentLoadedSource == source && activeSpanishBroadcasts.isNotEmpty() && isVideoPlaying()) {
             return
         }
+        currentLoadedSource = source
+        activeSpanishBroadcasts = emptyList()
+        selectedBroadcastIndex = 0
 
-        tvStandbySubtitle.text = "Buscando eventos y sesiones de Fórmula 1 en Fútbol Libre..."
-        futbolVivoExtractor.onF1EventDetected = { event ->
-            val status = if (event.isLive) "EN VIVO" else "PROGRAMADA"
-            futbolVivoStatusText = "FÚTBOL LIBRE • $status"
-            discoveredFutbolEventUrl = event.eventUrl
-            discoveredAlternativeUrls = event.alternativeUrls
-            discoveredFutbolEventTitle = event.title
-            val start = event.startTime?.let { " • $it" }.orEmpty()
-            tvStandbySubtitle.text = "Evento F1 detectado: ${event.title}$start"
-            updateFutbolVivoStatusBadge()
-            btnLiveSessionAction.text = "🔄 Refrescar"
-            // Auto play if Pit Wall is visible and video is not playing
-            if (rootView.visibility == View.VISIBLE && !isVideoPlaying() && !event.eventUrl.isNullOrBlank()) {
-                openDiscoveredFutbolEvent()
+        if (forceReload || currentLoadedSource != source) {
+            webVideoView.stopLoading()
+            webVideoView.loadUrl("about:blank")
+            exoPlayer?.pause()
+            exoPlayer?.stop()
+        }
+
+        tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • BUSCANDO CANALES EN ESPAÑOL"
+        tvStandbySubtitle.text = "Consultando servidores y opciones en español de ${source.displayName}..."
+        tvStandbyCircuitSpecs?.text = "FUENTE ACTIVA: ${source.displayName} (${source.defaultUrl})"
+        tvLiveSessionAlertTitle.text = "📡 Conectando a ${source.displayName}..."
+
+        when (source) {
+            BroadcastSource.FLX -> {
+                futbolVivoExtractor.destroy()
+                flxExtractor.onSpanishBroadcastsDetected = { list ->
+                    onSpanishBroadcastsFound(list, BroadcastSource.FLX)
+                }
+                flxExtractor.onNoSpanishBroadcastsDetected = {
+                    onNoSpanishBroadcastsFound(BroadcastSource.FLX)
+                }
+                flxExtractor.startExtraction(source.defaultUrl)
+            }
+            BroadcastSource.FUTBOL_VIVO -> {
+                flxExtractor.destroy()
+                futbolVivoExtractor.onF1EventDetected = { event ->
+                    val status = if (event.isLive) "EN VIVO" else "PROGRAMADA"
+                    futbolVivoStatusText = "FÚTBOL VIVO • $status"
+                    discoveredFutbolEventUrl = event.eventUrl
+                    discoveredAlternativeUrls = event.alternativeUrls
+                    discoveredFutbolEventTitle = event.title
+                    val start = event.startTime?.let { " • $it" }.orEmpty()
+                    tvStandbySubtitle.text = "Evento F1 detectado: ${event.title}$start"
+                    updateFutbolVivoStatusBadge()
+                    btnLiveSessionAction.text = "🔄 Refrescar"
+
+                    if (!event.eventUrl.isNullOrBlank()) {
+                        playWebPage(event.eventUrl, event.title)
+                    }
+                }
+                futbolVivoExtractor.onNoEventDetected = {
+                    discoveredFutbolEventUrl = null
+                    discoveredAlternativeUrls = emptyList()
+                    onNoSpanishBroadcastsFound(BroadcastSource.FUTBOL_VIVO)
+                }
+                futbolVivoExtractor.startExtraction(source.defaultUrl)
             }
         }
-        futbolVivoExtractor.onNoEventDetected = {
-            discoveredFutbolEventUrl = null
-            discoveredAlternativeUrls = emptyList()
-            futbolVivoStatusText = "FÚTBOL LIBRE • SIN EVENTO F1"
-            tvStandbySubtitle.text =
-                "No se detectan eventos F1 en la cartelera actual. Abre TV Web para consultar los eventos publicados."
-            btnLiveSessionAction.text = "🔄 Refrescar"
-            updateFutbolVivoStatusBadge()
-        }
-        futbolVivoExtractor.startExtraction(sourceUrl)
     }
 
     private fun updateFutbolVivoStatusBadge() {
@@ -673,11 +815,16 @@ class PitWallViewManager(
 
     fun onPitWallTabSelected() {
         btnServer1.post { btnServer1.requestFocus() }
-        if (!isVideoPlaying()) {
-            if (!discoveredFutbolEventUrl.isNullOrBlank()) {
-                openDiscoveredFutbolEvent()
+        val selectedSource = preferencesManager.broadcastSource
+
+        if (currentLoadedSource != selectedSource) {
+            // Source changed in Settings! Immediate reload for new provider
+            loadBroadcastSource(selectedSource, forceReload = true)
+        } else if (!isVideoPlaying()) {
+            if (activeSpanishBroadcasts.isNotEmpty()) {
+                selectSpanishBroadcast(selectedBroadcastIndex)
             } else {
-                futbolVivoExtractor.startExtraction(defaultWebSourceUrl ?: "https://futbolvivo.tv/")
+                loadBroadcastSource(selectedSource, forceReload = false)
             }
         }
     }
@@ -863,11 +1010,117 @@ class PitWallViewManager(
                 updateServerButtons(count, activeIdx, titlesJson)
             }
         }
+
+        @JavascriptInterface
+        fun onSpanishBroadcastsDetected(json: String?) {
+            rootView.post {
+                if (!json.isNullOrBlank()) {
+                    try {
+                        val array = Gson().fromJson(json, Array<SpanishBroadcast>::class.java)
+                        if (array != null && array.isNotEmpty()) {
+                            onSpanishBroadcastsFound(
+                                array.toList(),
+                                currentLoadedSource ?: preferencesManager.broadcastSource
+                            )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun onNoSpanishBroadcastsDetected() {
+            rootView.post {
+                onNoSpanishBroadcastsFound(currentLoadedSource ?: preferencesManager.broadcastSource)
+            }
+        }
+    }
+
+    private fun onSpanishBroadcastsFound(list: List<SpanishBroadcast>, source: BroadcastSource) {
+        activeSpanishBroadcasts = list
+        layoutServerSelector.visibility = View.VISIBLE
+        tvServerLabel.text = "📡 TRANSMISIÓN:"
+
+        serverButtons.forEachIndexed { idx, btn ->
+            if (idx < list.size) {
+                btn.visibility = View.VISIBLE
+                btn.text = list[idx].getButtonLabel()
+                btn.setOnClickListener { selectSpanishBroadcast(idx) }
+            } else {
+                btn.visibility = View.GONE
+            }
+        }
+
+        val targetIdx = if (selectedBroadcastIndex in list.indices) selectedBroadcastIndex else 0
+        highlightBroadcastButton(targetIdx)
+
+        val target = list[targetIdx]
+        tvLiveSessionAlertTitle.text = "🏎️ " + target.getFormattedTitle()
+        tvStandbySubtitle.text = "Transmisión identificada: ${target.getFormattedTitle()}"
+        tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • ${list.size} OPCIÓN(ES) EN ESPAÑOL"
+
+        if (!isVideoPlaying()) {
+            playSpanishBroadcast(target)
+        }
+    }
+
+    private fun onNoSpanishBroadcastsFound(source: BroadcastSource) {
+        activeSpanishBroadcasts = emptyList()
+        layoutServerSelector.visibility = View.GONE
+        tvLiveSessionAlertTitle.text = "⚠️ No hay transmisiones en español disponibles actualmente para ${source.displayName}"
+        tvStandbySubtitle.text = "No se encontraron transmisiones en español disponibles en ${source.displayName}. Puedes cambiar la fuente en Ajustes o recargar."
+        tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • SIN TRANSMISIONES EN ESPAÑOL"
+        btnLiveSessionAction.text = "🔄 Refrescar"
+    }
+
+    fun selectSpanishBroadcast(index: Int) {
+        if (index !in activeSpanishBroadcasts.indices) {
+            selectServer(index)
+            return
+        }
+        selectedBroadcastIndex = index
+        highlightBroadcastButton(index)
+
+        val broadcast = activeSpanishBroadcasts[index]
+        Toast.makeText(context, "Sintonizando: ${broadcast.getFormattedTitle()}...", Toast.LENGTH_SHORT).show()
+        playSpanishBroadcast(broadcast)
+    }
+
+    private fun highlightBroadcastButton(index: Int) {
+        serverButtons.forEachIndexed { i, btn ->
+            btn.isSelected = (i == index)
+        }
+    }
+
+    fun playSpanishBroadcast(broadcast: SpanishBroadcast) {
+        exoPlayer?.pause()
+        exoPlayer?.stop()
+        playerView.visibility = View.GONE
+        layoutPlayerStandby.visibility = View.GONE
+        webVideoView.visibility = View.VISIBLE
+        btnStandbyStopVideo.visibility = View.VISIBLE
+
+        tvLiveSessionAlertTitle.text = "🏎️ " + broadcast.getFormattedTitle()
+
+        if (!broadcast.clickActionJs.isNullOrBlank()) {
+            webVideoView.evaluateJavascript(broadcast.clickActionJs, null)
+            webVideoView.postDelayed({ triggerPlayerTap() }, 2000)
+            webVideoView.postDelayed({ triggerPlayerTap() }, 4500)
+        } else if (!broadcast.streamUrl.isNullOrBlank()) {
+            currentWebUrl = broadcast.streamUrl
+            webVideoView.loadUrl(broadcast.streamUrl)
+            serverButtons.firstOrNull { it.visibility == View.VISIBLE }?.let { targetBtn ->
+                targetBtn.post { targetBtn.requestFocus() }
+            }
+        } else {
+            Toast.makeText(context, "Transmisión no disponible. Selecciona otra opción.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updateServerButtons(count: Int, activeIdx: Int, titlesJson: String?) {
         android.util.Log.d("PitWallServer", "updateServerButtons: count=$count, active=$activeIdx, titles=$titlesJson")
-        // Always keep all 3 server options visible so user can switch anytime
         btnServer1.visibility = View.VISIBLE
         btnServer2.visibility = View.VISIBLE
         btnServer3.visibility = View.VISIBLE
@@ -960,17 +1213,19 @@ class PitWallViewManager(
     }
 
     fun refreshStream() {
-        Toast.makeText(context, "🔄 Recargando transmisión F1...", Toast.LENGTH_SHORT).show()
-        if (webVideoView.visibility == View.VISIBLE && currentWebUrl != null && currentWebUrl != "about:blank") {
-            selectServer(selectedServerIndex)
+        val source = preferencesManager.broadcastSource
+        Toast.makeText(context, "🔄 Recargando transmisiones (${source.displayName})...", Toast.LENGTH_SHORT).show()
+        if (webVideoView.visibility == View.VISIBLE && currentWebUrl != null && currentWebUrl != "about:blank" && activeSpanishBroadcasts.isNotEmpty()) {
+            selectSpanishBroadcast(selectedBroadcastIndex)
         } else {
-            openDiscoveredFutbolEvent()
+            loadBroadcastSource(source, forceReload = true)
         }
     }
 
     fun onPause() {
         exoPlayer?.pause()
         webVideoView.onPause()
+        flxExtractor.destroy()
         futbolVivoExtractor.onPause()
     }
 
@@ -981,6 +1236,7 @@ class PitWallViewManager(
     }
 
     fun onDestroy() {
+        flxExtractor.destroy()
         futbolVivoExtractor.destroy()
         webVideoView.stopLoading()
         webVideoView.destroy()
