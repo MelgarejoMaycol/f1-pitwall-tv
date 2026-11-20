@@ -32,7 +32,20 @@ class PreferencesManager(context: Context) {
         val json = prefs.getString(KEY_CUSTOM_SOURCES, null) ?: return emptyList()
         return try {
             val type = object : TypeToken<List<VideoProviderItem>>() {}.type
-            gson.fromJson(json, type) ?: emptyList()
+            val parsed = gson.fromJson<List<VideoProviderItem>>(json, type) ?: emptyList()
+
+            // Remove only the obsolete demo stream; preserve all other user-created sources.
+            val filtered = parsed.filterNot { source ->
+                source.id.equals("f1_test_hls", ignoreCase = true) ||
+                    source.streamUrl.contains("test-streams.mux.dev", ignoreCase = true)
+            }
+            if (filtered.size != parsed.size) {
+                prefs.edit().putString(KEY_CUSTOM_SOURCES, gson.toJson(filtered)).apply()
+                if (activeVideoProvider.equals("f1_test_hls", ignoreCase = true)) {
+                    activeVideoProvider = ""
+                }
+            }
+            filtered
         } catch (e: Exception) {
             emptyList()
         }
@@ -73,14 +86,21 @@ class PreferencesManager(context: Context) {
     }
 
     fun getSelectedSource(): VideoProviderItem? {
-        val userSources = getCustomSources()
-        val sources = if (userSources.isNotEmpty()) {
-            userSources
-        } else {
-            VideoSourcesConfig.loadProviders(appContext)
-        }
+        // Resolve from the same merged asset + custom list used by Settings and playback.
+        // Previously, one custom source hid all asset providers, including F1 Web.
+        val sources = VideoSourcesConfig.loadProviders(appContext)
         if (sources.isEmpty()) return null
-        return sources.find { it.id == activeVideoProvider } ?: sources.find { it.isDefault } ?: sources.first()
+
+        sources.firstOrNull { it.id == activeVideoProvider }?.let { return it }
+
+        val fallback = sources.firstOrNull { it.id == "f1_web" }
+            ?: sources.firstOrNull { it.isDefault }
+            ?: sources.firstOrNull()
+
+        if (fallback != null && activeVideoProvider != fallback.id) {
+            activeVideoProvider = fallback.id
+        }
+        return fallback
     }
 
     fun getAllAvailableSources(): List<VideoProviderItem> {
