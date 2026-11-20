@@ -128,7 +128,7 @@ class PitWallViewManager(
     private var isLiveSessionActive: Boolean = false
     private var isUpcomingSession: Boolean = false
     private var currentScheduleTitle: String = "Calendario F1 en preparación"
-    private var futbolVivoStatusText: String = "FÚTBOL LIBRE • BUSCANDO EVENTOS F1"
+    private var futbolVivoStatusText: String = "FÚTBOL VIVO • BUSCANDO CANALES EN ESPAÑOL"
     private var discoveredFutbolEventUrl: String? = null
     private var discoveredAlternativeUrls: List<String> = emptyList()
     private var discoveredFutbolEventTitle: String = "Evento de Fórmula 1"
@@ -340,6 +340,7 @@ class PitWallViewManager(
 
                             function reportServers() {
                                 try {
+                                    if (window.location.hostname.indexOf('futbolvivo') === -1 && window.location.hostname.indexOf('futbollibre') === -1) return;
                                     if (window.currentMatch) {
                                         console.log("F1_DEBUG: currentMatch=" + JSON.stringify({
                                             id: window.currentMatch.id,
@@ -373,6 +374,7 @@ class PitWallViewManager(
 
                             function scanSpanishBroadcasts() {
                                 try {
+                                    if (window.location.hostname.indexOf('futbolvivo') === -1 && window.location.hostname.indexOf('futbollibre') === -1) return;
                                     let broadcasts = [];
                                     let counter = 1;
                                     function isEsp(txt) {
@@ -447,6 +449,8 @@ class PitWallViewManager(
 
                                     if (broadcasts.length > 0 && window.AndroidPitWallBridge && typeof window.AndroidPitWallBridge.onSpanishBroadcastsDetected === 'function') {
                                         window.AndroidPitWallBridge.onSpanishBroadcastsDetected(JSON.stringify(broadcasts));
+                                    } else if (broadcasts.length === 0 && window.AndroidPitWallBridge && typeof window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected === 'function') {
+                                        window.AndroidPitWallBridge.onNoSpanishBroadcastsDetected();
                                     }
                                 } catch(e) {}
                             }
@@ -741,18 +745,23 @@ class PitWallViewManager(
     }
 
     fun loadBroadcastSource(source: BroadcastSource, forceReload: Boolean = false) {
-        if (!forceReload && currentLoadedSource == source && activeSpanishBroadcasts.isNotEmpty() && isVideoPlaying()) {
+        val isSourceChange = (currentLoadedSource != source)
+        if (!forceReload && !isSourceChange && activeSpanishBroadcasts.isNotEmpty() && isVideoPlaying()) {
             return
         }
         currentLoadedSource = source
         activeSpanishBroadcasts = emptyList()
         selectedBroadcastIndex = 0
 
-        if (forceReload || currentLoadedSource != source) {
+        if (forceReload || isSourceChange) {
+            currentWebUrl = null
             webVideoView.stopLoading()
             webVideoView.loadUrl("about:blank")
+            webVideoView.visibility = View.GONE
             exoPlayer?.pause()
             exoPlayer?.stop()
+            playerView.visibility = View.GONE
+            layoutPlayerStandby.visibility = View.VISIBLE
         }
 
         tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • BUSCANDO CANALES EN ESPAÑOL"
@@ -762,7 +771,7 @@ class PitWallViewManager(
 
         when (source) {
             BroadcastSource.FLX -> {
-                futbolVivoExtractor.destroy()
+                futbolVivoExtractor.stop()
                 flxExtractor.onSpanishBroadcastsDetected = { list ->
                     onSpanishBroadcastsFound(list, BroadcastSource.FLX)
                 }
@@ -799,7 +808,9 @@ class PitWallViewManager(
     }
 
     private fun updateFutbolVivoStatusBadge() {
-        tvStandbyStatusBadge.text = futbolVivoStatusText
+        if (currentLoadedSource == BroadcastSource.FUTBOL_VIVO && activeSpanishBroadcasts.isEmpty()) {
+            tvStandbyStatusBadge.text = futbolVivoStatusText
+        }
     }
 
     private fun setupLeaderboardView() {
@@ -985,18 +996,20 @@ class PitWallViewManager(
     }
 
     private fun updateScheduleBanner() {
-        when {
-            isLiveSessionActive -> {
-                tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
-            }
-            isUpcomingSession -> {
-                tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA SESIÓN: $currentScheduleTitle"
-            }
-            currentScheduleTitle == "Calendario de F1 no disponible" -> {
-                tvLiveSessionAlertTitle.text = "⚠️ Calendario F1 no disponible"
-            }
-            else -> {
-                tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
+        if (activeSpanishBroadcasts.isEmpty()) {
+            when {
+                isLiveSessionActive -> {
+                    tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
+                }
+                isUpcomingSession -> {
+                    tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA SESIÓN: $currentScheduleTitle"
+                }
+                currentScheduleTitle == "Calendario de F1 no disponible" -> {
+                    tvLiveSessionAlertTitle.text = "⚠️ Calendario F1 no disponible"
+                }
+                else -> {
+                    tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
+                }
             }
         }
         btnLiveSessionAction.text = "🔄 Refrescar"
@@ -1007,7 +1020,10 @@ class PitWallViewManager(
         @JavascriptInterface
         fun onServersAvailable(count: Int, activeIdx: Int, titlesJson: String?) {
             rootView.post {
-                updateServerButtons(count, activeIdx, titlesJson)
+                val source = currentLoadedSource ?: preferencesManager.broadcastSource
+                if (source != BroadcastSource.FLX && activeSpanishBroadcasts.isEmpty()) {
+                    updateServerButtons(count, activeIdx, titlesJson)
+                }
             }
         }
 
@@ -1033,7 +1049,10 @@ class PitWallViewManager(
         @JavascriptInterface
         fun onNoSpanishBroadcastsDetected() {
             rootView.post {
-                onNoSpanishBroadcastsFound(currentLoadedSource ?: preferencesManager.broadcastSource)
+                val source = currentLoadedSource ?: preferencesManager.broadcastSource
+                if (source != BroadcastSource.FLX && activeSpanishBroadcasts.isEmpty()) {
+                    onNoSpanishBroadcastsFound(source)
+                }
             }
         }
     }
@@ -1061,7 +1080,7 @@ class PitWallViewManager(
         tvStandbySubtitle.text = "Transmisión identificada: ${target.getFormattedTitle()}"
         tvStandbyStatusBadge.text = "${source.displayName.uppercase()} • ${list.size} OPCIÓN(ES) EN ESPAÑOL"
 
-        if (!isVideoPlaying()) {
+        if (!isVideoPlaying() || currentWebUrl != target.streamUrl) {
             playSpanishBroadcast(target)
         }
     }
@@ -1120,6 +1139,9 @@ class PitWallViewManager(
     }
 
     private fun updateServerButtons(count: Int, activeIdx: Int, titlesJson: String?) {
+        if (activeSpanishBroadcasts.isNotEmpty() || (currentLoadedSource ?: preferencesManager.broadcastSource) == BroadcastSource.FLX) {
+            return
+        }
         android.util.Log.d("PitWallServer", "updateServerButtons: count=$count, active=$activeIdx, titles=$titlesJson")
         btnServer1.visibility = View.VISIBLE
         btnServer2.visibility = View.VISIBLE

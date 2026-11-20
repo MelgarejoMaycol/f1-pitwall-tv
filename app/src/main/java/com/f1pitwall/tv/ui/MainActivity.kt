@@ -233,6 +233,14 @@ class MainActivity : AppCompatActivity() {
             btnSourceFlx.requestFocus() // Focus on transmission source options
         }
 
+        btnTabSettings.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                btnSourceFlx.requestFocus()
+                return@setOnKeyListener true
+            }
+            false
+        }
+
         btnTabHome.isSelected = true
         btnTabHome.requestFocus()
     }

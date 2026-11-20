@@ -31,6 +31,7 @@ class FutbolVivoExtractor(private val context: Context) {
     private val gson = Gson()
     private var webView: WebView? = null
     private var destroyed = false
+    private var timeoutRunnable: Runnable? = null
 
     var onF1EventDetected: ((F1LiveStreamEvent) -> Unit)? = null
     var onNoEventDetected: (() -> Unit)? = null
@@ -38,11 +39,22 @@ class FutbolVivoExtractor(private val context: Context) {
     @SuppressLint("SetJavaScriptEnabled")
     fun startExtraction(sourceUrl: String = "https://futbolvivo.tv/") {
         mainHandler.post {
-            if (destroyed) return@post
+            destroyed = false
+            timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+
             if (!sourceUrl.contains("futbolvivo.tv", ignoreCase = true)) {
                 onNoEventDetected?.invoke()
                 return@post
             }
+
+            // Fallback timeout in case page fails to load or no events within 15 seconds
+            val timeout = Runnable {
+                if (!destroyed) {
+                    onNoEventDetected?.invoke()
+                }
+            }
+            timeoutRunnable = timeout
+            mainHandler.postDelayed(timeout, 15000)
 
             try {
                 val scanner = webView ?: WebView(context).also { created ->
@@ -64,11 +76,18 @@ class FutbolVivoExtractor(private val context: Context) {
                                 injectWatcher()
                             }
                         }
+
+                        override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+                            super.onReceivedError(view, errorCode, description, failingUrl)
+                            timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+                            onNoEventDetected?.invoke()
+                        }
                     }
                     webView = created
                 }
                 scanner.loadUrl(sourceUrl)
             } catch (_: Exception) {
+                timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
                 onNoEventDetected?.invoke()
             }
         }
@@ -261,6 +280,7 @@ class FutbolVivoExtractor(private val context: Context) {
         @JavascriptInterface
         fun postF1Event(json: String) {
             mainHandler.post {
+                timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
                 try {
                     val item = gson.fromJson(json, JsonObject::class.java)
                     val title = item.get("title")?.takeIf { !it.isJsonNull }?.asString
@@ -286,7 +306,18 @@ class FutbolVivoExtractor(private val context: Context) {
 
         @JavascriptInterface
         fun postNoF1() {
-            mainHandler.post { onNoEventDetected?.invoke() }
+            mainHandler.post {
+                timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+                onNoEventDetected?.invoke()
+            }
+        }
+    }
+
+    fun stop() {
+        mainHandler.post {
+            timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+            webView?.stopLoading()
+            webView?.loadUrl("about:blank")
         }
     }
 
@@ -301,6 +332,7 @@ class FutbolVivoExtractor(private val context: Context) {
     fun destroy() {
         destroyed = true
         mainHandler.post {
+            timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
             webView?.let {
                 it.stopLoading()
                 it.removeJavascriptInterface("AndroidBridge")

@@ -32,7 +32,7 @@ class FlxExtractor(
 
     fun startExtraction(sourceUrl: String = "https://flive.cc.cd/f1") {
         extractionJob?.cancel()
-        extractionJob = scope.launch {
+        extractionJob = scope.launch(Dispatchers.IO) {
             try {
                 Log.d("FlxExtractor", "Starting FLX extraction from $sourceUrl")
                 val catalogUrl = "https://cdn.flive.cc.cd/channels.json"
@@ -114,9 +114,11 @@ class FlxExtractor(
             if (conn.responseCode in 200..299) {
                 conn.inputStream.bufferedReader().use { it.readText() }
             } else {
+                Log.w("FlxExtractor", "HTTP error ${conn.responseCode} from $targetUrl")
                 null
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("FlxExtractor", "Network error fetching $targetUrl: ${e.javaClass.simpleName} - ${e.message}")
             null
         } finally {
             conn?.disconnect()
