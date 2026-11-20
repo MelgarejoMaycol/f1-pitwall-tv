@@ -69,7 +69,7 @@ class MeetingAdapter(
             }
 
             // Dates & Status
-            val (datesStr, statusStr, statusColor) = formatDatesAndStatus(meeting.dateStart, meeting.dateEnd)
+            val (datesStr, statusStr, statusColor) = formatDatesAndStatus(meeting)
             tvDates.text = datesStr
             tvStatusBadge.text = statusStr
             tvStatusBadge.setBackgroundColor(statusColor)
@@ -79,15 +79,14 @@ class MeetingAdapter(
             }
         }
 
-        private fun formatDatesAndStatus(startIso: String?, endIso: String?): Triple<String, String, Int> {
-            val meeting = items.getOrNull(bindingAdapterPosition)
-            if (meeting?.isCancelled == true) {
+        private fun formatDatesAndStatus(meeting: Meeting): Triple<String, String, Int> {
+            if (meeting.isCancelled == true) {
                 return Triple("Evento cancelado", "CANCELADO", Color.parseColor("#6B7280"))
             }
 
-            val startDate = TimeUtils.parseUtc(startIso)
+            val startDate = TimeUtils.parseUtc(meeting.dateStart)
                 ?: return Triple("Horario por confirmar", "FECHA PENDIENTE", Color.parseColor("#6B7280"))
-            val endDate = TimeUtils.parseUtc(endIso)
+            val endDate = TimeUtils.parseUtc(meeting.dateEnd)
 
             val outFormat = SimpleDateFormat("d MMM", Locale("es", "CO"))
             outFormat.timeZone = TimeZone.getTimeZone("America/Bogota")
