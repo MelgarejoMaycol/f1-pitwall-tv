@@ -290,7 +290,13 @@ class F1Repository(
      */
     suspend fun getDriverTeamRadio(sessionKey: Long, driverNumber: Int): com.f1pitwall.tv.model.TeamRadio? = withContext(Dispatchers.IO) {
         try {
-            val radios = openF1Api.getTeamRadiosForDriver(sessionKey, driverNumber)
+            var radios = openF1Api.getTeamRadiosForDriver(sessionKey, driverNumber)
+            if (radios.isEmpty()) {
+                radios = openF1Api.getTeamRadiosForDriverLatest(driverNumber)
+            }
+            if (radios.isEmpty() && driverNumber == 1) {
+                radios = openF1Api.getTeamRadiosForDriverLatest(3)
+            }
             radios.firstOrNull { !it.recordingUrl.isNullOrEmpty() }
         } catch (e: Exception) {
             null

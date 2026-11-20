@@ -112,7 +112,7 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
-        <!-- Status Badges (Flag & Weather in Glass HUD Badges) -->
+        <!-- Status Badges (Flag & Weather in Glass HUD Badges - Hidden per request) -->
         <TextView
             android:id="@+id/tvRaceFlag"
             android:layout_width="wrap_content"
@@ -124,7 +124,8 @@
             android:text="🏁 BANDERA VERDE"
             android:textColor="@color/flag_green"
             android:textSize="11.5sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tvWeather"
@@ -135,7 +136,8 @@
             android:paddingHorizontal="10dp"
             android:text="⛅ Pista: 32°C | Aire: 24°C"
             android:textColor="@color/text_secondary"
-            android:textSize="11.5sp" />
+            android:textSize="11.5sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <!-- MAIN BODY: VIEW SWITCHER -->
@@ -203,61 +205,36 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:paddingHorizontal="10dp"
-                        android:text="⚡ Sintonizar Transmisión"
+                        android:text="🔄 Refrescar"
                         android:textColor="@color/text_primary"
                         android:textSize="10sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- F1 Content Hub Selector Bar (When No Live Race) -->
+                <!-- F1 Content Hub Selector Bar (Hidden per request to maximize video and remove redundant buttons) -->
                 <LinearLayout
                     android:id="@+id/llContentHubBar"
                     android:layout_width="match_parent"
-                    android:layout_height="32dp"
-                    android:layout_marginBottom="4dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_height="wrap_content"
+                    android:visibility="gone">
 
                     <Button
                         android:id="@+id/btnContentPreview"
                         android:layout_width="0dp"
-                        android:layout_height="30dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:text="⚡ Previa Las Vegas 2026"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
 
                     <Button
                         android:id="@+id/btnContentRecap"
                         android:layout_width="0dp"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="4dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:text="🏁 Resumen GP São Paulo"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
 
                     <Button
                         android:id="@+id/btnContentBoxes"
                         android:layout_width="0dp"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="4dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:text="📡 Telemetría Pista"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
                 </LinearLayout>
 
                 <!-- Embedded ExoPlayer with Standby/Editorial Space -->
@@ -414,14 +391,14 @@
                     </FrameLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Team Radio Multi-Driver Channel Selector (Requirement 10) -->
+                <!-- Team Radio Multi-Driver Channel Selector (Minimalist compact bar) -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="3dp"
                     android:background="@drawable/card_focus_selector"
                     android:orientation="vertical"
-                    android:padding="8dp">
+                    android:padding="5dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -438,20 +415,20 @@
                             android:maxLines="1"
                             android:text="📻 Radio Oficial: Sintoniza canal por piloto"
                             android:textColor="@color/text_primary"
-                            android:textSize="11sp"
+                            android:textSize="10.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnPlayRadio"
                             android:layout_width="wrap_content"
-                            android:layout_height="26dp"
+                            android:layout_height="22dp"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
-                            android:paddingHorizontal="10dp"
+                            android:paddingHorizontal="8dp"
                             android:text="▶ Reproducir"
                             android:textColor="@color/text_primary"
-                            android:textSize="10sp"
+                            android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
@@ -459,106 +436,106 @@
                     <LinearLayout
                         android:id="@+id/llRadioChips"
                         android:layout_width="match_parent"
-                        android:layout_height="28dp"
-                        android:layout_marginTop="6dp"
+                        android:layout_height="22dp"
+                        android:layout_marginTop="3dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
                         <Button
                             android:id="@+id/btnRadioVer"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
+                            android:layout_height="22dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#1 VER"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnRadioNor"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="22dp"
+                            android:layout_marginStart="3dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#4 NOR"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnRadioLec"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="22dp"
+                            android:layout_marginStart="3dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#16 LEC"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnRadioHam"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="22dp"
+                            android:layout_marginStart="3dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#44 HAM"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnRadioRus"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="22dp"
+                            android:layout_marginStart="3dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#63 RUS"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnRadioPia"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="22dp"
+                            android:layout_marginStart="3dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#81 PIA"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btnRadioAlo"
                             android:layout_width="0dp"
-                            android:layout_height="26dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="22dp"
+                            android:layout_marginStart="3dp"
                             android:layout_weight="1"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="#14 ALO"
                             android:textColor="@color/text_primary"
-                            android:textSize="9sp"
+                            android:textSize="8.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </LinearLayout>

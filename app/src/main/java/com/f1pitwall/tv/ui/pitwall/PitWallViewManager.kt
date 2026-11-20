@@ -238,8 +238,9 @@ class PitWallViewManager(
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    val pageTitle = webVideoView.title?.takeIf { it.isNotBlank() } ?: "Señal F1"
-                    tvLiveSessionAlertTitle.text = "🏎️ " + pageTitle
+                    val sessionPrefix = if (isLiveSessionActive) "🔴 EN VIVO" else "⏳ PRÓXIMA SESIÓN"
+                    tvLiveSessionAlertTitle.text = "$sessionPrefix: $currentScheduleTitle"
+                    btnLiveSessionAction.text = "🔄 Refrescar"
 
                     val cleanJs = """
                         (function() {
@@ -480,15 +481,13 @@ class PitWallViewManager(
             switchToStandby()
         }
 
-        // Durante una sesión activa o próxima, abrir la web real del proveedor configurado.
+        // Botón de refrescar / recargar la señal en vivo si cae
         btnLiveSessionAction.setOnClickListener {
-            openDiscoveredFutbolEvent()
+            refreshStream()
         }
-
-        // Contenido y telemetría: no reproducir HLS de demostración como si fuese F1.
-        btnContentPreview.setOnClickListener { openDiscoveredFutbolEvent() }
-        btnContentRecap.setOnClickListener { openDefaultWebSource("Cartelera de eventos F1") }
-        btnContentBoxes.setOnClickListener { btnMetricsTelemetry.performClick() }
+        layoutLiveSessionAlert.setOnClickListener {
+            refreshStream()
+        }
 
         // Radio Player
         btnPlayRadio.setOnClickListener {
@@ -552,11 +551,7 @@ class PitWallViewManager(
             val start = event.startTime?.let { " • $it" }.orEmpty()
             tvStandbySubtitle.text = "Evento F1 detectado: ${event.title}$start"
             updateFutbolVivoStatusBadge()
-            btnLiveSessionAction.text = if (event.eventUrl.isNullOrBlank()) {
-                "📺 ABRIR TV WEB"
-            } else {
-                "📺 ABRIR EVENTO F1"
-            }
+            btnLiveSessionAction.text = "🔄 Refrescar"
             // Auto play if Pit Wall is visible and video is not playing
             if (rootView.visibility == View.VISIBLE && !isVideoPlaying() && !event.eventUrl.isNullOrBlank()) {
                 openDiscoveredFutbolEvent()
@@ -567,7 +562,7 @@ class PitWallViewManager(
             futbolVivoStatusText = "FÚTBOL LIBRE • SIN EVENTO F1"
             tvStandbySubtitle.text =
                 "No se detectan eventos F1 en la cartelera actual. Abre TV Web para consultar los eventos publicados."
-            btnLiveSessionAction.text = "📺 ABRIR TV WEB"
+            btnLiveSessionAction.text = "🔄 Refrescar"
             updateFutbolVivoStatusBadge()
         }
         futbolVivoExtractor.startExtraction(sourceUrl)
@@ -757,27 +752,28 @@ class PitWallViewManager(
         when {
             isLiveSessionActive -> {
                 tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
-                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
             }
             isUpcomingSession -> {
                 tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA SESIÓN: $currentScheduleTitle"
-                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
             }
             currentScheduleTitle == "Calendario de F1 no disponible" -> {
                 tvLiveSessionAlertTitle.text = "⚠️ Calendario F1 no disponible"
-                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
             }
             else -> {
                 tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
-                btnLiveSessionAction.text = "📺 ABRIR TV WEB"
             }
         }
-        btnLiveSessionAction.text = if (discoveredFutbolEventUrl.isNullOrBlank()) {
-            "📺 ABRIR TV WEB"
-        } else {
-            "📺 ABRIR EVENTO F1"
-        }
+        btnLiveSessionAction.text = "🔄 Refrescar"
         updateFutbolVivoStatusBadge()
+    }
+
+    fun refreshStream() {
+        Toast.makeText(context, "🔄 Recargando transmisión F1...", Toast.LENGTH_SHORT).show()
+        if (webVideoView.visibility == View.VISIBLE && currentWebUrl != null && currentWebUrl != "about:blank") {
+            webVideoView.reload()
+        } else {
+            openDiscoveredFutbolEvent()
+        }
     }
 
     fun onPause() {
