@@ -449,6 +449,7 @@ class PitWallViewManager(
             futbolVivoStatusText = "FÚTBOL LIBRE • SIN EVENTO F1"
             tvStandbySubtitle.text =
                 "No se detectan eventos F1 en la cartelera actual. Abre TV Web para consultar los eventos publicados."
+            btnLiveSessionAction.text = "📺 ABRIR TV WEB"
             updateFutbolVivoStatusBadge()
         }
         futbolVivoExtractor.startExtraction(sourceUrl)
