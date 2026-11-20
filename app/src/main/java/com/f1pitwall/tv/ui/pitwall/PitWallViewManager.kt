@@ -105,7 +105,7 @@ class PitWallViewManager(
     val leaderboardAdapter = LeaderboardAdapter { item ->
         tvTelemetryDriverHeader.text = "#${item.driverNumber} ${item.fullName} • ${item.teamName}"
         btnMetricsTelemetry.performClick()
-        loadDriverTelemetry(item.driverNumber, forceDemo = true)
+        loadDriverTelemetry(item.driverNumber)
     }
 
     init {
@@ -387,7 +387,7 @@ class PitWallViewManager(
         btnMetricsTiming.isSelected = true
 
         btnTelemetryDemoToggle.setOnClickListener {
-            loadDriverTelemetry(1, forceDemo = true)
+            loadDriverTelemetry(1)
         }
     }
 
@@ -440,7 +440,12 @@ class PitWallViewManager(
         tvRadioTitle.text = "📻 Sintonizando Radio: $driverName (#$driverNumber)..."
         scope.launch {
             try {
-                val key = currentSessionKey ?: 9472L
+                val key = currentSessionKey
+                if (key == null) {
+                    tvRadioTitle.text = "📻 Radio: espera a que el calendario identifique una sesión"
+                    Toast.makeText(context, "No hay una sesión F1 seleccionada", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
                 val radio = repository.getDriverTeamRadio(key, driverNumber)
                 if (radio != null && !radio.recordingUrl.isNullOrEmpty()) {
                     latestRadioUrl = radio.recordingUrl
@@ -460,10 +465,14 @@ class PitWallViewManager(
         }
     }
 
-    fun loadDriverTelemetry(driverNumber: Int, forceDemo: Boolean = false) {
+    fun loadDriverTelemetry(driverNumber: Int) {
         scope.launch {
             try {
-                val key = if (forceDemo || currentSessionKey == null) 9472L else currentSessionKey!!
+                val key = currentSessionKey
+                if (key == null) {
+                    Toast.makeText(context, "No hay una sesión F1 seleccionada", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
                 val telemetry = repository.getTelemetryForDriver(key, driverNumber)
 
                 if (telemetry != null && (telemetry.speed ?: 0) > 0) {
@@ -494,17 +503,22 @@ class PitWallViewManager(
                         tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
                     }
                 } else {
-                    tvTelemetrySpeed.text = "0"
-                    tvTelemetryGear.text = "N"
-                    tvTelemetryRpm.text = "Motor en reposo"
+                    tvTelemetrySpeed.text = "--"
+                    tvTelemetryGear.text = "--"
+                    tvTelemetryRpm.text = "Sin datos disponibles"
                     pbTelemetryRpm.progress = 0
-                    tvTelemetryThrottle.text = "Acelerador: 0%"
+                    tvTelemetryThrottle.text = "Acelerador: --"
                     pbTelemetryThrottle.progress = 0
-                    tvTelemetryBrake.text = "Freno: 0%"
+                    tvTelemetryBrake.text = "Freno: --"
                     pbTelemetryBrake.progress = 0
-                    tvTelemetryDrs.text = "DRS OFF"
+                    tvTelemetryDrs.text = "DRS --"
                     tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
-                    Toast.makeText(context, "Sin telemetría en vivo. Pulsa 'Cargar Datos Oficiales' para ver telemetría de sesión.", Toast.LENGTH_SHORT).show()
+                    val message = if (isUpcomingSession) {
+                        "La telemetría estará disponible cuando comience $currentScheduleTitle"
+                    } else {
+                        "OpenF1 todavía no ha publicado telemetría para esta sesión"
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
