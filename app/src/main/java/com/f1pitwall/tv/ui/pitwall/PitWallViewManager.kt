@@ -116,7 +116,6 @@ class PitWallViewManager(
 
     enum class TelemetryMode(val title: String, val icon: String) {
         TIMING("Tiempos", "⏱️ TIEMPOS"),
-        DRIVER("Piloto", "📈 PILOTO"),
         TRACK_MAP("Mapa GPS", "🗺️ MAPA GPS"),
         TYRES("Neumáticos", "🛞 NEUMÁTICOS"),
         RACE_CONTROL("Control / Clima", "🚩 CONTROL/CLIMA")
@@ -125,24 +124,22 @@ class PitWallViewManager(
     var activeTelemetryMode: TelemetryMode = TelemetryMode.TIMING
         private set
 
+    var isDriverTelemetryOpen: Boolean = false
+        private set
+
     private var selectedDriverNumber: Int = 1
     private var selectedDriverItem: DriverLeaderboardItem? = null
-    private var hasUserSelectedDriver: Boolean = false
 
     // Metrics Switcher & Containers
     private val scrollTelemetryModes: HorizontalScrollView? = rootView.findViewById(R.id.scrollTelemetryModes)
     private val btnMetricsTiming: Button = rootView.findViewById(R.id.btnMetricsTiming)
-    private val btnMetricsTelemetry: Button = rootView.findViewById(R.id.btnMetricsTelemetry)
     private val btnMetricsTrackMap: Button? = rootView.findViewById(R.id.btnMetricsTrackMap)
     private val btnMetricsTyres: Button? = rootView.findViewById(R.id.btnMetricsTyres)
     private val btnMetricsRaceControl: Button? = rootView.findViewById(R.id.btnMetricsRaceControl)
 
     private val rvLeaderboard: RecyclerView = rootView.findViewById(R.id.rvLeaderboard)
     private val layoutTelemetryPanel: View = rootView.findViewById(R.id.layoutTelemetryPanel)
-    private val layoutTelemetryEmptyPrompt: View? = rootView.findViewById(R.id.layoutTelemetryEmptyPrompt)
-    private val layoutTelemetryActiveContent: View? = rootView.findViewById(R.id.layoutTelemetryActiveContent)
-    private val btnGoToTimingForDriver: Button? = rootView.findViewById(R.id.btnGoToTimingForDriver)
-    private val btnChangeDriver: Button? = rootView.findViewById(R.id.btnChangeDriver)
+    private val btnBackToTiming: Button? = rootView.findViewById(R.id.btnBackToTiming)
     private val layoutTrackMapPanel: View? = rootView.findViewById(R.id.layoutTrackMapPanel)
     private val layoutTyresPanel: View? = rootView.findViewById(R.id.layoutTyresPanel)
     private val layoutRaceControlPanel: View? = rootView.findViewById(R.id.layoutRaceControlPanel)
@@ -212,14 +209,32 @@ class PitWallViewManager(
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
 
     val leaderboardAdapter = LeaderboardAdapter { item ->
+        openDriverTelemetry(item)
+    }
+
+    fun openDriverTelemetry(item: DriverLeaderboardItem) {
+        isDriverTelemetryOpen = true
         selectedDriverItem = item
         selectedDriverNumber = item.driverNumber
-        hasUserSelectedDriver = true
+
+        rvLeaderboard.visibility = View.GONE
+        layoutTelemetryPanel.visibility = View.VISIBLE
+
         tvTelemetryDriverHeader.text = "#${item.driverNumber} ${item.fullName} • ${item.teamName}"
         trackMapView?.selectedDriverNumber = item.driverNumber
         tvTrackMapFollowedDriver?.text = "Piloto seguido: #${item.driverNumber} ${item.acronym} (${item.teamName})"
-        switchTelemetryMode(TelemetryMode.DRIVER)
+
         loadDriverTelemetry(item.driverNumber)
+        btnBackToTiming?.requestFocus()
+    }
+
+    fun closeDriverTelemetry() {
+        isDriverTelemetryOpen = false
+        layoutTelemetryPanel.visibility = View.GONE
+        if (activeTelemetryMode == TelemetryMode.TIMING) {
+            rvLeaderboard.visibility = View.VISIBLE
+            rvLeaderboard.requestFocus()
+        }
     }
 
     init {
@@ -883,6 +898,10 @@ class PitWallViewManager(
     }
 
     fun handleBackPressed(): Boolean {
+        if (isDriverTelemetryOpen) {
+            closeDriverTelemetry()
+            return true
+        }
         if (customFullScreenView != null) {
             hideCustomView()
             return true
@@ -992,26 +1011,19 @@ class PitWallViewManager(
         rvRaceControl?.layoutManager = LinearLayoutManager(context)
         rvRaceControl?.adapter = raceControlAdapter
 
-        // Metrics Switcher (5 Dynamic Telemetry Modes)
+        // Metrics Switcher (4 Telemetry Modes)
         btnMetricsTiming.setOnClickListener { switchTelemetryMode(TelemetryMode.TIMING) }
-        btnMetricsTelemetry.setOnClickListener { switchTelemetryMode(TelemetryMode.DRIVER) }
         btnMetricsTrackMap?.setOnClickListener { switchTelemetryMode(TelemetryMode.TRACK_MAP) }
         btnMetricsTyres?.setOnClickListener { switchTelemetryMode(TelemetryMode.TYRES) }
         btnMetricsRaceControl?.setOnClickListener { switchTelemetryMode(TelemetryMode.RACE_CONTROL) }
         btnRefreshLive?.setOnClickListener { refreshActiveTelemetryMode() }
 
+        btnBackToTiming?.setOnClickListener {
+            closeDriverTelemetry()
+        }
+
         btnTelemetryDemoToggle.setOnClickListener {
             loadDriverTelemetry(selectedDriverNumber)
-        }
-
-        btnGoToTimingForDriver?.setOnClickListener {
-            switchTelemetryMode(TelemetryMode.TIMING)
-            rvLeaderboard.requestFocus()
-        }
-
-        btnChangeDriver?.setOnClickListener {
-            switchTelemetryMode(TelemetryMode.TIMING)
-            rvLeaderboard.requestFocus()
         }
 
         switchTelemetryMode(TelemetryMode.TIMING)
@@ -1482,16 +1494,18 @@ class PitWallViewManager(
     }
 
     fun switchTelemetryMode(mode: TelemetryMode) {
+        if (isDriverTelemetryOpen) {
+            closeDriverTelemetry()
+        }
         activeTelemetryMode = mode
 
         btnMetricsTiming.isSelected = (mode == TelemetryMode.TIMING)
-        btnMetricsTelemetry.isSelected = (mode == TelemetryMode.DRIVER)
         btnMetricsTrackMap?.isSelected = (mode == TelemetryMode.TRACK_MAP)
         btnMetricsTyres?.isSelected = (mode == TelemetryMode.TYRES)
         btnMetricsRaceControl?.isSelected = (mode == TelemetryMode.RACE_CONTROL)
 
         rvLeaderboard.visibility = if (mode == TelemetryMode.TIMING) View.VISIBLE else View.GONE
-        layoutTelemetryPanel.visibility = if (mode == TelemetryMode.DRIVER) View.VISIBLE else View.GONE
+        layoutTelemetryPanel.visibility = View.GONE // Only shown when clicking a driver in Tiempos!
         layoutTrackMapPanel?.visibility = if (mode == TelemetryMode.TRACK_MAP) View.VISIBLE else View.GONE
         layoutTyresPanel?.visibility = if (mode == TelemetryMode.TYRES) View.VISIBLE else View.GONE
         layoutRaceControlPanel?.visibility = if (mode == TelemetryMode.RACE_CONTROL) View.VISIBLE else View.GONE
@@ -1499,18 +1513,12 @@ class PitWallViewManager(
         // Keep active button visible in horizontal scroll view
         val activeBtn = when (mode) {
             TelemetryMode.TIMING -> btnMetricsTiming
-            TelemetryMode.DRIVER -> btnMetricsTelemetry
             TelemetryMode.TRACK_MAP -> btnMetricsTrackMap
             TelemetryMode.TYRES -> btnMetricsTyres
             TelemetryMode.RACE_CONTROL -> btnMetricsRaceControl
         }
         activeBtn?.let { b ->
             scrollTelemetryModes?.smoothScrollTo(b.left - 40, 0)
-        }
-
-        // Manage Driver panel visibility (State A: prompt vs State B: active gauges)
-        if (mode == TelemetryMode.DRIVER) {
-            updateDriverPanelVisibility()
         }
 
         // Manage background polling for live GPS map
@@ -1523,17 +1531,10 @@ class PitWallViewManager(
         refreshActiveTelemetryMode()
     }
 
-    private fun updateDriverPanelVisibility() {
-        if (hasUserSelectedDriver && selectedDriverItem != null) {
-            layoutTelemetryEmptyPrompt?.visibility = View.GONE
-            layoutTelemetryActiveContent?.visibility = View.VISIBLE
-        } else {
-            layoutTelemetryEmptyPrompt?.visibility = View.VISIBLE
-            layoutTelemetryActiveContent?.visibility = View.GONE
-        }
-    }
-
     fun cycleTelemetryMode(forward: Boolean) {
+        if (isDriverTelemetryOpen) {
+            closeDriverTelemetry()
+        }
         val modes = TelemetryMode.values()
         val currentIndex = modes.indexOf(activeTelemetryMode)
         val nextIndex = if (forward) {
@@ -1570,10 +1571,7 @@ class PitWallViewManager(
     fun refreshActiveTelemetryMode() {
         when (activeTelemetryMode) {
             TelemetryMode.TIMING -> {
-                // Actualizado por MainActivity en cada ciclo
-            }
-            TelemetryMode.DRIVER -> {
-                if (hasUserSelectedDriver) {
+                if (isDriverTelemetryOpen) {
                     loadDriverTelemetry(selectedDriverNumber)
                 }
             }
@@ -1624,13 +1622,14 @@ class PitWallViewManager(
                         )
                     }
 
-                    trackMapView?.selectedDriverNumber = if (hasUserSelectedDriver) selectedDriverNumber else null
+                    trackMapView?.selectedDriverNumber = if (isDriverTelemetryOpen) selectedDriverNumber else null
                     trackMapView?.setDriverPositions(markers)
                 } else {
-                    tvTrackMapGpsStatus?.text = "📡 GPS EN ESPERA DE SESIÓN"
-                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#1E3A8A"))
-                    trackMapView?.selectedDriverNumber = if (hasUserSelectedDriver) selectedDriverNumber else null
-                    trackMapView?.setDriverPositions(emptyList()) // Activates smooth broadcast simulation
+                    tvTrackMapGpsStatus?.text = "📡 TRAZADO OFICIAL"
+                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#1E293B"))
+                    tvTrackMapFollowedDriver?.text = "Trazado oficial • Las posiciones GPS se activan en sesiones en vivo"
+                    trackMapView?.selectedDriverNumber = null
+                    trackMapView?.setDriverPositions(emptyList()) // Static clean circuit outline, NO moving dots
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

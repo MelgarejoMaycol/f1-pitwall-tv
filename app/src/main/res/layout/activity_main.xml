@@ -646,20 +646,6 @@
                             android:textStyle="bold" />
 
                         <Button
-                            android:id="@+id/btnMetricsTelemetry"
-                            android:layout_width="wrap_content"
-                            android:layout_height="30dp"
-                            android:layout_marginStart="4dp"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:paddingHorizontal="10dp"
-                            android:text="📈 PILOTO"
-                            android:textColor="@color/text_primary"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-
-                        <Button
                             android:id="@+id/btnMetricsTrackMap"
                             android:layout_width="wrap_content"
                             android:layout_height="30dp"
@@ -744,109 +730,51 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <!-- State A: No Driver Selected Prompt -->
+                    <!-- Selected Driver Header with Back Button -->
                     <LinearLayout
-                        android:id="@+id/layoutTelemetryEmptyPrompt"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="@drawable/bg_glass_hud_badge"
-                        android:gravity="center"
-                        android:orientation="vertical"
-                        android:padding="20dp"
-                        android:visibility="visible">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="🏎️"
-                            android:textSize="38sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
-                            android:text="TELEMETRÍA DE MONOPLAZA"
-                            android:textColor="@color/f1_red"
-                            android:textSize="13sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:gravity="center"
-                            android:text="Selecciona a cualquier piloto en la torre de TIEMPOS para cargar su velocidad en vivo, tacómetro de RPM, marcha, acelerador, frenos, DRS y sectores."
-                            android:textColor="@color/text_secondary"
-                            android:textSize="10.5sp" />
+                        android:layout_height="wrap_content"
+                        android:background="#1E2433"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="8dp">
 
                         <Button
-                            android:id="@+id/btnGoToTimingForDriver"
+                            android:id="@+id/btnBackToTiming"
                             android:layout_width="wrap_content"
-                            android:layout_height="36dp"
-                            android:layout_marginTop="16dp"
+                            android:layout_height="28dp"
+                            android:layout_marginEnd="8dp"
                             android:background="@drawable/btn_tab_selector"
                             android:clickable="true"
                             android:focusable="true"
-                            android:paddingHorizontal="16dp"
-                            android:text="⏱️ ELEGIR PILOTO EN TIEMPOS"
+                            android:paddingHorizontal="10dp"
+                            android:text="⬅️ TIEMPOS"
                             android:textColor="@color/text_primary"
-                            android:textSize="10.5sp"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTelemetryDriverHeader"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="#1 Max Verstappen • Red Bull Racing"
+                            android:textColor="@color/text_primary"
+                            android:textSize="11.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTelemetryDrs"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="#15803D"
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="1dp"
+                            android:text="DRS ACTIVO"
+                            android:textColor="#FFFFFF"
+                            android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
-
-                    <!-- State B: Active Driver Telemetry Content -->
-                    <LinearLayout
-                        android:id="@+id/layoutTelemetryActiveContent"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="vertical"
-                        android:visibility="gone">
-
-                        <!-- Selected Driver Header -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:background="#1E2433"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
-                            android:padding="8dp">
-
-                            <TextView
-                                android:id="@+id/tvTelemetryDriverHeader"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="#1 Max Verstappen • Red Bull Racing"
-                                android:textColor="@color/text_primary"
-                                android:textSize="11.5sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvTelemetryDrs"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="#15803D"
-                                android:paddingHorizontal="6dp"
-                                android:paddingVertical="1dp"
-                                android:text="DRS ACTIVO"
-                                android:textColor="#FFFFFF"
-                                android:textSize="9sp"
-                                android:textStyle="bold" />
-
-                            <Button
-                                android:id="@+id/btnChangeDriver"
-                                android:layout_width="wrap_content"
-                                android:layout_height="26dp"
-                                android:layout_marginStart="6dp"
-                                android:background="@drawable/btn_tab_selector"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:paddingHorizontal="8dp"
-                                android:text="🔄 Cambiar"
-                                android:textColor="@color/text_primary"
-                                android:textSize="8.5sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
 
                         <!-- Speed & Gear Gauges -->
                         <LinearLayout
@@ -1142,7 +1070,6 @@
                             android:textColor="@color/text_primary"
                             android:textSize="10sp"
                             android:textStyle="bold" />
-                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 3. LIVE GPS TRACK MAP PANEL -->

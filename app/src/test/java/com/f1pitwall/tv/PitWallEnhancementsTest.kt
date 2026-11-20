@@ -333,63 +333,62 @@ class PitWallEnhancementsTest {
     @Test
     fun testTelemetryModesCycleSequence() {
         val modes = com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.values()
-        assertEquals(5, modes.size)
+        assertEquals(4, modes.size)
         assertEquals("TIMING", modes[0].name)
-        assertEquals("DRIVER", modes[1].name)
-        assertEquals("TRACK_MAP", modes[2].name)
-        assertEquals("TYRES", modes[3].name)
-        assertEquals("RACE_CONTROL", modes[4].name)
+        assertEquals("TRACK_MAP", modes[1].name)
+        assertEquals("TYRES", modes[2].name)
+        assertEquals("RACE_CONTROL", modes[3].name)
 
-        // Forward cycling from TIMING (0) -> DRIVER (1)
+        // Forward cycling from TIMING (0) -> TRACK_MAP (1)
         var currentIndex = 0
         var nextIndex = (currentIndex + 1) % modes.size
-        assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.DRIVER, modes[nextIndex])
+        assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TRACK_MAP, modes[nextIndex])
 
-        // Forward cycling from RACE_CONTROL (4) -> wraps to TIMING (0)
-        currentIndex = 4
+        // Forward cycling from RACE_CONTROL (3) -> wraps to TIMING (0)
+        currentIndex = 3
         nextIndex = (currentIndex + 1) % modes.size
         assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TIMING, modes[nextIndex])
 
-        // Backward cycling from TIMING (0) -> wraps to RACE_CONTROL (4)
+        // Backward cycling from TIMING (0) -> wraps to RACE_CONTROL (3)
         currentIndex = 0
         val prevIndex = if (currentIndex - 1 < 0) modes.size - 1 else currentIndex - 1
         assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.RACE_CONTROL, modes[prevIndex])
     }
 
     @Test
-    fun testDriverSelectionPromptRule() {
-        // When user has not clicked on a driver in leaderboard:
-        var hasUserSelectedDriver = false
-        var selectedDriverItem: DriverLeaderboardItem? = null
+    fun testDriverTelemetryOpenAndCloseRule() {
+        var isDriverTelemetryOpen = false
+        var selectedDriverNumber: Int? = null
 
-        var isPromptVisible = (!hasUserSelectedDriver || selectedDriverItem == null)
-        var isGaugesVisible = (hasUserSelectedDriver && selectedDriverItem != null)
-        assertTrue("Empty prompt should be visible before driver selection", isPromptVisible)
-        assertFalse("Gauges should not be visible before driver selection", isGaugesVisible)
+        // Default state in Tiempos: only leaderboard visible
+        assertFalse("Driver telemetry should be closed initially", isDriverTelemetryOpen)
+        assertNull(selectedDriverNumber)
 
-        // User clicks on driver #44 Lewis Hamilton:
-        hasUserSelectedDriver = true
-        selectedDriverItem = DriverLeaderboardItem(
-            driverNumber = 44,
-            position = 4,
-            acronym = "HAM",
-            fullName = "Lewis Hamilton",
-            teamName = "Mercedes",
-            teamColor = "27F4D2",
-            gapToLeader = "+12.4s",
-            interval = "+2.1s",
-            lastLap = "1:33.450",
-            s1 = "28.120",
-            s2 = "39.410",
-            s3 = "25.920",
-            tyreCompound = "MEDIUM",
-            tyreAge = 12
+        // User clicks on driver #1 Max Verstappen in Leaderboard
+        val driverItem = DriverLeaderboardItem(
+            driverNumber = 1,
+            position = 1,
+            acronym = "VER",
+            fullName = "Max Verstappen",
+            teamName = "Red Bull Racing",
+            teamColor = "3671C6",
+            gapToLeader = "LÍDER",
+            interval = "LÍDER",
+            lastLap = "1:32.450",
+            s1 = "27.810",
+            s2 = "38.920",
+            s3 = "25.720",
+            tyreCompound = "SOFT",
+            tyreAge = 8
         )
+        isDriverTelemetryOpen = true
+        selectedDriverNumber = driverItem.driverNumber
 
-        isPromptVisible = (!hasUserSelectedDriver || selectedDriverItem == null)
-        isGaugesVisible = (hasUserSelectedDriver && selectedDriverItem != null)
-        assertFalse("Prompt should be hidden once driver is selected", isPromptVisible)
-        assertTrue("Gauges should be visible once driver is selected", isGaugesVisible)
-        assertEquals(44, selectedDriverItem.driverNumber)
+        assertTrue("Driver telemetry opens when clicking driver in Tiempos", isDriverTelemetryOpen)
+        assertEquals(Integer.valueOf(1), selectedDriverNumber)
+
+        // User clicks Back / Volver
+        isDriverTelemetryOpen = false
+        assertFalse("Driver telemetry closes and returns to leaderboard", isDriverTelemetryOpen)
     }
 }
