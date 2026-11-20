@@ -27,11 +27,16 @@ class PreferencesManager(context: Context) {
         get() = prefs.getLong(KEY_LAST_MEETING, 1229L)
         set(value) = prefs.edit().putLong(KEY_LAST_MEETING, value).apply()
 
+    var isRaceSimulationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_RACE_SIMULATION, false)
+        set(value) = prefs.edit().putBoolean(KEY_RACE_SIMULATION, value).apply()
+
     companion object {
         private const val KEY_BROADCAST_SOURCE = "pref_broadcast_source"
         private const val KEY_TIMEZONE = "pref_timezone"
         private const val KEY_VIDEO_PROVIDER = "pref_video_provider"
         private const val KEY_DISPLAY_MODE = "pref_display_mode"
         private const val KEY_LAST_MEETING = "pref_last_meeting"
+        private const val KEY_RACE_SIMULATION = "pref_race_simulation"
     }
 }

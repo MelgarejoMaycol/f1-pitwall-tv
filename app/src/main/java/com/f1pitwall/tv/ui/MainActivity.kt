@@ -77,11 +77,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var archiveResultsAdapter: LeaderboardAdapter
 
     // Settings UI & Smart Search
+    private lateinit var cardRaceSimulation: View
     private lateinit var btnSourceFlx: Button
     private lateinit var btnSourceFutbolVivo: Button
     private lateinit var btnSourceFutbolLibre: Button
     private lateinit var tvActiveSourceInfo: TextView
     private val preferencesManager by lazy { PreferencesManager(this) }
+    private lateinit var btnToggleSimulationMode: Button
+    private lateinit var tvSimulationStatus: TextView
     private lateinit var tvDetectedSessionTitle: TextView
     private lateinit var tvSearchChip1: TextView
     private lateinit var tvSearchChip2: TextView
@@ -143,10 +146,13 @@ class MainActivity : AppCompatActivity() {
         rvArchiveResults = findViewById(R.id.rvArchiveResults)
 
         // Settings Views
+        cardRaceSimulation = findViewById(R.id.cardRaceSimulation)
         btnSourceFlx = findViewById(R.id.btnSourceFlx)
         btnSourceFutbolVivo = findViewById(R.id.btnSourceFutbolVivo)
         btnSourceFutbolLibre = findViewById(R.id.btnSourceFutbolLibre)
         tvActiveSourceInfo = findViewById(R.id.tvActiveSourceInfo)
+        btnToggleSimulationMode = findViewById(R.id.btnToggleSimulationMode)
+        tvSimulationStatus = findViewById(R.id.tvSimulationStatus)
         tvDetectedSessionTitle = findViewById(R.id.tvDetectedSessionTitle)
         tvSearchChip1 = findViewById(R.id.tvSearchChip1)
         tvSearchChip2 = findViewById(R.id.tvSearchChip2)
@@ -204,6 +210,7 @@ class MainActivity : AppCompatActivity() {
             defaultWebSourceUrl = VideoSourcesConfig.loadProviders(this)
                 .firstOrNull { it.isDefault }?.streamUrl
         )
+        pitWallViewManager.setSimulationMode(preferencesManager.isRaceSimulationEnabled)
     }
 
     private fun setupNavigation() {
@@ -239,11 +246,15 @@ class MainActivity : AppCompatActivity() {
         btnTabSettings.setOnClickListener {
             homeViewManager.saveFocusAndScroll()
             switchToTab(layoutSettings, btnTabSettings)
+            (layoutSettings as? ScrollView)?.smoothScrollTo(0, 0)
+            updateSettingsFocusNavigation()
             btnSourceFlx.requestFocus() // Focus on transmission source options
         }
 
         btnTabSettings.setOnKeyListener { _, keyCode, event ->
             if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                (layoutSettings as? ScrollView)?.smoothScrollTo(0, 0)
+                updateSettingsFocusNavigation()
                 btnSourceFlx.requestFocus()
                 return@setOnKeyListener true
             }
@@ -303,6 +314,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSettingsView() {
         setupBroadcastSourceSelector()
+        setupSimulationModeSelector()
 
         btnReloadGitSources.setOnClickListener {
             lifecycleScope.launch {
@@ -369,24 +381,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         scrollDirectChannels.visibility = if (buttons.isEmpty()) View.GONE else View.VISIBLE
-
-        buttons.forEachIndexed { index, button ->
-            button.nextFocusUpId = R.id.btnSourceFlx
-            button.nextFocusDownId = btnReloadGitSources.id
-            button.nextFocusLeftId = if (index > 0) buttons[index - 1].id else R.id.btnSourceFlx
-            button.nextFocusRightId = if (index < buttons.lastIndex) {
-                buttons[index + 1].id
-            } else {
-                btnReloadGitSources.id
-            }
-        }
-
-        val firstChannelId = buttons.firstOrNull()?.id ?: btnReloadGitSources.id
-        btnSourceFlx.nextFocusDownId = firstChannelId
-        btnSourceFutbolVivo.nextFocusDownId = firstChannelId
-        btnSourceFutbolLibre.nextFocusDownId = firstChannelId
-        btnReloadGitSources.nextFocusUpId = R.id.btnSourceFlx
-        btnReloadGitSources.nextFocusDownId = buttons.firstOrNull()?.id ?: btnReloadGitSources.id
+        updateSettingsFocusNavigation()
     }
 
     private fun setupBroadcastSourceSelector() {
@@ -408,20 +403,7 @@ class MainActivity : AppCompatActivity() {
             updateBroadcastSourceUI(BroadcastSource.FUTBOL_LIBRE)
         }
 
-        btnSourceFlx.nextFocusUpId = R.id.btnTabSettings
-        btnSourceFlx.nextFocusRightId = R.id.btnSourceFutbolVivo
-        btnSourceFlx.nextFocusDownId = btnReloadGitSources.id
-        btnSourceFlx.nextFocusLeftId = R.id.btnSourceFlx
-
-        btnSourceFutbolVivo.nextFocusUpId = R.id.btnTabSettings
-        btnSourceFutbolVivo.nextFocusLeftId = R.id.btnSourceFlx
-        btnSourceFutbolVivo.nextFocusRightId = R.id.btnSourceFutbolLibre
-        btnSourceFutbolVivo.nextFocusDownId = btnReloadGitSources.id
-
-        btnSourceFutbolLibre.nextFocusUpId = R.id.btnTabSettings
-        btnSourceFutbolLibre.nextFocusLeftId = R.id.btnSourceFutbolVivo
-        btnSourceFutbolLibre.nextFocusRightId = R.id.btnSourceFutbolLibre
-        btnSourceFutbolLibre.nextFocusDownId = btnReloadGitSources.id
+        updateSettingsFocusNavigation()
     }
 
     private fun updateBroadcastSourceUI(source: BroadcastSource) {
@@ -429,6 +411,135 @@ class MainActivity : AppCompatActivity() {
         btnSourceFutbolVivo.isSelected = (source == BroadcastSource.FUTBOL_VIVO)
         btnSourceFutbolLibre.isSelected = (source == BroadcastSource.FUTBOL_LIBRE)
         tvActiveSourceInfo.text = "Activa: ${source.displayName}"
+    }
+
+    private fun setupSimulationModeSelector() {
+        val isSimEnabled = preferencesManager.isRaceSimulationEnabled
+        updateSimulationModeUI(isSimEnabled)
+
+        btnToggleSimulationMode.setOnClickListener {
+            val newState = !preferencesManager.isRaceSimulationEnabled
+            preferencesManager.isRaceSimulationEnabled = newState
+            updateSimulationModeUI(newState)
+            pitWallViewManager.setSimulationMode(newState)
+
+            if (newState) {
+                Toast.makeText(this, "🏎️ Emulación de carrera activada. Ve a 'Muro de Pits' para ver la telemetría en vivo.", Toast.LENGTH_LONG).show()
+            } else {
+                lifecycleScope.launch {
+                    loadLiveSessionData()
+                }
+                Toast.makeText(this, "🛑 Emulación desactivada. Modo oficial restaurado.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        updateSettingsFocusNavigation()
+    }
+
+    private fun updateSettingsFocusNavigation() {
+        val hasDirectChannels = scrollDirectChannels.visibility == View.VISIBLE && llDynamicDirectPresets.childCount > 0
+        val firstChannel = if (hasDirectChannels) llDynamicDirectPresets.getChildAt(0) else null
+        val targetDownFromSourcesId = firstChannel?.id ?: R.id.btnToggleSimulationMode
+
+        // 1. Header Reload Button (Top right)
+        btnReloadGitSources.nextFocusUpId = R.id.btnTabSettings
+        btnReloadGitSources.nextFocusLeftId = R.id.btnSourceFutbolLibre
+        btnReloadGitSources.nextFocusRightId = R.id.btnReloadGitSources
+        btnReloadGitSources.nextFocusDownId = targetDownFromSourcesId
+
+        // 2. Source Row Buttons (FLX, Futbol Vivo, Futbol Libre)
+        btnSourceFlx.nextFocusUpId = R.id.btnTabSettings
+        btnSourceFlx.nextFocusLeftId = R.id.btnSourceFlx
+        btnSourceFlx.nextFocusRightId = R.id.btnSourceFutbolVivo
+        btnSourceFlx.nextFocusDownId = targetDownFromSourcesId
+
+        btnSourceFutbolVivo.nextFocusUpId = R.id.btnTabSettings
+        btnSourceFutbolVivo.nextFocusLeftId = R.id.btnSourceFlx
+        btnSourceFutbolVivo.nextFocusRightId = R.id.btnSourceFutbolLibre
+        btnSourceFutbolVivo.nextFocusDownId = targetDownFromSourcesId
+
+        btnSourceFutbolLibre.nextFocusUpId = R.id.btnTabSettings
+        btnSourceFutbolLibre.nextFocusLeftId = R.id.btnSourceFutbolVivo
+        btnSourceFutbolLibre.nextFocusRightId = R.id.btnReloadGitSources
+        btnSourceFutbolLibre.nextFocusDownId = targetDownFromSourcesId
+
+        // Key listeners on source buttons for direct, reliable D-Pad navigation and smooth scrolling
+        val sourceDownKeyListener = View.OnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (hasDirectChannels && firstChannel != null) {
+                    firstChannel.requestFocus()
+                } else {
+                    val targetY = if (::cardRaceSimulation.isInitialized) cardRaceSimulation.top else 1000
+                    (layoutSettings as? ScrollView)?.smoothScrollTo(0, targetY)
+                    btnToggleSimulationMode.requestFocus()
+                }
+                return@OnKeyListener true
+            }
+            false
+        }
+        btnSourceFlx.setOnKeyListener(sourceDownKeyListener)
+        btnSourceFutbolVivo.setOnKeyListener(sourceDownKeyListener)
+        btnSourceFutbolLibre.setOnKeyListener(sourceDownKeyListener)
+        btnReloadGitSources.setOnKeyListener(sourceDownKeyListener)
+
+        // 3. Dynamic Channel Presets (if visible)
+        for (i in 0 until llDynamicDirectPresets.childCount) {
+            val child = llDynamicDirectPresets.getChildAt(i)
+            child.nextFocusUpId = R.id.btnSourceFlx
+            child.nextFocusDownId = R.id.btnToggleSimulationMode
+            child.nextFocusLeftId = if (i > 0) llDynamicDirectPresets.getChildAt(i - 1).id else R.id.btnSourceFlx
+            child.nextFocusRightId = if (i < llDynamicDirectPresets.childCount - 1) llDynamicDirectPresets.getChildAt(i + 1).id else child.id
+
+            child.setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    val targetY = if (::cardRaceSimulation.isInitialized) cardRaceSimulation.top else 1000
+                    (layoutSettings as? ScrollView)?.smoothScrollTo(0, targetY)
+                    btnToggleSimulationMode.requestFocus()
+                    return@setOnKeyListener true
+                }
+                false
+            }
+        }
+
+        // 4. Race Simulation Button
+        btnToggleSimulationMode.nextFocusUpId = firstChannel?.id ?: R.id.btnSourceFlx
+        btnToggleSimulationMode.nextFocusDownId = R.id.btnToggleSimulationMode
+        btnToggleSimulationMode.nextFocusLeftId = R.id.btnToggleSimulationMode
+        btnToggleSimulationMode.nextFocusRightId = R.id.btnToggleSimulationMode
+
+        btnToggleSimulationMode.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                val targetY = if (::cardRaceSimulation.isInitialized) cardRaceSimulation.top else 1000
+                (layoutSettings as? ScrollView)?.smoothScrollTo(0, targetY)
+            }
+        }
+
+        btnToggleSimulationMode.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                (layoutSettings as? ScrollView)?.smoothScrollTo(0, 0)
+                if (hasDirectChannels && firstChannel != null) {
+                    firstChannel.requestFocus()
+                } else {
+                    btnSourceFlx.requestFocus()
+                }
+                return@setOnKeyListener true
+            }
+            false
+        }
+    }
+
+    private fun updateSimulationModeUI(enabled: Boolean) {
+        if (enabled) {
+            btnToggleSimulationMode.text = "🛑 Detener Emulación"
+            btnToggleSimulationMode.setTextColor(Color.parseColor("#EF4444"))
+            tvSimulationStatus.text = "Estado: 🟢 ACTIVO • Emulando Gran Premio en vivo con 22 pilotos"
+            tvSimulationStatus.setTextColor(Color.parseColor("#22C55E"))
+        } else {
+            btnToggleSimulationMode.text = "▶️ Iniciar Emulación"
+            btnToggleSimulationMode.setTextColor(Color.WHITE)
+            tvSimulationStatus.text = "Estado: Desactivado (Esperando eventos reales de F1)"
+            tvSimulationStatus.setTextColor(Color.parseColor("#94A3B8"))
+        }
     }
 
     private fun selectYear(year: Int) {
@@ -504,6 +615,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun loadLiveSessionData() {
+        if (preferencesManager.isRaceSimulationEnabled) {
+            pitWallViewManager.setSimulationMode(true)
+            return
+        }
         try {
             val session = repository.getCurrentOrNextSession(selectedYear)
             if (session == null) {
@@ -521,7 +636,23 @@ class MainActivity : AppCompatActivity() {
             val isUpcoming = start?.after(now) == true
             val venue = session.circuitShortName ?: session.countryName ?: "F1"
             val title = "$venue • ${session.sessionName ?: "Sesión"}"
-            pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, isUpcoming, title)
+            val meeting = repository.getMeetings(selectedYear).find { it.meetingKey == session.meetingKey }
+            val circuitImg = meeting?.circuitImage?.takeIf { it.isNotBlank() }
+                ?: repository.getCircuitSilhouetteUrl(session.circuitShortName.orEmpty(), session.countryName.orEmpty())
+
+            val formattedDate = TimeUtils.formatToColombiaTime(session.dateStart, "d 'de' MMMM • hh:mm a")
+            val countdown = TimeUtils.calculateCountdown(session.dateStart)
+            val dateInfo = if (countdown.isNotBlank()) "$formattedDate ($countdown)" else formattedDate
+
+            pitWallViewManager.onSessionUpdated(
+                sessionKey = session.sessionKey,
+                isLive = isLive,
+                isUpcoming = isUpcoming,
+                sessionTitleText = title,
+                sessionType = session.sessionType ?: session.sessionName,
+                circuitImageUrl = circuitImg,
+                formattedSessionDate = dateInfo
+            )
 
             if (!isLive) {
                 val isHeadingToRace = session.sessionName?.contains("Race", ignoreCase = true) == true
@@ -539,7 +670,15 @@ class MainActivity : AppCompatActivity() {
                     tvRaceFlag.setTextColor(Color.parseColor("#38BDF8"))
                     tvWeather.text = "🏎️ PARRILLA DEFINIDA"
                     val gridTitle = "${session.circuitShortName ?: "F1"} • PARRILLA / SALIDA EN CARRERA"
-                    pitWallViewManager.onSessionUpdated(session.sessionKey, isLive = false, isUpcoming = true, gridTitle)
+                    pitWallViewManager.onSessionUpdated(
+                        sessionKey = session.sessionKey,
+                        isLive = false,
+                        isUpcoming = true,
+                        sessionTitleText = gridTitle,
+                        sessionType = "Race",
+                        circuitImageUrl = circuitImg,
+                        formattedSessionDate = dateInfo
+                    )
                     return
                 }
 
@@ -574,9 +713,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     pitWallViewManager.leaderboardAdapter.updateData(emptyList())
                 }
-                tvRaceFlag.text = if (isUpcoming) "🏁 PRÓXIMA SESIÓN" else "🏁 ÚLTIMA SESIÓN"
+                tvRaceFlag.text = if (isUpcoming) "🏁 PRÓXIMA FECHA: $formattedDate" else "🏁 SESIÓN NO ACTIVA"
                 tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
-                tvWeather.text = "⛅ Pista: -- | Aire: --"
+                tvWeather.text = if (isUpcoming) "⏳ $countdown" else "⛅ Pista: -- | Aire: --"
                 return
             }
 

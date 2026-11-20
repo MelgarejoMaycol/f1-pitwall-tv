@@ -28,7 +28,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.f1pitwall.tv.R
+import com.f1pitwall.tv.core.config.AppConfig
 import com.f1pitwall.tv.core.config.BroadcastSource
 import com.f1pitwall.tv.core.storage.PreferencesManager
 import com.f1pitwall.tv.core.util.BroadcastDetectorUtils
@@ -100,19 +102,21 @@ class PitWallViewManager(
     private val btnContentBoxes: Button = rootView.findViewById(R.id.btnContentBoxes)
 
     // Radio
-    private val tvRadioTitle: TextView = rootView.findViewById(R.id.tvRadioTitle)
-    private val btnPlayRadio: Button = rootView.findViewById(R.id.btnPlayRadio)
-    private val btnRadioVer: Button = rootView.findViewById(R.id.btnRadioVer)
-    private val btnRadioNor: Button = rootView.findViewById(R.id.btnRadioNor)
-    private val btnRadioLec: Button = rootView.findViewById(R.id.btnRadioLec)
-    private val btnRadioHam: Button = rootView.findViewById(R.id.btnRadioHam)
-    private val btnRadioRus: Button = rootView.findViewById(R.id.btnRadioRus)
-    private val btnRadioPia: Button = rootView.findViewById(R.id.btnRadioPia)
-    private val btnRadioAlo: Button = rootView.findViewById(R.id.btnRadioAlo)
+    val tvRadioTitle: TextView = rootView.findViewById(R.id.tvRadioTitle)
+    val scrollRadioChips: HorizontalScrollView? = rootView.findViewById(R.id.scrollRadioChips)
+    val llRadioChips: LinearLayout? = rootView.findViewById(R.id.llRadioChips)
+    val tvRadioLabel: TextView? = rootView.findViewById(R.id.tvRadioLabel)
+    var activeRadioDriverNumber: Int? = null
+        internal set
+    val radioButtons = mutableMapOf<Int, Button>()
+    var nextSessionFormattedDate: String? = null
+        internal set
 
     // Header Status & Live Refresh
     private val tvSessionTitle: TextView = rootView.findViewById(R.id.tvSessionTitle)
     private val btnRefreshLive: Button? = rootView.findViewById(R.id.btnRefreshLive)
+    private val tvRaceFlag: TextView? get() = rootView.rootView?.findViewById(R.id.tvRaceFlag)
+    private val tvWeather: TextView? get() = rootView.rootView?.findViewById(R.id.tvWeather)
 
     enum class TelemetryMode(val title: String, val icon: String) {
         TIMING("Tiempos", "⏱️ TIEMPOS"),
@@ -146,6 +150,9 @@ class PitWallViewManager(
 
     // Track Map Views
     private val trackMapView: TrackMapView? = rootView.findViewById(R.id.trackMapView)
+    private val layoutTrackMapCircuitImageContainer: View? = rootView.findViewById(R.id.layoutTrackMapCircuitImageContainer)
+    private val ivTrackMapCircuitImage: ImageView? = rootView.findViewById(R.id.ivTrackMapCircuitImage)
+    private val tvTrackMapImageCaption: TextView? = rootView.findViewById(R.id.tvTrackMapImageCaption)
     private val tvTrackMapCircuitName: TextView? = rootView.findViewById(R.id.tvTrackMapCircuitName)
     private val tvTrackMapGpsStatus: TextView? = rootView.findViewById(R.id.tvTrackMapGpsStatus)
     private val tvTrackMapCircuitDetails: TextView? = rootView.findViewById(R.id.tvTrackMapCircuitDetails)
@@ -153,12 +160,17 @@ class PitWallViewManager(
     private val tvTrackMapLegend: TextView? = rootView.findViewById(R.id.tvTrackMapLegend)
     private var trackMapPollingJob: Job? = null
     private var telemetryToast: Toast? = null
+    private var currentCircuitImageUrl: String? = null
+    private var currentSessionType: String? = null
+    private var lastKnownMarkers: List<TrackMapView.DriverMarker> = emptyList()
 
     // Tyres Views & Adapter
     private val rvTyreStrategy: RecyclerView? = rootView.findViewById(R.id.rvTyreStrategy)
     val tyreStrategyAdapter = TyreStrategyAdapter { item ->
         selectedDriverNumber = item.driverNumber
-        tuneRadioDriver(item.driverNumber, item.fullName)
+        if (isDriverTelemetryOpen) {
+            loadDriverTelemetry(item.driverNumber)
+        }
     }
 
     // Race Control Views & Adapter
@@ -195,7 +207,9 @@ class PitWallViewManager(
     // State & Players
     private var exoPlayer: ExoPlayer? = null
     private var radioPlayer: ExoPlayer? = null
+    private var radioPollingJob: Job? = null
     private var latestRadioUrl: String? = null
+    private var lastPlayedRadioUrl: String? = null
     private var currentSessionKey: Long? = null
     private var isLiveSessionActive: Boolean = false
     private var isUpcomingSession: Boolean = false
@@ -207,6 +221,84 @@ class PitWallViewManager(
     private var currentWebUrl: String? = null
     private var customFullScreenView: View? = null
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
+
+    // Simulation / Demo Mode State
+    private var simulationEngineJob: Job? = null
+    private var simulationTick: Int = 0
+    private var radioMessageExpiryTick: Int = 0
+    var isSimulationMode: Boolean = false
+        private set
+
+    data class SimDriver(
+        val driverNumber: Int,
+        val position: Int,
+        val acronym: String,
+        val fullName: String,
+        val teamName: String,
+        val teamColor: String,
+        val tyreCompound: String,
+        val tyreAge: Int,
+        val bestLap: String
+    )
+
+    private val simulatedDrivers = listOf(
+        SimDriver(1, 1, "VER", "Max Verstappen", "Red Bull Racing", "#3671C6", "MEDIUM", 16, "1:35.490"),
+        SimDriver(4, 2, "NOR", "Lando Norris", "McLaren", "#FF8000", "MEDIUM", 16, "1:35.620"),
+        SimDriver(16, 3, "LEC", "Charles Leclerc", "Ferrari", "#E80020", "HARD", 22, "1:35.780"),
+        SimDriver(44, 4, "HAM", "Lewis Hamilton", "Ferrari", "#E80020", "HARD", 22, "1:35.910"),
+        SimDriver(63, 5, "RUS", "George Russell", "Mercedes", "#27F4D2", "MEDIUM", 15, "1:36.050"),
+        SimDriver(81, 6, "PIA", "Oscar Piastri", "McLaren", "#FF8000", "SOFT", 8, "1:35.530"),
+        SimDriver(14, 7, "ALO", "Fernando Alonso", "Aston Martin", "#229971", "MEDIUM", 18, "1:36.310"),
+        SimDriver(55, 8, "SAI", "Carlos Sainz", "Williams", "#64C4FF", "HARD", 24, "1:36.450"),
+        SimDriver(23, 9, "ALB", "Alex Albon", "Williams", "#64C4FF", "MEDIUM", 14, "1:36.620"),
+        SimDriver(12, 10, "ANT", "Andrea Kimi Antonelli", "Mercedes", "#27F4D2", "HARD", 21, "1:36.750"),
+        SimDriver(10, 11, "GAS", "Pierre Gasly", "Alpine", "#0093CC", "SOFT", 9, "1:36.800"),
+        SimDriver(31, 12, "OCO", "Esteban Ocon", "Haas", "#B6BABD", "HARD", 20, "1:36.950"),
+        SimDriver(27, 13, "HUL", "Nico Hulkenberg", "Sauber", "#52E252", "MEDIUM", 17, "1:37.110"),
+        SimDriver(22, 14, "TSU", "Yuki Tsunoda", "RB", "#6692FF", "SOFT", 10, "1:37.240"),
+        SimDriver(30, 15, "LAW", "Liam Lawson", "Red Bull Racing", "#3671C6", "MEDIUM", 15, "1:37.380"),
+        SimDriver(87, 16, "BEA", "Oliver Bearman", "Haas", "#B6BABD", "MEDIUM", 13, "1:37.690"),
+        SimDriver(6, 17, "HAD", "Isack Hadjar", "RB", "#6692FF", "HARD", 19, "1:37.840"),
+        SimDriver(5, 18, "BOR", "Gabriel Bortoleto", "Sauber", "#52E252", "SOFT", 11, "1:38.010"),
+        SimDriver(7, 19, "DOO", "Jack Doohan", "Alpine", "#0093CC", "MEDIUM", 16, "1:38.180"),
+        SimDriver(18, 20, "STR", "Lance Stroll", "Aston Martin", "#229971", "HARD", 23, "1:38.350"),
+        SimDriver(11, 21, "PER", "Sergio Pérez", "Cadillac F1 Team", "#C5A059", "SOFT", 12, "1:37.950"),
+        SimDriver(77, 22, "BOT", "Valtteri Bottas", "Cadillac F1 Team", "#C5A059", "MEDIUM", 17, "1:38.120")
+    )
+
+    data class SimDriverState(
+        val driverNumber: Int,
+        var position: Int,
+        val acronym: String,
+        val fullName: String,
+        val teamName: String,
+        val teamColor: String,
+        var tyreCompound: String,
+        var tyreAge: Int,
+        var bestLap: String,
+        var lastLapTime: String,
+        var gapToLeader: Double,
+        var intervalToAhead: Double,
+        var pitStopsCount: Int = 0,
+        var isPitting: Boolean = false,
+        var pitTicksRemaining: Int = 0,
+        var lastPitDuration: String = "--",
+        var stintsHistory: String = "",
+        var s1: String = "27.200",
+        var s2: String = "31.800",
+        var s3: String = "26.100"
+    )
+
+    private val activeSimDrivers = mutableListOf<SimDriverState>()
+    var currentRaceLap: Int = 34
+        private set
+    val totalRaceLaps: Int = 58
+    private var nextOvertakeTick: Int = 120
+    private var nextPitStopTick: Int = 180
+    private val simRaceControlLog = mutableListOf<RaceControl>()
+
+    fun getActiveSimDrivers(): List<SimDriverState> = activeSimDrivers
+    fun getSimRaceControlLog(): List<RaceControl> = simRaceControlLog
 
     val leaderboardAdapter = LeaderboardAdapter { item ->
         openDriverTelemetry(item)
@@ -457,13 +549,60 @@ class PitWallViewManager(
                                     document.head.appendChild(style);
                                 }
 
+                                function setupAutoResume(v) {
+                                    if (v.__f1_autoresume_attached) return;
+                                    v.__f1_autoresume_attached = true;
+                                    v.addEventListener('pause', function() {
+                                        setTimeout(function() {
+                                            // Solo cuando se detenga, NO cuando está cargando (readyState >= 2)
+                                            if (v.paused && v.readyState >= 2 && !v.seeking) {
+                                                v.play().catch(function() {});
+                                            }
+                                        }, 400);
+                                    });
+                                    v.addEventListener('ended', function() {
+                                        setTimeout(function() {
+                                            if (v.paused) {
+                                                v.play().catch(function() {});
+                                            }
+                                        }, 500);
+                                    });
+                                }
+
                                 document.querySelectorAll('video').forEach(v => {
+                                    setupAutoResume(v);
                                     v.muted = false;
                                     v.play().catch(() => {
                                         v.muted = true;
                                         v.play().catch(() => {});
                                     });
                                 });
+
+                                if (!window.__f1_video_watchdog) {
+                                    window.__f1_video_watchdog = true;
+                                    setInterval(function() {
+                                        try {
+                                            document.querySelectorAll('video').forEach(function(v) {
+                                                setupAutoResume(v);
+                                                if (v.paused && v.readyState >= 2 && !v.seeking) {
+                                                    v.play().catch(function() {});
+                                                }
+                                            });
+                                            document.querySelectorAll('iframe').forEach(function(f) {
+                                                try {
+                                                    if (f.contentDocument) {
+                                                        f.contentDocument.querySelectorAll('video').forEach(function(v) {
+                                                            setupAutoResume(v);
+                                                            if (v.paused && v.readyState >= 2 && !v.seeking) {
+                                                                v.play().catch(function() {});
+                                                            }
+                                                        });
+                                                    }
+                                                } catch(e) {}
+                                            });
+                                        } catch(e) {}
+                                    }, 1500);
+                                }
 
                                 document.querySelectorAll('div').forEach(d => {
                                     if (d.id !== 'playerWrap' && d.id !== 'playerContainer' && !d.classList.contains('se-player-wrap') && !d.classList.contains('se-player')) {
@@ -885,6 +1024,8 @@ class PitWallViewManager(
         }
 
         currentWebUrl = targetUrl
+        isUserStoppedPlayback = false
+        startVideoPlaybackWatchdog()
         exoPlayer?.pause()
         exoPlayer?.stop()
         playerView.visibility = View.GONE
@@ -893,6 +1034,7 @@ class PitWallViewManager(
         btnStandbyStopVideo.visibility = View.VISIBLE
         tvLiveSessionAlertTitle.text = "🏎️ " + title
         webVideoView.loadUrl(targetUrl)
+        updatePitWallFocusChains()
         val targetBtn = btnSourceBadgePitWall ?: btnSessionSelector ?: dynamicChannelButtons.firstOrNull()
         targetBtn?.post { targetBtn.requestFocus() }
     }
@@ -913,25 +1055,106 @@ class PitWallViewManager(
         return false
     }
 
+    private var isUserStoppedPlayback: Boolean = false
+    private var videoWatchdogJob: Job? = null
+
     private fun initPlayers() {
         exoPlayer = ExoPlayer.Builder(context).build()
         playerView.player = exoPlayer
-
-        radioPlayer = ExoPlayer.Builder(context).build()
-        radioPlayer?.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                btnPlayRadio.text = if (isPlaying) "⏸ PAUSA" else "▶ RADIO"
+        exoPlayer?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED && !isUserStoppedPlayback) {
+                    exoPlayer?.seekToDefaultPosition()
+                    exoPlayer?.play()
+                }
             }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (!isPlaying && !isUserStoppedPlayback) {
+                    val state = exoPlayer?.playbackState
+                    // Solo dar play si se detuvo y está listo, NO cuando está cargando (STATE_BUFFERING)
+                    if (state == Player.STATE_READY && exoPlayer?.playWhenReady == false) {
+                        exoPlayer?.play()
+                    }
+                }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (!isUserStoppedPlayback) {
+                    exoPlayer?.prepare()
+                    exoPlayer?.play()
+                }
+            }
+        })
+
+        val radioAudioAttrs = androidx.media3.common.AudioAttributes.Builder()
+            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH)
+            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+            .build()
+        radioPlayer = ExoPlayer.Builder(context)
+            .setAudioAttributes(radioAudioAttrs, false)
+            .build()
+        radioPlayer?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) {
-                    btnPlayRadio.text = "▶ RADIO"
-                    tvRadioTitle.text = "📻 Radio Oficial: Fin de transmisión"
+                    val num = activeRadioDriverNumber
+                    if (num != null) {
+                        val acr = simulatedDrivers.find { it.driverNumber == num }?.acronym ?: "CAR$num"
+                        tvRadioTitle.text = "📻 [Radio #$num $acr]: Frecuencia activa • En espera de transmisión"
+                    } else {
+                        tvRadioTitle.text = "📻 Radio Oficial: Canal en espera (Selecciona piloto)"
+                    }
+                }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                val num = activeRadioDriverNumber
+                if (num != null) {
+                    val acr = simulatedDrivers.find { it.driverNumber == num }?.acronym ?: "CAR$num"
+                    tvRadioTitle.text = "📻 [Radio #$num $acr]: Frecuencia conectada • Esperando transmisión en vivo"
                 }
             }
         })
 
         // By default off-race: Standby visible, playerView hidden, NO auto-playing demo video!
         switchToStandby()
+    }
+
+    private fun startVideoPlaybackWatchdog() {
+        videoWatchdogJob?.cancel()
+        videoWatchdogJob = scope.launch {
+            while (isActive) {
+                delay(2000L)
+                if (isUserStoppedPlayback) continue
+
+                // 1. ExoPlayer: dar play cuando se detenga, NO cuando esté cargando (STATE_BUFFERING)
+                exoPlayer?.let { player ->
+                    if (playerView.visibility == View.VISIBLE) {
+                        val state = player.playbackState
+                        if (state == Player.STATE_READY && !player.playWhenReady) {
+                            player.play()
+                        } else if (state == Player.STATE_ENDED) {
+                            player.seekToDefaultPosition()
+                            player.play()
+                        }
+                    }
+                }
+
+                // 2. WebView: solo dar play cuando se detenga, NO cuando está cargando (readyState >= 2)
+                if (webVideoView.visibility == View.VISIBLE) {
+                    val resumeJs = """
+                        (function() {
+                            document.querySelectorAll('video').forEach(function(v) {
+                                if (v.paused && v.readyState >= 2 && !v.seeking) {
+                                    v.play().catch(function() {});
+                                }
+                            });
+                        })();
+                    """.trimIndent()
+                    webVideoView.evaluateJavascript(resumeJs, null)
+                }
+            }
+        }
     }
 
     private fun setupListeners() {
@@ -962,15 +1185,6 @@ class PitWallViewManager(
         updateSourceBadgeUI()
         updateDynamicServerFocusChain()
 
-        btnPlayRadio.nextFocusUpId = R.id.btnSourceBadgePitWall
-        btnRadioVer.nextFocusUpId = R.id.btnSourceBadgePitWall
-        btnRadioNor.nextFocusUpId = R.id.btnSourceBadgePitWall
-        btnRadioLec.nextFocusUpId = R.id.btnSessionSelector
-        btnRadioHam.nextFocusUpId = R.id.btnSessionSelector
-        btnRadioRus.nextFocusUpId = R.id.btnSessionSelector
-        btnRadioPia.nextFocusUpId = R.id.btnSessionSelector
-        btnRadioAlo.nextFocusUpId = R.id.btnLiveSessionAction
-
         // Botón de refrescar / recargar la señal en vivo si cae
         btnLiveSessionAction.setOnClickListener {
             refreshStream()
@@ -979,30 +1193,8 @@ class PitWallViewManager(
             refreshStream()
         }
 
-        // Radio Player
-        btnPlayRadio.setOnClickListener {
-            val player = radioPlayer ?: return@setOnClickListener
-            if (player.isPlaying) {
-                player.pause()
-                btnPlayRadio.text = "▶ REANUDAR"
-                Toast.makeText(context, "Radio pausada", Toast.LENGTH_SHORT).show()
-            } else if (player.playbackState == Player.STATE_READY) {
-                player.play()
-                btnPlayRadio.text = "⏸ PAUSA"
-                Toast.makeText(context, "Reanudando radio...", Toast.LENGTH_SHORT).show()
-            } else {
-                playCurrentOrSessionRadio()
-            }
-        }
-
-        // Radio Driver Chips
-        btnRadioVer.setOnClickListener { tuneRadioDriver(1, "Max Verstappen") }
-        btnRadioNor.setOnClickListener { tuneRadioDriver(4, "Lando Norris") }
-        btnRadioLec.setOnClickListener { tuneRadioDriver(16, "Charles Leclerc") }
-        btnRadioHam.setOnClickListener { tuneRadioDriver(44, "Lewis Hamilton") }
-        btnRadioRus.setOnClickListener { tuneRadioDriver(63, "George Russell") }
-        btnRadioPia.setOnClickListener { tuneRadioDriver(81, "Oscar Piastri") }
-        btnRadioAlo.setOnClickListener { tuneRadioDriver(14, "Fernando Alonso") }
+        // Configuración de chips de Radio para todos los pilotos de la temporada 2026
+        setupRadioChips()
 
         // Setup Adapters for new panels
         rvTyreStrategy?.layoutManager = LinearLayoutManager(context)
@@ -1267,12 +1459,15 @@ class PitWallViewManager(
             return
         }
 
+        isUserStoppedPlayback = false
+        startVideoPlaybackWatchdog()
         webVideoView.stopLoading()
         webVideoView.loadUrl("about:blank")
         webVideoView.visibility = View.GONE
         layoutPlayerStandby.visibility = View.GONE
         playerView.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.VISIBLE
+        updatePitWallFocusChains()
 
         exoPlayer?.let { player ->
             val mediaItem = MediaItem.fromUri(url)
@@ -1288,6 +1483,8 @@ class PitWallViewManager(
     }
 
     fun switchToStandby() {
+        isUserStoppedPlayback = true
+        videoWatchdogJob?.cancel()
         if (customFullScreenView != null) hideCustomView()
         webVideoView.stopLoading()
         webVideoView.loadUrl("about:blank")
@@ -1299,6 +1496,7 @@ class PitWallViewManager(
         layoutPlayerStandby.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.GONE
         updateScheduleBanner()
+        updatePitWallFocusChains()
     }
 
     fun playCurrentOrSessionRadio() {
@@ -1325,7 +1523,6 @@ class PitWallViewManager(
                         player.repeatMode = Player.REPEAT_MODE_OFF
                         player.prepare()
                         player.play()
-                        btnPlayRadio.text = "⏸ PAUSA"
                     }
                     Toast.makeText(context, "Reproduciendo radios de la sesión (${playableRadios.size} audios)", Toast.LENGTH_SHORT).show()
                 } else {
@@ -1335,7 +1532,6 @@ class PitWallViewManager(
                         radioPlayer?.setMediaItem(mediaItem)
                         radioPlayer?.prepare()
                         radioPlayer?.play()
-                        btnPlayRadio.text = "⏸ PAUSA"
                         Toast.makeText(context, "Reproduciendo último audio guardado", Toast.LENGTH_SHORT).show()
                     } ?: run {
                         Toast.makeText(context, "No hay audios de radio disponibles para esta sesión", Toast.LENGTH_SHORT).show()
@@ -1347,63 +1543,751 @@ class PitWallViewManager(
         }
     }
 
-    fun tuneRadioDriver(driverNumber: Int, driverName: String) {
-        tvRadioTitle.text = "📻 Sintonizando Radio: $driverName (#$driverNumber)..."
-        scope.launch {
-            try {
-                val key = currentSessionKey
-                var radios = if (key != null) {
-                    repository.getDriverTeamRadios(key, driverNumber)
-                } else emptyList()
+    fun setupRadioChips() {
+        val container = llRadioChips ?: return
+        container.removeAllViews()
+        radioButtons.clear()
 
-                // Si es Verstappen (#1), en 2026 corre con el #3 en OpenF1
-                if (radios.isEmpty() && (driverNumber == 1 || driverNumber == 3) && key != null) {
-                    val altNum = if (driverNumber == 1) 3 else 1
-                    radios = repository.getDriverTeamRadios(key, altNum)
+        val density = context.resources.displayMetrics.density
+        val btnHeight = (24 * density).toInt()
+        val marginEnd = (4 * density).toInt()
+        val paddingH = (9 * density).toInt()
+
+        simulatedDrivers.forEach { driver ->
+            val btn = Button(context).apply {
+                id = View.generateViewId()
+                text = driver.acronym
+                textSize = 9f
+                setTextColor(Color.WHITE)
+                setBackgroundResource(R.drawable.btn_tab_selector)
+                isClickable = true
+                isFocusable = true
+                minWidth = (38 * density).toInt()
+                minimumWidth = (38 * density).toInt()
+                setPadding(paddingH, 0, paddingH, 0)
+                isSelected = (activeRadioDriverNumber == driver.driverNumber)
+                nextFocusUpId = R.id.btnSourceBadgePitWall
+
+                setOnClickListener {
+                    toggleRadioDriver(driver.driverNumber, driver.fullName, driver.acronym)
+                }
+            }
+
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                btnHeight
+            ).apply {
+                this.marginEnd = marginEnd
+            }
+
+            container.addView(btn, lp)
+            radioButtons[driver.driverNumber] = btn
+        }
+
+        // Setup horizontal D-pad focus chain across all radio chips
+        for (i in 0 until container.childCount) {
+            val current = container.getChildAt(i)
+            if (i > 0) {
+                current.nextFocusLeftId = container.getChildAt(i - 1).id
+            }
+            if (i < container.childCount - 1) {
+                current.nextFocusRightId = container.getChildAt(i + 1).id
+            }
+        }
+        updatePitWallFocusChains()
+    }
+
+    fun toggleRadioDriver(driverNumber: Int, driverName: String, acronym: String) {
+        if (activeRadioDriverNumber == driverNumber) {
+            turnOffRadio()
+        } else {
+            selectRadioDriver(driverNumber, driverName, acronym)
+        }
+    }
+
+    fun turnOffRadio() {
+        radioPollingJob?.cancel()
+        radioPollingJob = null
+        activeRadioDriverNumber = null
+        lastPlayedRadioUrl = null
+        radioButtons.values.forEach { it.isSelected = false }
+        try {
+            radioPlayer?.stop()
+            radioPlayer?.clearMediaItems()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        tvRadioTitle.text = "📻 Radio Oficial: Canal en espera (Selecciona piloto)"
+        Toast.makeText(context, "📻 Radio desactivada", Toast.LENGTH_SHORT).show()
+    }
+
+    fun selectRadioDriver(driverNumber: Int, driverName: String, acronym: String) {
+        activeRadioDriverNumber = driverNumber
+        radioButtons.forEach { (num, btn) ->
+            btn.isSelected = (num == driverNumber)
+        }
+        tuneRadioDriver(driverNumber, driverName, acronym)
+    }
+
+    fun getSimulatedRadioQuote(driverNumber: Int, driverName: String, phase: Int): String {
+        val quotes = when (driverNumber) {
+            1 -> listOf(
+                "Max: 'El balance es sólido, neumáticos traseros calientes pero gestiono bien el ritmo.'",
+                "Ingeniero: 'Max, pasa a modo 7. La ventaja con Norris es de 1.8s. Protege la entrada en Curva 1.'",
+                "Max: 'El coche responde perfecto en el Sector 2. La entrega de batería es buena.'",
+                "Ingeniero: 'Copiado Max, ventana de parada en 6 vueltas, confirma boxes cuando estés listo.'"
+            )
+            4 -> listOf(
+                "Lando: 'La distancia con Max es estable en 1.4s, empujando con medios.'",
+                "Ingeniero: 'Lando, usa estrategia 3 cuando entres en zona de DRS.'",
+                "Lando: 'El agarre trasero sigue muy positivo, ¡mantengamos la presión!'",
+                "Ingeniero: 'Gran vuelta Lando, sector 2 en récord púrpura.'"
+            )
+            16 -> listOf(
+                "Charles: 'Boxes esta vuelta para montar duros. Confirmen que la ventana está abierta.'",
+                "Ingeniero: 'A boxes Charles, entra por duros. Confirmado.' - Charles: '¡Copiado!'",
+                "Charles: 'El alerón delantero va bien, los neumáticos aguantan en curvas rápidas.'",
+                "Ingeniero: 'Entendido Charles, Hamilton está a +2.1s con idéntica estrategia.'"
+            )
+            44 -> listOf(
+                "Lewis: '¿Cuál es nuestra diferencia con el coche de adelante? Tenemos buen ritmo.'",
+                "Ingeniero: 'Lewis, eres dos décimas por vuelta más rápido. La distancia se reduce.'",
+                "Lewis: 'Entendido, los neumáticos responden genial. Empujando al máximo en la salida.'",
+                "Ingeniero: 'Copiado Lewis, mantén este ritmo, estamos en pelea por el podio.'"
+            )
+            63 -> listOf(
+                "George: 'Las temperaturas de los neumáticos están en la ventana óptima ahora.'",
+                "Ingeniero: 'George, pon modo de recarga 2 en la salida de la Curva 4.'",
+                "George: 'Tengo gran rebufo en la recta principal, me acerco al Ferrari de adelante.'",
+                "Ingeniero: 'Entendido George, usa el botón de adelantamiento en la próxima vuelta.'"
+            )
+            81 -> listOf(
+                "Oscar: 'Entendido. Preparando el adelantamiento con DRS en la recta siguiente.'",
+                "Ingeniero: 'Oscar, entrega de energía disponible en la salida. El coche de adelante tiene degradación.'",
+                "Oscar: 'Adelantamiento limpio en Curva 1. Aire limpio por delante ahora.'",
+                "Ingeniero: 'Gran maniobra Oscar, ahora abre la ventaja a 2 segundos.'"
+            )
+            14 -> listOf(
+                "Fernando: '¡Gran rebufo en la recta trasera, vamos al ataque ahora!'",
+                "Ingeniero: 'Fernando, Carlos está a 1.1s adelante, DRS habilitado esta vuelta.'",
+                "Fernando: 'El coche va con vida, ¡tenemos el ritmo para pelear por esta posición!'",
+                "Ingeniero: 'Copiado Fernando, la ventaja atrás es de 4 segundos, modo de ataque total.'"
+            )
+            55 -> listOf(
+                "Carlos: 'La degradación es menor a la esperada, me quedo fuera 3 vueltas más.'",
+                "Ingeniero: 'Copiado Carlos, Plan B confirmado. Momento de empujar a fondo.'",
+                "Carlos: 'El equilibrio del Williams es excelente en el Sector 1, defendemos en Curva 3.'",
+                "Ingeniero: 'Pista despejada adelante Carlos, empuja para conseguir el undercut.'"
+            )
+            23 -> listOf(
+                "Alex: 'La velocidad en recta es fuerte hoy. Defendiendo bien en Curva 1.'",
+                "Ingeniero: 'Alex, ajusta el diferencial en mitad de curva +1 para tracción.'",
+                "Alex: 'Copiado, el coche se siente mucho mejor en la frenada ahora.'",
+                "Ingeniero: 'Gran vuelta Alex, manteniendo la 9ª posición con comodidad.'"
+            )
+            12 -> listOf(
+                "Kimi: 'El delantero izquierdo empieza a desgastarse un poco, ¿cuál es el delta de ritmo?'",
+                "Ingeniero: 'Kimi, el delta es +0.3s. Sé suave con la dirección en la Curva 6.'",
+                "Kimi: 'Copiado, gestionando el neumático delantero. La velocidad en recta es excelente.'",
+                "Ingeniero: 'Trabajo muy sólido Kimi, los tiempos de vuelta igualan al top 6.'"
+            )
+            10 -> listOf(
+                "Pierre: 'Los frenos se sienten muy consistentes. ¡Estamos en zona de puntos!'",
+                "Ingeniero: 'Pierre, motor en modo 4, defiende la posición frente al Haas detrás.'",
+                "Pierre: 'Entendido, tren de DRS adelante, esperando mi oportunidad para pasar.'",
+                "Ingeniero: 'Copiado Pierre, el consumo de combustible es favorable, ataca cuando puedas.'"
+            )
+            31 -> listOf(
+                "Esteban: 'La pista está mejorando rápido. El equilibrio del Haas es firme.'",
+                "Ingeniero: 'Esteban, a boxes en 2 vueltas para montar juego nuevo de duros.'",
+                "Esteban: 'Copiado, confirmo boxes. La brecha atrás es segura para la salida.'",
+                "Ingeniero: 'Excelente trabajo Esteban, luz verde para salir de boxes.'"
+            )
+            27 -> listOf(
+                "Nico: 'Temperatura de neumáticos buena, ¿podemos alargar una vuelta más antes de parar?'",
+                "Ingeniero: 'Copiado Nico, alargamos 2 vueltas, la ventana de parada está en verde.'",
+                "Nico: 'La respuesta de par del motor Audi es muy progresiva al salir de la chicane.'",
+                "Ingeniero: 'Copiado Nico, ritmo sólido, asegurando la 13ª posición.'"
+            )
+            22 -> listOf(
+                "Yuki: '¡El coche tiene gran tracción saliendo de la horquilla, voy por el interior!'",
+                "Ingeniero: '¡Brillante maniobra Yuki! Mantén la calma y cuida las gomas traseras.'",
+                "Yuki: '¡Sí! ¡Vamos a cazar al coche de adelante ahora mismo!'",
+                "Ingeniero: 'Copiado Yuki, la distancia con el 13° puesto es de 1.5 segundos.'"
+            )
+            30 -> listOf(
+                "Liam: 'Copiado, igualando el ritmo del grupo en el Sector 1.'",
+                "Ingeniero: 'Liam, balance de frenos al 56% para la chicane de la Curva 10.'",
+                "Liam: 'Entendido, el tren delantero entra mucho mejor en desaceleración.'",
+                "Ingeniero: 'Buen progreso Liam, sigue aumentando la ventaja.'"
+            )
+            87, 50 -> listOf(
+                "Oliver: 'El ritmo mejora en cada vuelta. ¿Dónde estamos perdiendo tiempo?'",
+                "Ingeniero: 'Velocidad en el vértice de Curva 3, la ganancia está en acelerar antes.'",
+                "Oliver: 'Entendido, ¡gané una décima en esa vuelta al pasar por Curva 3!'",
+                "Ingeniero: 'Copiado Ollie, la telemetría lo confirma, mantén esa trazada.'"
+            )
+            6 -> listOf(
+                "Isack: 'Apreté fuerte en esa vuelta, el DRS funciona con normalidad.'",
+                "Ingeniero: 'Copiado Isack, el sector 3 fue tu mejor registro personal.'",
+                "Isack: 'El monoplaza va muy estable en los cambios rápidos de dirección.'",
+                "Ingeniero: 'Entendido Isack, manteniendo la diferencia con el monoplaza de adelante.'"
+            )
+            5 -> listOf(
+                "Gabriel: 'El equilibrio del coche está muy parejo, el desgaste de neumáticos es limpio.'",
+                "Ingeniero: 'Mantén este ritmo Gabriel, estás rodando con mucha consistencia.'",
+                "Gabriel: 'Prueba de radio, los escucho fuerte y claro. Empujando ahora.'",
+                "Ingeniero: 'Fuerte y claro Gabriel, 3 vueltas para la siguiente parada de estrategia.'"
+            )
+            7 -> listOf(
+                "Jack: 'El viento aumentó en la Curva 7, leve viento de cola en la frenada.'",
+                "Ingeniero: 'Entendido Jack, frena 5 metros antes en la entrada a la Curva 7.'",
+                "Jack: 'Copiado, la parte trasera no se movió esta vez.'",
+                "Ingeniero: 'Buena adaptación Jack, sigue cuidando el consumo de gasolina.'"
+            )
+            18 -> listOf(
+                "Lance: 'El desgaste de gomas se ve sólido, confirmen entrada para la próxima vuelta.'",
+                "Ingeniero: 'Copiado Lance, a boxes en la siguiente vuelta para montar medios.'",
+                "Lance: 'Entendido, entrando al pit lane en esta vuelta.'",
+                "Ingeniero: 'Equipo de mecánicos listo Lance, adentro en esta vuelta.'"
+            )
+            11 -> listOf(
+                "Checo: 'El equilibrio del Cadillac se siente genial en el Sector 1. ¡Hay buen ritmo!'",
+                "Ingeniero: 'Gran información Checo. Tenemos excelente velocidad punta, ¡a empujar ahora!'",
+                "Checo: 'Copiado, cuidando el neumático delantero derecho, listo para atacar en Curva 1.'",
+                "Ingeniero: 'Checo, el DRS está habilitado. ¡Vamos a buscar el sobrepaso en la recta!'"
+            )
+            77 -> listOf(
+                "Valtteri: 'El motor y la potencia híbrida empujan fuerte. ¡Alcanzando al pelotón!'",
+                "Ingeniero: 'Copiado Valtteri, DRS habilitado, usa modo de energía 4 para defender.'",
+                "Valtteri: 'Para quien corresponda... ¡el ritmo del Cadillac es sumamente competitivo!'",
+                "Ingeniero: 'Entendido Valtteri, récord en trampa de velocidad, ¡impecable trabajo!'"
+            )
+            else -> listOf("$driverName: 'Boxes en esta vuelta para neumáticos duros, confirmen parada.'")
+        }
+        val safeIndex = kotlin.math.abs(phase) % quotes.size
+        return quotes[safeIndex]
+    }
+
+    data class DriverTelemetrySnapshot(
+        val speed: Int,
+        val brake: Int,
+        val throttle: Int,
+        val drsActive: Boolean,
+        val isPitting: Boolean,
+        val tyreCompound: String,
+        val tyreAge: Int,
+        val position: Int,
+        val gapAhead: Double,
+        val sector: Int
+    )
+
+    fun getDriverTelemetrySnapshot(driverNumber: Int): DriverTelemetrySnapshot {
+        if (isSimulationMode) {
+            val driver = activeSimDrivers.find { it.driverNumber == driverNumber }
+                ?: simulatedDrivers.find { it.driverNumber == driverNumber }?.let { d ->
+                    SimDriverState(d.driverNumber, d.position, d.acronym, d.fullName, d.teamName, d.teamColor, d.tyreCompound, d.tyreAge, d.bestLap, d.bestLap, 0.0, 0.0)
+                }
+            val simMapDriver = trackMapView?.getSimulationDrivers()?.find { it.driverNumber == driverNumber }
+            val trackPoints = trackMapView?.getTrackPoints() ?: emptyList()
+            val tick = simulationTick
+
+            val spd: Int
+            val brk: Int
+            val thr: Int
+            val drsActive: Boolean
+            val sector: Int
+            val isPitting = driver?.isPitting == true
+
+            if (simMapDriver != null && trackPoints.size >= 3) {
+                val n = trackPoints.size
+                val p = ((simMapDriver.trackProgress % n) + n) % n
+                val curDot = calculateTrackCurvature(p, trackPoints)
+                val lookDot = calculateLookaheadCurvature(p, trackPoints, 3)
+
+                val s1End = n / 3
+                val s2End = (2 * n) / 3
+                sector = when {
+                    p < s1End -> 1
+                    p < s2End -> 2
+                    else -> 3
                 }
 
-                // Si no hay clips en la sesión actual, buscar en la sesión más reciente con radios
-                if (radios.isEmpty()) {
-                    radios = repository.getDriverTeamRadiosLatest(driverNumber)
-                    if (radios.isEmpty() && (driverNumber == 1 || driverNumber == 3)) {
-                        radios = repository.getDriverTeamRadiosLatest(if (driverNumber == 1) 3 else 1)
+                if (isPitting) {
+                    spd = 80
+                    thr = 40
+                    brk = 0
+                    drsActive = false
+                } else if (curDot >= 0.94f && lookDot >= 0.93f) {
+                    val straightSpeedBonus = ((curDot - 0.94f) / 0.06f * 55f).toInt().coerceIn(0, 55)
+                    spd = 285 + straightSpeedBonus + ((tick * 3) % 9)
+                    thr = 99
+                    brk = 0
+                    drsActive = spd > 275
+                } else if (curDot >= 0.93f && lookDot < 0.90f) {
+                    spd = 195 + ((tick * 4) % 25)
+                    thr = 0
+                    brk = 92
+                    drsActive = false
+                } else {
+                    val cornerSeverity = ((1f - curDot) / 0.3f).coerceIn(0f, 1f)
+                    spd = (120 + ((1f - cornerSeverity) * 45f)).toInt() + ((tick * 2) % 6)
+                    thr = (35 + ((1f - cornerSeverity) * 35f)).toInt()
+                    brk = if (cornerSeverity > 0.6f && tick % 4 == 0) 65 else 0
+                    drsActive = false
+                }
+            } else {
+                val inStraight = (tick % 32) in 0..19
+                spd = if (inStraight) 305 + ((tick * 3) % 28) else 125 + ((tick * 5) % 35)
+                thr = if (inStraight) 98 else 35
+                brk = if (!inStraight && (tick % 32 in 20..24)) 85 else 0
+                drsActive = inStraight && (tick % 16 in 0..7)
+                sector = 1 + ((tick / 40) % 3)
+            }
+
+            return DriverTelemetrySnapshot(
+                speed = spd,
+                brake = brk,
+                throttle = thr,
+                drsActive = drsActive,
+                isPitting = isPitting,
+                tyreCompound = driver?.tyreCompound ?: "MEDIUM",
+                tyreAge = driver?.tyreAge ?: 15,
+                position = driver?.position ?: 1,
+                gapAhead = driver?.intervalToAhead ?: 1.0,
+                sector = sector
+            )
+        } else {
+            val d = simulatedDrivers.find { it.driverNumber == driverNumber }
+            return DriverTelemetrySnapshot(
+                speed = 295,
+                brake = 0,
+                throttle = 98,
+                drsActive = true,
+                isPitting = false,
+                tyreCompound = d?.tyreCompound ?: "MEDIUM",
+                tyreAge = d?.tyreAge ?: 14,
+                position = d?.position ?: 1,
+                gapAhead = 1.1,
+                sector = 2
+            )
+        }
+    }
+
+    fun getTelemetryAwareRadioQuote(
+        driverNumber: Int,
+        driverName: String,
+        acronym: String,
+        snapshot: DriverTelemetrySnapshot,
+        phase: Int = 0
+    ): String {
+        // 1. Pit stop / Limitador de boxes (80 km/h)
+        if (snapshot.isPitting || (snapshot.speed in 1..85 && snapshot.brake == 0)) {
+            return when (driverNumber) {
+                1 -> "Max: 'Box confirmado. Limitador a 80 km/h activado.' - Ing: 'Copiado Max, montamos duros. ¡Parada limpia!'"
+                4 -> "Lando: 'Entrando al pit lane ahora.' - Ing: 'Mantén el delta en verde, mecánicos listos en el cajón.'"
+                16 -> "Charles: 'Boxes en esta vuelta para neumáticos duros.' - Ing: 'Confirmado Charles, parada limpia esperada.'"
+                44 -> "Lewis: 'Box, box, box. Neumáticos desgastados.' - Ing: 'Entrando Lewis, limitador listo, salida limpia.'"
+                63 -> "George: 'Limitador activado, entrando al pit lane.' - Ing: 'Copiado George, ajuste de alerón +1 clic.'"
+                81 -> "Oscar: 'Entrando a boxes en esta vuelta.' - Ing: 'Copiado Oscar, juego nuevo de medios preparado.'"
+                14 -> "Fernando: '¡Entrando a boxes! Gomas listas para el ataque final.' - Ing: 'Copiado Fernando, luz verde.'"
+                55 -> "Carlos: 'A boxes en esta vuelta para el undercut.' - Ing: 'Copiado Carlos, Plan B en marcha.'"
+                23 -> "Alex: 'Limitador de pit activado, 80 km/h estables.' - Ing: 'Copiado Alex, excelente ingreso.'"
+                12 -> "Kimi: 'Entrando al pit lane para parada programada.' - Ing: 'Tranquilo Kimi, parada limpia y salimos.'"
+                10 -> "Pierre: 'Boxes en esta vuelta, confirmen compuesto.' - Ing: 'Entendido Pierre, juego nuevo de duros.'"
+                31 -> "Esteban: 'Entrando al cajón de parada ahora.' - Ing: 'Copiado Esteban, servicio rápido.'"
+                27 -> "Nico: 'Limitador de boxes puesto.' - Ing: 'Copiado Nico, parada estratégica confirmada.'"
+                22 -> "Yuki: '¡Box, box! ¡Listos con los neumáticos!' - Ing: '¡Listos Yuki! Parada rápida.'"
+                30 -> "Liam: 'Entrando a boxes, confirmo parada.' - Ing: 'Copiado Liam, buen ritmo de entrada.'"
+                87, 50 -> "Oliver: 'Limitador activado, entrando a cambiar gomas.' - Ing: 'Copiado Ollie, mantén la calma.'"
+                6 -> "Isack: 'Entrando a boxes, parada programada.' - Ing: 'Copiado Isack, mecánicos en posición.'"
+                5 -> "Gabriel: 'Pit limiter activado, cambio de gomas.' - Ing: 'Copiado Gabriel, parada veloz.'"
+                7 -> "Jack: 'Entrando a pit lane en esta vuelta.' - Ing: 'Copiado Jack, confirmamos medios.'"
+                18 -> "Lance: 'Entrando a boxes, gomas listas.' - Ing: 'Copiado Lance, adentro en esta vuelta.'"
+                11 -> "Checo: 'Limitador activado en el Cadillac, parada en boxes.' - Ing: '¡Excelente Checo, parada limpia y a pista!'"
+                77 -> "Valtteri: 'Box en esta vuelta, cambio por neumáticos duros.' - Ing: 'Copiado Valtteri, mecánicos listos en el box.'"
+                else -> "$acronym: 'Entrando al pit lane con limitador a 80 km/h.' - Ing: 'Confirmado, parada limpia.'"
+            }
+        }
+
+        // 2. Recta de alta velocidad / DRS activado / Trampa de velocidad
+        if (snapshot.drsActive || snapshot.speed >= 280) {
+            return when (driverNumber) {
+                1 -> "Max: 'DRS abierto en la recta, el balance es perfecto.' - Ing: 'Pasa a modo 7 Max, empuja a fondo.'"
+                4 -> "Lando: '¡Gran rebufo con DRS! La velocidad punta es tremenda.' - Ing: 'Estrategia 3 habilitada Lando.'"
+                16 -> "Charles: 'Abriendo DRS en la recta larga, recuperamos terreno.' - Ing: 'Entrega de energía disponible.'"
+                44 -> "Lewis: 'Tengo DRS, voy a la caza del coche de adelante.' - Ing: 'Lewis, eres dos décimas más rápido en recta.'"
+                63 -> "George: 'DRS activo, cerrando la brecha a máxima velocidad.' - Ing: 'Usa el botón de adelantamiento George.'"
+                81 -> "Oscar: 'Activando DRS, maniobra de adelantamiento en marcha.' - Ing: 'Adelante Oscar, pista despejada.'"
+                14 -> "Fernando: '¡DRS habilitado, velocidad punta al máximo, voy al ataque!' - Ing: '¡Ataque total Fernando!'"
+                55 -> "Carlos: 'Excelente velocidad en la trampa con DRS.' - Ing: 'El Williams vuela en recta, mantén la presión Carlos.'"
+                23 -> "Alex: 'DRS abierto, velocidad punta formidable en el sector.' - Ing: 'Gran delta en recta Alex.'"
+                12 -> "Kimi: 'DRS activado, alcanzando velocidad de punta.' - Ing: 'Excelente ritmo Kimi, récord en sector 2.'"
+                10 -> "Pierre: 'Abriendo DRS en recta principal, buscando el hueco.' - Ing: 'Motor en modo ataque Pierre.'"
+                31 -> "Esteban: 'Buena velocidad con DRS en la recta.' - Ing: 'Mantén el rebufo Esteban.'"
+                27 -> "Nico: 'DRS abierto, el motor Audi empuja fuerte.' - Ing: 'Copiado Nico, velocidad récord en sector.'"
+                22 -> "Yuki: '¡DRS abierto! ¡Voy a pasarlo en la recta!' - Ing: '¡Vamos Yuki, tienes la velocidad!'"
+                30 -> "Liam: 'DRS activado, ganando tiempo en la recta.' - Ing: 'Buen ritmo Liam, mantén el acelerador.'"
+                87, 50 -> "Oliver: 'Abriendo DRS, el coche se siente muy rápido.' - Ing: 'Copiado Ollie, excelente velocidad punta.'"
+                6 -> "Isack: 'DRS abierto, cerrando la distancia.' - Ing: 'Sector récord Isack, sigue así.'"
+                5 -> "Gabriel: 'DRS activo, el monoplaza vuela en la recta.' - Ing: 'Muy bien Gabriel, ganas 3 décimas.'"
+                7 -> "Jack: 'DRS habilitado en la zona de detección.' - Ing: 'Copiado Jack, despliegue de batería listo.'"
+                18 -> "Lance: 'Abriendo DRS en la recta de atrás.' - Ing: 'Copiado Lance, ritmo competitivo.'"
+                11 -> "Checo: '¡DRS abierto en el Cadillac, enorme velocidad punta!' - Ing: '¡Checo, récord en la trampa de velocidad!'"
+                77 -> "Valtteri: 'DRS activado, alcanzando a los coches de adelante.' - Ing: '¡Potencia al 100% Valtteri, gran velocidad!'"
+                else -> "$acronym: 'DRS activado en recta, velocidad punta máxima.' - Ing: 'Acelerador a fondo, gran ritmo.'"
+            }
+        }
+
+        // 3. Frenada fuerte / Vértice de curva
+        if (snapshot.brake >= 50 || (snapshot.speed in 90..165 && snapshot.throttle <= 40)) {
+            return when (driverNumber) {
+                1 -> "Max: 'Frenada muy firme en el vértice, el tren delantero responde.' - Ing: 'Copiado, excelente trazada.'"
+                4 -> "Lando: 'Fuerte deceleración, los frenos muerden con precisión.' - Ing: 'Cuida la tracción al salir Lando.'"
+                16 -> "Charles: 'Frenada tardía en la curva cerrada, sin bloqueos.' - Ing: 'Gran entrada Charles, mantén el balance.'"
+                44 -> "Lewis: 'Coche plantado en la frenada de la horquilla.' - Ing: 'Impecable Lewis, ganas tiempo en la entrada.'"
+                63 -> "George: 'Mucho agarre en desaceleración, pasando por el vértice.' - Ing: 'Diferencial en modo +1 George.'"
+                81 -> "Oscar: 'Frenada controlada, trazada limpia en la chicane.' - Ing: 'Muy consistente Oscar, tracción óptima.'"
+                14 -> "Fernando: '¡Frenando tarde en el interior de la curva!' - Ing: '¡Maestría en la frenada Fernando!'"
+                55 -> "Carlos: 'El monoplaza no se desestabiliza en frenada fuerte.' - Ing: 'Balance perfecto Carlos.'"
+                23 -> "Alex: 'Frenos consistentes, buena rotación en curva lenta.' - Ing: 'Excelente Alex, acelerando ahora.'"
+                12 -> "Kimi: 'Frenada limpia, cuidando no bloquear el delantero.' - Ing: 'Muy suave con la dirección Kimi.'"
+                10 -> "Pierre: 'Frenando fuerte en la entrada de la chicana.' - Ing: 'Copiado Pierre, buena deceleración.'"
+                31 -> "Esteban: 'Balance de frenos correcto para la curva 1.' - Ing: 'Entendido Esteban, tracción limpia.'"
+                27 -> "Nico: 'Sin problemas en la frenada brusca.' - Ing: 'Copiado Nico, trazada impecable.'"
+                22 -> "Yuki: '¡Frenando al límite por dentro!' - Ing: '¡Cuidado con el piano Yuki, gran control!'"
+                30 -> "Liam: 'Frenada estable, el coche rota bien.' - Ing: 'Copiado Liam, balance de frenos al 56%.'"
+                87, 50 -> "Oliver: 'Gran frenada en la curva técnica.' - Ing: 'Ganaste una décima en el vértice Ollie.'"
+                6 -> "Isack: 'Desaceleración limpia sin sobreviraje.' - Ing: 'Muy bien Isack, acelera con confianza.'"
+                5 -> "Gabriel: 'Frenos en temperatura ideal, buena parada.' - Ing: 'Consistente Gabriel, sigue así.'"
+                7 -> "Jack: 'Frenando 5 metros antes por el viento.' - Ing: 'Buena adaptación Jack, parte trasera firme.'"
+                18 -> "Lance: 'Frenada profunda en la horquilla.' - Ing: 'Copiado Lance, buena rotación.'"
+                11 -> "Checo: 'El Cadillac frena con enorme estabilidad en Curva 1.' - Ing: '¡Gran frenada Checo, preparando tracción!'"
+                77 -> "Valtteri: 'Frenada precisa, sin bloqueo de neumáticos.' - Ing: 'Copiado Valtteri, salida limpia.'"
+                else -> "$acronym: 'Frenada fuerte en la curva, el balance responde.' - Ing: 'Trazada limpia, cuida la salida.'"
+            }
+        }
+
+        // 4. Alta degradación de neumáticos
+        if (snapshot.tyreAge >= 18) {
+            return when (driverNumber) {
+                1 -> "Max: 'Neumáticos traseros con desgaste, pero ritmo bajo control.' - Ing: 'Copiado Max, ventana en 3 vueltas.'"
+                4 -> "Lando: 'Empiezo a deslizar con los medios en curvas lentas.' - Ing: 'Gestiona en curvas rápidas Lando.'"
+                16 -> "Charles: 'Los neumáticos sufren en curvas de alta carga.' - Ing: 'Copiado Charles, parada pronto.'"
+                44 -> "Lewis: 'Las gomas traseras están perdiendo agarre.' - Ing: 'Lewis, alargamos dos vueltas para el undercut.'"
+                14 -> "Fernando: 'Gomas desgastadas pero el ritmo sigue firme.' - Ing: 'Genial gestión Fernando, ventaja de 3s.'"
+                55 -> "Carlos: 'Degradación progresiva, cuidando la delantera izquierda.' - Ing: 'Copiado Carlos, Plan B listo.'"
+                else -> "$acronym: 'Empieza a notarse la degradación en los neumáticos.' - Ing: 'Copiado, gestiona el ritmo.'"
+            }
+        }
+
+        // 5. Persecución / Batalla cercana por posición (< 1.5s)
+        if (snapshot.gapAhead in 0.1..1.5 && snapshot.position > 1) {
+            return when (driverNumber) {
+                1 -> "Max: 'A tiro de DRS, voy a buscar el hueco en la frenada.' - Ing: 'Despliegue de batería listo Max.'"
+                4 -> "Lando: 'A 0.8s del coche de adelante, preparando el ataque.' - Ing: 'Empuja Lando, tiene menos agarre.'"
+                16 -> "Charles: 'Muy cerca del coche que me precede, voy al rebufo.' - Ing: 'Modo adelantamiento disponible.'"
+                44 -> "Lewis: 'La distancia es de solo 6 décimas, atacando ahora.' - Ing: '¡Adelante Lewis, tienes el ritmo!'"
+                14 -> "Fernando: '¡Estoy pegado a su alerón trasero, voy por fuera!' - Ing: '¡Con todo Fernando, espacio limpio!'"
+                11 -> "Checo: 'Presionando de cerca con el Cadillac, buscando el sobrepaso.' - Ing: '¡Vamos Checo, ataca en la frenada!'"
+                else -> "$acronym: 'Presionando a menos de un segundo del coche de adelante.' - Ing: 'Prepara el sobrepaso con DRS.'"
+            }
+        }
+
+        // 6. Líder de carrera (P1)
+        if (snapshot.position == 1) {
+            return when (driverNumber) {
+                1 -> "Max: 'Aire limpio, el coche se siente en rieles.' - Ing: 'Liderando la carrera Max, ritmo perfecto (+2.4s).'"
+                4 -> "Lando: 'P1 con aire limpio, marcando vueltas consistentes.' - Ing: 'Líder Lando, ventaja sólida.'"
+                16 -> "Charles: 'Gestionando la punta de la carrera cómodamente.' - Ing: 'Excelente ritmo en P1 Charles.'"
+                else -> "$acronym: 'Liderando en aire limpio con gran ritmo.' - Ing: 'Líder de carrera, gestiona la ventaja.'"
+            }
+        }
+
+        // 7. Ritmo de crucero estándar / diálogo según piloto
+        return getSimulatedRadioQuote(driverNumber, driverName, phase)
+    }
+
+    fun tuneRadioDriver(driverNumber: Int, driverName: String, acronym: String? = null) {
+        val acr = acronym ?: simulatedDrivers.find { it.driverNumber == driverNumber }?.acronym ?: "CAR$driverNumber"
+        activeRadioDriverNumber = driverNumber
+        radioButtons.forEach { (num, btn) ->
+            btn.isSelected = (num == driverNumber)
+        }
+
+        val snapshot = getDriverTelemetrySnapshot(driverNumber)
+        val quote = getTelemetryAwareRadioQuote(driverNumber, driverName, acr, snapshot, simulationTick / 140)
+
+        if (isSimulationMode) {
+            tvRadioTitle.text = "📻 [Radio #$driverNumber $acr]: \"$quote\""
+            radioMessageExpiryTick = simulationTick + 50 // Permanece visible por 10 segundos
+            Toast.makeText(context, "📻 [Radio $acr]: Canal sintonizado", Toast.LENGTH_SHORT).show()
+            return
+        }
+        tvRadioTitle.text = "📻 [Radio #$driverNumber $acr]: \"$quote\""
+        radioPollingJob?.cancel()
+        radioPollingJob = scope.launch {
+            var isFirstFetch = true
+            while (isActive && activeRadioDriverNumber == driverNumber) {
+                try {
+                    val key = currentSessionKey
+                    var radios = if (key != null) {
+                        repository.getDriverTeamRadios(key, driverNumber)
+                    } else emptyList()
+
+                    // Si es Verstappen (#1), en 2026 corre con el #3 en OpenF1
+                    if (radios.isEmpty() && (driverNumber == 1 || driverNumber == 3) && key != null) {
+                        val altNum = if (driverNumber == 1) 3 else 1
+                        radios = repository.getDriverTeamRadios(key, altNum)
                     }
-                }
 
-                // Si aún está vacío, fallback a radios de la sesión general
-                if (radios.isEmpty() && key != null) {
-                    radios = repository.getSessionTeamRadios(key)
-                }
+                    // Si no hay clips en la sesión actual, buscar en la sesión más reciente con radios
+                    if (radios.isEmpty()) {
+                        radios = repository.getDriverTeamRadiosLatest(driverNumber)
+                        if (radios.isEmpty() && (driverNumber == 1 || driverNumber == 3)) {
+                            radios = repository.getDriverTeamRadiosLatest(if (driverNumber == 1) 3 else 1)
+                        }
+                    }
 
-                val playableRadios = radios.filter { !it.recordingUrl.isNullOrEmpty() }
-                if (playableRadios.isNotEmpty()) {
-                    latestRadioUrl = playableRadios.first().recordingUrl
-                    tvRadioTitle.text = "📻 Radio: $driverName (#$driverNumber) • ${playableRadios.size} clips en cola"
-                    radioPlayer?.let { player ->
-                        player.stop()
-                        player.clearMediaItems()
-                        for (r in playableRadios) {
-                            r.recordingUrl?.let { url ->
-                                player.addMediaItem(MediaItem.fromUri(url))
+                    // Si aún está vacío, fallback a radios de la sesión general
+                    if (radios.isEmpty() && key != null) {
+                        radios = repository.getSessionTeamRadios(key)
+                    }
+
+                    val playableRadios = radios.filter { !it.recordingUrl.isNullOrEmpty() }
+                    val newestUrl = playableRadios.lastOrNull()?.recordingUrl
+
+                    if (playableRadios.isNotEmpty()) {
+                        latestRadioUrl = newestUrl
+                        if (newestUrl != null && newestUrl != lastPlayedRadioUrl) {
+                            lastPlayedRadioUrl = newestUrl
+                            val currentQuote = getTelemetryAwareRadioQuote(driverNumber, driverName, acr, getDriverTelemetrySnapshot(driverNumber), simulationTick / 140)
+                            tvRadioTitle.text = "📻 [Radio #$driverNumber $acr]: \"$currentQuote\" • [Audio Oficial]"
+                            radioPlayer?.let { player ->
+                                player.stop()
+                                player.clearMediaItems()
+                                for (r in playableRadios) {
+                                    r.recordingUrl?.let { url ->
+                                        player.addMediaItem(MediaItem.fromUri(url))
+                                    }
+                                }
+                                player.repeatMode = Player.REPEAT_MODE_OFF
+                                player.prepare()
+                                player.play()
+                            }
+                            if (isFirstFetch) {
+                                Toast.makeText(context, "Sintonizando radios de $driverName (${playableRadios.size} audios)", Toast.LENGTH_SHORT).show()
                             }
                         }
-                        player.repeatMode = Player.REPEAT_MODE_OFF
-                        player.prepare()
-                        player.play()
-                        btnPlayRadio.text = "⏸ PAUSA"
+                    } else if (isFirstFetch) {
+                        tvRadioTitle.text = "📻 [Radio #$driverNumber $acr]: \"$quote\""
+                        Toast.makeText(context, "📻 [Radio $acr]: Frecuencia conectada", Toast.LENGTH_SHORT).show()
                     }
-                    Toast.makeText(context, "Reproduciendo radios de $driverName (${playableRadios.size} audios)", Toast.LENGTH_SHORT).show()
-                } else {
-                    tvRadioTitle.text = "📻 Radio: $driverName (#$driverNumber) [Canal en espera]"
-                    Toast.makeText(context, "Sin transmisión de radio activa para $driverName", Toast.LENGTH_SHORT).show()
+                    isFirstFetch = false
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+                // Mantener sintonía activa y consultar periódicamente
+                delay(15000L)
             }
         }
     }
 
+    fun calculateTrackCurvature(progress: Float, trackPoints: List<PointF>): Float {
+        val n = trackPoints.size
+        if (n < 3) return 1.0f
+        val p = ((progress % n) + n) % n
+        val idx = p.toInt() % n
+        val prevIdx = (idx - 1 + n) % n
+        val nextIdx = (idx + 1) % n
+        val p0 = trackPoints[prevIdx]
+        val p1 = trackPoints[idx]
+        val p2 = trackPoints[nextIdx]
+        val v1x = p1.x - p0.x
+        val v1y = p1.y - p0.y
+        val v2x = p2.x - p1.x
+        val v2y = p2.y - p1.y
+        val len1 = Math.hypot(v1x.toDouble(), v1y.toDouble()).toFloat()
+        val len2 = Math.hypot(v2x.toDouble(), v2y.toDouble()).toFloat()
+        if (len1 < 0.001f || len2 < 0.001f) return 1.0f
+        val dot = (v1x * v2x + v1y * v2y) / (len1 * len2)
+        return dot.coerceIn(-1.0f, 1.0f)
+    }
+
+    fun calculateLookaheadCurvature(progress: Float, trackPoints: List<PointF>, lookaheadSteps: Int = 3): Float {
+        val n = trackPoints.size
+        if (n < 3) return 1.0f
+        return calculateTrackCurvature(progress + lookaheadSteps, trackPoints)
+    }
+
+    private fun updateSimulatedDriverTelemetry(driverNumber: Int) {
+        val driver = activeSimDrivers.find { it.driverNumber == driverNumber }
+            ?: simulatedDrivers.find { it.driverNumber == driverNumber }?.let { d ->
+                SimDriverState(d.driverNumber, d.position, d.acronym, d.fullName, d.teamName, d.teamColor, d.tyreCompound, d.tyreAge, d.bestLap, d.bestLap, 0.0, 0.0)
+            } ?: return
+
+        val simMapDriver = trackMapView?.getSimulationDrivers()?.find { it.driverNumber == driverNumber }
+        val trackPoints = trackMapView?.getTrackPoints() ?: emptyList()
+        val tick = simulationTick
+
+        val spd: Int
+        val gear: Int
+        val rpm: Int
+        val thr: Int
+        val brk: Int
+        val drsText: String
+        val drsColor: Int
+        val activeSector: Int
+
+        if (simMapDriver != null && trackPoints.size >= 3) {
+            val n = trackPoints.size
+            val p = ((simMapDriver.trackProgress % n) + n) % n
+            val curDot = calculateTrackCurvature(p, trackPoints)
+            val lookDot = calculateLookaheadCurvature(p, trackPoints, 3)
+
+            val s1End = n / 3
+            val s2End = (2 * n) / 3
+            activeSector = when {
+                p < s1End -> 1
+                p < s2End -> 2
+                else -> 3
+            }
+
+            if (driver.isPitting) {
+                spd = 80
+                gear = 2
+                rpm = 5400 + ((tick * 10) % 200)
+                thr = 40
+                brk = 0
+                drsText = "LIMITADOR PIT (80 KM/H)"
+                drsColor = Color.parseColor("#F59E0B")
+            } else if (curDot >= 0.94f && lookDot >= 0.93f) {
+                // Recta completa (Aceleración a fondo + DRS)
+                val straightSpeedBonus = ((curDot - 0.94f) / 0.06f * 55f).toInt().coerceIn(0, 55)
+                spd = 285 + straightSpeedBonus + ((tick * 3) % 9)
+                gear = if (spd > 310) 8 else 7
+                rpm = 11400 + ((spd - 280) * 16).coerceIn(0, 1100) + ((tick * 25) % 150)
+                thr = 99
+                brk = 0
+                val isDrsActive = spd > 275
+                drsText = if (isDrsActive) "DRS ACTIVO" else "DRS DISPONIBLE"
+                drsColor = if (isDrsActive) Color.parseColor("#15803D") else Color.parseColor("#38BDF8")
+            } else if (curDot >= 0.93f && lookDot < 0.90f) {
+                // Entrada a curva: zona de frenada fuerte
+                spd = 195 + ((tick * 4) % 25)
+                gear = 5
+                rpm = 10400 + ((tick * 30) % 300)
+                thr = 0
+                brk = 92
+                drsText = "FRENADA FUERTE"
+                drsColor = Color.parseColor("#EF4444")
+            } else {
+                // Negociando curva / vértice / chicana
+                val cornerSeverity = ((1f - curDot) / 0.3f).coerceIn(0f, 1f)
+                spd = (120 + ((1f - cornerSeverity) * 45f)).toInt() + ((tick * 2) % 6)
+                gear = if (spd < 135) 2 else 3
+                rpm = 9100 + ((spd - 115) * 20).coerceIn(0, 1200)
+                thr = (35 + ((1f - cornerSeverity) * 35f)).toInt()
+                brk = if (cornerSeverity > 0.6f && tick % 4 == 0) 65 else 0
+                drsText = "DRS INACTIVO (CURVA)"
+                drsColor = Color.parseColor("#4B5563")
+            }
+        } else {
+            // Emulación sintética de respaldo si no hay circuito cargado
+            val inStraight = (tick % 32) in 0..19
+            spd = if (inStraight) 305 + ((tick * 3) % 28) else 125 + ((tick * 5) % 35)
+            gear = if (inStraight) (7 + ((tick / 2) % 2)) else (2 + ((tick / 2) % 2))
+            rpm = if (inStraight) 11500 + ((tick * 80) % 900) else 9200 + ((tick * 60) % 800)
+            thr = if (inStraight) 98 else 35
+            brk = if (!inStraight && (tick % 32 in 20..24)) 85 else 0
+            val isDrsActive = inStraight && (tick % 16 in 0..7)
+            drsText = if (isDrsActive) "DRS ACTIVO" else "DRS INACTIVO"
+            drsColor = if (isDrsActive) Color.parseColor("#15803D") else Color.parseColor("#4B5563")
+            activeSector = 1 + ((tick / 40) % 3)
+        }
+
+        tvTelemetryDriverHeader.text = "#${driver.driverNumber} ${driver.fullName} • ${driver.teamName}"
+        tvTelemetrySpeed.text = spd.toString()
+        tvTelemetryGear.text = gear.toString()
+        tvTelemetryRpm.text = String.format(Locale.US, "%,d RPM", rpm)
+        pbTelemetryRpm.progress = rpm
+        tvTelemetryThrottle.text = "Acelerador: $thr%"
+        pbTelemetryThrottle.progress = thr
+        tvTelemetryBrake.text = "Freno: $brk%"
+        pbTelemetryBrake.progress = brk
+
+        tvTelemetryDrs.text = drsText
+        tvTelemetryDrs.setBackgroundColor(drsColor)
+
+        // Resaltado dinámico del sector activo en pista
+        val s1Text = if (activeSector == 1) "⚡ ${driver.s1} (ACTIVO)" else driver.s1
+        val s2Text = if (activeSector == 2) "⚡ ${driver.s2} (ACTIVO)" else driver.s2
+        val s3Text = if (activeSector == 3) "⚡ ${driver.s3} (ACTIVO)" else driver.s3
+
+        tvTelemetryS1.text = s1Text
+        tvTelemetryS1.setTextColor(if (activeSector == 1) Color.parseColor("#38BDF8") else Color.WHITE)
+        tvTelemetryS1Speed.text = "Trampa S1: ${if (activeSector == 1) "$spd km/h" else "315 km/h"}"
+
+        tvTelemetryS2.text = s2Text
+        tvTelemetryS2.setTextColor(if (activeSector == 2) Color.parseColor("#A855F7") else Color.WHITE)
+        tvTelemetryS2Speed.text = "Trampa S2: ${if (activeSector == 2) "$spd km/h" else "292 km/h"}"
+
+        tvTelemetryS3.text = s3Text
+        tvTelemetryS3.setTextColor(if (activeSector == 3) Color.parseColor("#F59E0B") else Color.WHITE)
+        tvTelemetryS3Speed.text = "Trampa S3: ${if (activeSector == 3) "$spd km/h" else "334 km/h"}"
+
+        tvTelemetryLapTime.text = "⏱️ VUELTA $currentRaceLap / $totalRaceLaps • MEJOR: ${driver.bestLap} • ÚLTIMA: ${driver.lastLapTime}"
+
+        // Si la radio está sintonizada en este piloto y el mensaje sigue en pantalla durante su ventana, mantener el subtítulo acorde
+        if (activeRadioDriverNumber == driverNumber && simulationTick <= radioMessageExpiryTick) {
+            val snapshot = DriverTelemetrySnapshot(
+                speed = spd,
+                brake = brk,
+                throttle = thr,
+                drsActive = drsText.contains("ACTIVO"),
+                isPitting = driver.isPitting,
+                tyreCompound = driver.tyreCompound,
+                tyreAge = driver.tyreAge,
+                position = driver.position,
+                gapAhead = driver.intervalToAhead,
+                sector = activeSector
+            )
+            val quote = getTelemetryAwareRadioQuote(driver.driverNumber, driver.fullName, driver.acronym, snapshot, simulationTick / 140)
+            tvRadioTitle.text = "📻 [Radio #${driver.driverNumber} ${driver.acronym}]: \"$quote\""
+        }
+    }
+
+    fun showTelemetryUnavailableUI() {
+        val dateInfo = nextSessionFormattedDate ?: currentScheduleTitle
+        tvTelemetryDriverHeader.text = "Telemetría no disponible • Sin sesión en vivo activa"
+        tvTelemetrySpeed.text = "--"
+        tvTelemetryGear.text = "-"
+        tvTelemetryRpm.text = "Próxima cita: $dateInfo"
+        pbTelemetryRpm.progress = 0
+        tvTelemetryThrottle.text = "Acelerador: --"
+        pbTelemetryThrottle.progress = 0
+        tvTelemetryBrake.text = "Freno: --"
+        pbTelemetryBrake.progress = 0
+        tvTelemetryDrs.text = "DRS --"
+        tvTelemetryDrs.setBackgroundColor(Color.parseColor("#374151"))
+        tvTelemetryS1.text = "--.---"
+        tvTelemetryS1Speed.text = "Trampa: --- km/h"
+        tvTelemetryS2.text = "--.---"
+        tvTelemetryS2Speed.text = "Trampa: --- km/h"
+        tvTelemetryS3.text = "--.---"
+        tvTelemetryS3Speed.text = "Trampa: --- km/h"
+        tvTelemetryLapTime.text = "⏱️ Próxima sesión: $dateInfo"
+    }
+
     fun loadDriverTelemetry(driverNumber: Int) {
+        if (isSimulationMode) {
+            updateSimulatedDriverTelemetry(driverNumber)
+            return
+        }
+        if (!isSessionEventActive()) {
+            showTelemetryUnavailableUI()
+            return
+        }
         scope.launch {
             try {
                 val key = currentSessionKey
@@ -1558,7 +2442,11 @@ class PitWallViewManager(
         trackMapPollingJob = scope.launch {
             while (isActive && activeTelemetryMode == TelemetryMode.TRACK_MAP) {
                 loadTrackMapData()
-                delay(3000L) // Poll every 3 seconds for car GPS updates
+                if (!isSessionEventActive()) {
+                    delay(30_000L) // Chequeo lento si no hay evento activo
+                } else {
+                    delay(5000L) // Polling cada 5 segundos durante sesión activa para respetar rate-limits
+                }
             }
         }
     }
@@ -1587,9 +2475,589 @@ class PitWallViewManager(
         }
     }
 
+    fun isSessionEventActive(): Boolean {
+        // En modo emulación / demostración siempre se considera la sesión activa
+        if (isSimulationMode) return true
+
+        // 1. Debe estar confirmada una sesión en vivo por el calendario oficial
+        if (!isLiveSessionActive || isUpcomingSession) {
+            return false
+        }
+
+        // 2. Debe ser una sesión oficial reconocida (Prácticas, Clasificación, Sprint o Carrera)
+        val isRecognized = isSessionKeyword(currentSessionType) || isSessionKeyword(currentScheduleTitle)
+        if (!isRecognized) {
+            return false
+        }
+
+        // 3. Debe contar con una sesión válida
+        return currentSessionKey != null
+    }
+
+    private fun initSimulationDrivers() {
+        activeSimDrivers.clear()
+        currentRaceLap = 34
+        nextOvertakeTick = 120
+        nextPitStopTick = 180
+        val baseDrivers = simulatedDrivers
+        baseDrivers.forEachIndexed { idx, d ->
+            val pos = idx + 1
+            val baseGap = when (pos) {
+                1 -> 0.0
+                2 -> 1.420
+                3 -> 3.250
+                4 -> 5.110
+                5 -> 7.840
+                6 -> 9.920
+                7 -> 14.150
+                8 -> 17.800
+                9 -> 22.300
+                10 -> 25.400
+                11 -> 29.100
+                12 -> 32.800
+                13 -> 36.400
+                14 -> 40.100
+                15 -> 43.700
+                16 -> 47.900
+                17 -> 52.300
+                18 -> 56.800
+                19 -> 61.500
+                20 -> 66.900
+                21 -> 72.400
+                22 -> 77.900
+                else -> 80.0 + (pos * 2.0)
+            }
+            val interval = if (pos == 1) 0.0 else when (pos) {
+                2 -> 1.420
+                else -> (baseGap - (when (pos - 1) {
+                    2 -> 1.420
+                    3 -> 3.250
+                    4 -> 5.110
+                    5 -> 7.840
+                    6 -> 9.920
+                    7 -> 14.150
+                    8 -> 17.800
+                    9 -> 22.300
+                    10 -> 25.400
+                    11 -> 29.100
+                    12 -> 32.800
+                    13 -> 36.400
+                    14 -> 40.100
+                    15 -> 43.700
+                    16 -> 47.900
+                    17 -> 52.300
+                    18 -> 56.800
+                    19 -> 61.500
+                    20 -> 66.900
+                    21 -> 72.400
+                    else -> 75.0
+                })).coerceAtLeast(0.180)
+            }
+
+            val totalStints = if (d.tyreAge > 18) 2 else 1
+            val pitStops = totalStints - 1
+            val lastPit = if (pitStops > 0) "2.4 s" else "--"
+            val history = if (totalStints > 1) "M (1-18) ➔ ${d.tyreCompound.first()} (19-Act)" else "${d.tyreCompound.first()} (1-Act)"
+
+            val s1 = String.format(Locale.US, "%.3f", 27.200 + (pos * 0.07))
+            val s2 = String.format(Locale.US, "%.3f", 31.800 + (pos * 0.11))
+            val s3 = String.format(Locale.US, "%.3f", 26.100 + (pos * 0.08))
+
+            activeSimDrivers.add(
+                SimDriverState(
+                    driverNumber = d.driverNumber,
+                    position = pos,
+                    acronym = d.acronym,
+                    fullName = d.fullName,
+                    teamName = d.teamName,
+                    teamColor = d.teamColor,
+                    tyreCompound = d.tyreCompound,
+                    tyreAge = d.tyreAge,
+                    bestLap = d.bestLap,
+                    lastLapTime = d.bestLap,
+                    gapToLeader = baseGap,
+                    intervalToAhead = interval,
+                    pitStopsCount = pitStops,
+                    isPitting = false,
+                    pitTicksRemaining = 0,
+                    lastPitDuration = lastPit,
+                    stintsHistory = history,
+                    s1 = s1,
+                    s2 = s2,
+                    s3 = s3
+                )
+            )
+        }
+
+        simRaceControlLog.clear()
+        simRaceControlLog.addAll(
+            listOf(
+                RaceControl("2026-11-20T19:40:00Z", "Flag", "DRS HABILITADO EN TODAS LAS ZONAS", "GREEN", "Track", null, null, currentRaceLap),
+                RaceControl("2026-11-20T19:38:15Z", "Track", "VENTANA DE PARADAS EN BOXES ABIERTA (VUELTAS 25 - 40)", "CLEAR", "Track", null, null, currentRaceLap - 2),
+                RaceControl("2026-11-20T19:35:00Z", "Sector", "DIRECCIÓN DE CARRERA: Pista libre y seca en todos los sectores", "CLEAR", "Sector", 2, null, currentRaceLap - 4),
+                RaceControl("2026-11-20T19:30:20Z", "Car", "MONITOREO DE LÍMITES DE PISTA ACTIVO", "INFO", "Track", 3, null, currentRaceLap - 6)
+            )
+        )
+    }
+
+    private fun addSimulatedRaceControlEvent(category: String, message: String, flag: String) {
+        val timeSec = (simulationTick * 0.2).toInt()
+        val mm = String.format(Locale.US, "%02d", (timeSec / 60) % 60)
+        val ss = String.format(Locale.US, "%02d", timeSec % 60)
+        val dateIso = "2026-11-20T19:$mm:${ss}Z"
+        val newEvent = RaceControl(
+            date = dateIso,
+            category = category,
+            message = message,
+            flag = flag,
+            scope = "Track",
+            sector = null,
+            driverNumber = null,
+            lapNumber = currentRaceLap
+        )
+        simRaceControlLog.add(0, newEvent)
+        if (simRaceControlLog.size > 25) {
+            simRaceControlLog.removeAt(simRaceControlLog.size - 1)
+        }
+        raceControlAdapter.updateData(simRaceControlLog.take(8))
+    }
+
+    private fun triggerSimulatedOvertake() {
+        if (activeSimDrivers.size < 4) return
+        val candidates = (1 until (activeSimDrivers.size - 2)).filter { i ->
+            !activeSimDrivers[i].isPitting && !activeSimDrivers[i - 1].isPitting && activeSimDrivers[i].intervalToAhead <= 1.6
+        }
+        val battleIdx = if (candidates.isNotEmpty()) {
+            candidates.random()
+        } else {
+            (1..5).random()
+        }
+
+        val driverAhead = activeSimDrivers[battleIdx - 1]
+        val driverBehind = activeSimDrivers[battleIdx]
+
+        // Swap positions
+        val oldPosAhead = driverAhead.position
+        val oldPosBehind = driverBehind.position
+        driverAhead.position = oldPosBehind
+        driverBehind.position = oldPosAhead
+
+        // Adjust gaps & intervals
+        val tempGap = driverBehind.gapToLeader
+        driverBehind.gapToLeader = (driverAhead.gapToLeader - 0.160).coerceAtLeast(0.0)
+        driverAhead.gapToLeader = tempGap + 0.190
+        driverBehind.intervalToAhead = 0.320
+        driverAhead.intervalToAhead = 0.380
+
+        activeSimDrivers[battleIdx - 1] = driverBehind
+        activeSimDrivers[battleIdx] = driverAhead
+
+        // Log race control alert
+        val msg = "ADELANTAMIENTO: #${driverBehind.driverNumber} ${driverBehind.acronym} supera a #${driverAhead.driverNumber} ${driverAhead.acronym} por la P${driverBehind.position}"
+        addSimulatedRaceControlEvent("Car", msg, "GREEN")
+    }
+
+    private fun handleSimulatedPitStops() {
+        // 1. Process active pit stops
+        val pittingDrivers = activeSimDrivers.filter { it.isPitting }
+        for (d in pittingDrivers) {
+            d.pitTicksRemaining--
+            if (d.pitTicksRemaining <= 0) {
+                d.isPitting = false
+                d.pitStopsCount++
+                val stopSec = 2.2 + ((simulationTick % 6) * 0.1)
+                d.lastPitDuration = String.format(Locale.US, "%.1f s", stopSec)
+                val newComp = if (d.tyreCompound == "HARD") "MEDIUM" else if (d.tyreCompound == "MEDIUM") "HARD" else "HARD"
+                d.stintsHistory = if (d.stintsHistory.isBlank()) "${d.tyreCompound.first()} (1-$currentRaceLap) ➔ ${newComp.first()} ($currentRaceLap-Act)" else "${d.stintsHistory} ➔ ${newComp.first()} ($currentRaceLap-Act)"
+                d.tyreCompound = newComp
+                d.tyreAge = 0
+
+                // Drop positions due to pit transit
+                val oldIdx = activeSimDrivers.indexOf(d)
+                val newIdx = (oldIdx + 3).coerceAtMost(activeSimDrivers.size - 1)
+                if (newIdx != oldIdx) {
+                    activeSimDrivers.removeAt(oldIdx)
+                    activeSimDrivers.add(newIdx, d)
+                    activeSimDrivers.forEachIndexed { idx, item ->
+                        item.position = idx + 1
+                        if (idx > 0) {
+                            item.gapToLeader = activeSimDrivers[idx - 1].gapToLeader + (1.200 + ((idx % 4) * 0.150))
+                            item.intervalToAhead = (item.gapToLeader - activeSimDrivers[idx - 1].gapToLeader).coerceAtLeast(0.180)
+                        }
+                    }
+                }
+                addSimulatedRaceControlEvent("Car", "PARADA EN BOXES: #${d.driverNumber} ${d.acronym} sale de pit lane (${d.lastPitDuration}). Neumáticos $newComp", "CLEAR")
+            }
+        }
+
+        // 2. Schedule next pit stop periodically
+        val isAnyonePitting = activeSimDrivers.any { it.isPitting }
+        if (!isAnyonePitting && simulationTick >= nextPitStopTick) {
+            nextPitStopTick = simulationTick + 190 + (simulationTick % 60)
+            val candidate = activeSimDrivers.take(16).find { !it.isPitting && it.tyreAge >= 16 && it.pitStopsCount < 2 }
+            if (candidate != null) {
+                candidate.isPitting = true
+                candidate.pitTicksRemaining = 25 // 5 seconds in pits
+                addSimulatedRaceControlEvent("Car", "PARADA EN BOXES: #${candidate.driverNumber} ${candidate.acronym} entra a boxes", "INFO")
+            }
+        }
+    }
+
+    private fun handleSimulatedLapProgression(circuitName: String) {
+        if (simulationTick > 0 && simulationTick % 350 == 0) {
+            if (currentRaceLap < totalRaceLaps) {
+                currentRaceLap++
+                activeSimDrivers.forEach { d ->
+                    if (!d.isPitting) {
+                        d.tyreAge++
+                    }
+                }
+                val leader = activeSimDrivers.firstOrNull()
+                addSimulatedRaceControlEvent(
+                    "Track",
+                    "INICIO DE VUELTA $currentRaceLap / $totalRaceLaps • LÍDER: #${leader?.driverNumber ?: 1} ${leader?.acronym ?: "VER"}",
+                    "GREEN"
+                )
+            }
+        }
+        val lapProgressTitle = "$circuitName • VUELTA $currentRaceLap / $totalRaceLaps • EN VIVO"
+        currentScheduleTitle = lapProgressTitle
+        tvSessionTitle.text = "🏎️ $lapProgressTitle"
+        tvStandbyTitle.text = lapProgressTitle.uppercase()
+        tvStandbyStatusBadge.text = "🔴 EMULACIÓN EN VIVO • VUELTA $currentRaceLap / $totalRaceLaps (22 MONOPLAZAS)"
+        tvRaceFlag?.text = "🟢 BANDERA VERDE • VUELTA $currentRaceLap / $totalRaceLaps"
+        tvRaceFlag?.setTextColor(Color.parseColor("#22C55E"))
+    }
+
+    fun setSimulationMode(enabled: Boolean) {
+        isSimulationMode = enabled
+        if (enabled) {
+            isLiveSessionActive = true
+            isUpcomingSession = false
+            currentSessionType = "Race"
+
+            initSimulationDrivers()
+
+            val (circuitName, circuitSpecs) = getCircuitDetails(currentScheduleTitle)
+            tvTrackMapCircuitName?.text = circuitName
+            tvTrackMapCircuitDetails?.text = circuitSpecs
+            trackMapView?.circuitName = circuitName
+            trackMapView?.isSimulationMode = true
+            trackMapView?.loadCircuit(circuitName)
+
+            val trackPoints = trackMapView?.getTrackPoints() ?: emptyList()
+            val n = trackPoints.size.coerceAtLeast(1)
+            val simDriversForMap = activeSimDrivers.mapIndexed { idx, d ->
+                val progress = ((n.toFloat() - (idx * (n.toFloat() / activeSimDrivers.size.toFloat()))) % n.toFloat() + n.toFloat()) % n.toFloat()
+                TrackMapView.SimTrackDriver(
+                    driverNumber = d.driverNumber,
+                    acronym = d.acronym,
+                    colorHex = d.teamColor,
+                    trackProgress = progress
+                )
+            }
+            trackMapView?.setSimulationDrivers(simDriversForMap)
+
+            val lapProgressTitle = "$circuitName • VUELTA $currentRaceLap / $totalRaceLaps • EN VIVO"
+            currentScheduleTitle = lapProgressTitle
+            tvSessionTitle.text = "🏎️ $lapProgressTitle"
+            tvStandbyTitle.text = lapProgressTitle.uppercase()
+            tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $lapProgressTitle"
+            tvStandbyStatusBadge.text = "🔴 EMULACIÓN EN VIVO • VUELTA $currentRaceLap / $totalRaceLaps (22 MONOPLAZAS)"
+            tvRaceFlag?.text = "🟢 BANDERA VERDE • VUELTA $currentRaceLap / $totalRaceLaps"
+            tvRaceFlag?.setTextColor(Color.parseColor("#22C55E"))
+
+            // Preservar sintonía del piloto si ya estaba seleccionado
+            val currentSelected = activeRadioDriverNumber
+            if (currentSelected != null) {
+                val d = simulatedDrivers.find { it.driverNumber == currentSelected }
+                if (d != null) {
+                    tuneRadioDriver(d.driverNumber, d.fullName, d.acronym)
+                }
+            } else {
+                tvRadioTitle.text = "📻 Radio Oficial: Canal en espera (Selecciona piloto)"
+            }
+
+            startSimulationEngine()
+        } else {
+            stopSimulationEngine()
+            val currentSelected = activeRadioDriverNumber
+            if (currentSelected != null) {
+                val d = simulatedDrivers.find { it.driverNumber == currentSelected }
+                if (d != null) {
+                    tuneRadioDriver(d.driverNumber, d.fullName, d.acronym)
+                }
+            } else {
+                turnOffRadio()
+                val nextInfo = nextSessionFormattedDate?.let { " • Próxima cita: $it" } ?: ""
+                tvRadioTitle.text = "📻 Radio Oficial: Sin transmisión en vivo$nextInfo"
+            }
+            isLiveSessionActive = false
+            activeSimDrivers.clear()
+            simRaceControlLog.clear()
+            tvStandbyStatusBadge.text = "F1 PIT WALL TV • OFICIAL"
+            trackMapView?.isSimulationMode = false
+            trackMapView?.setDriverPositions(emptyList())
+            lastKnownMarkers = emptyList()
+            val nextInfo = nextSessionFormattedDate?.let { " • Próxima cita: $it" } ?: ""
+            tvRadioTitle.text = "📻 Radio Oficial: Sin transmisión en vivo$nextInfo"
+            refreshActiveTelemetryMode()
+        }
+    }
+
+    private fun startSimulationEngine() {
+        stopSimulationEngine()
+        simulationEngineJob = scope.launch {
+            while (isActive && isSimulationMode) {
+                simulationTick++
+                runSimulationTick()
+                delay(200L)
+            }
+        }
+    }
+
+    private fun stopSimulationEngine() {
+        simulationEngineJob?.cancel()
+        simulationEngineJob = null
+    }
+
+    private fun updateSimulatedLeaderboard() {
+        val leaderboardItems = activeSimDrivers.map { d ->
+            val pos = d.position
+            val gapStr = when {
+                d.isPitting -> "PIT"
+                pos == 1 -> "LÍDER"
+                else -> "+${String.format(Locale.US, "%.3f", d.gapToLeader)}"
+            }
+            val intervalStr = when {
+                d.isPitting -> "PIT"
+                pos == 1 -> "INTERVAL"
+                else -> "+${String.format(Locale.US, "%.3f", d.intervalToAhead)}"
+            }
+
+            DriverLeaderboardItem(
+                driverNumber = d.driverNumber,
+                position = pos,
+                acronym = d.acronym,
+                fullName = d.fullName,
+                teamName = d.teamName,
+                teamColor = d.teamColor,
+                gapToLeader = gapStr,
+                interval = intervalStr,
+                lastLap = d.lastLapTime,
+                s1 = d.s1,
+                s2 = d.s2,
+                s3 = d.s3,
+                tyreCompound = d.tyreCompound,
+                tyreAge = d.tyreAge
+            )
+        }
+        leaderboardAdapter.updateData(leaderboardItems)
+    }
+
+    private fun runSimulationTick() {
+        val (circuitName, _) = getCircuitDetails(currentScheduleTitle)
+        val tick = simulationTick
+        val isSlowTick = (tick % 5 == 0) // Once every 1000ms
+
+        // 1. Lap progression & Titles (updates lap counter in real time)
+        handleSimulatedLapProgression(circuitName)
+
+        // 2. Dynamic Battles & Pit Stops (calculated once per second)
+        if (isSlowTick || tick == 1) {
+            // Dynamic Overtakes every ~25-30 seconds
+            if (tick >= nextOvertakeTick) {
+                nextOvertakeTick = tick + 140 + (tick % 40)
+                triggerSimulatedOvertake()
+            }
+
+            // Dynamic Pit Stops
+            handleSimulatedPitStops()
+
+            // Micro-variations in gaps for broadcast realism
+            for (i in 1 until activeSimDrivers.size) {
+                val d = activeSimDrivers[i]
+                if (!d.isPitting) {
+                    val drift = kotlin.math.sin((tick * 0.1) + i) * 0.02
+                    d.intervalToAhead = (d.intervalToAhead + drift).coerceIn(0.180, 7.500)
+                    d.gapToLeader = activeSimDrivers[i - 1].gapToLeader + d.intervalToAhead
+                }
+            }
+
+            // Update Leaderboard & Timing Tower
+            updateSimulatedLeaderboard()
+        }
+
+        // 3. GPS Track Map (hardware-accelerated continuous 60 FPS spline animation)
+        layoutTrackMapCircuitImageContainer?.visibility = View.GONE
+        trackMapView?.visibility = View.VISIBLE
+        tvTrackMapLegend?.visibility = View.VISIBLE
+        tvTrackMapGpsStatus?.text = "🟢 GPS EN VIVO (EMULACIÓN 60 FPS)"
+        tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#15803D"))
+
+        trackMapView?.let { map ->
+            if (map.getSimulationDrivers().isEmpty()) {
+                val trackPoints = map.getTrackPoints()
+                if (trackPoints.isNotEmpty()) {
+                    val n = trackPoints.size
+                    val simDriversForMap = activeSimDrivers.mapIndexed { idx, d ->
+                        val progress = ((n.toFloat() - (idx * (n.toFloat() / activeSimDrivers.size.toFloat()))) % n.toFloat() + n.toFloat()) % n.toFloat()
+                        TrackMapView.SimTrackDriver(
+                            driverNumber = d.driverNumber,
+                            acronym = d.acronym,
+                            colorHex = d.teamColor,
+                            trackProgress = progress
+                        )
+                    }
+                    map.setSimulationDrivers(simDriversForMap)
+                } else {
+                    map.loadCircuit(circuitName)
+                }
+            }
+            map.selectedDriverNumber = if (isDriverTelemetryOpen) selectedDriverNumber else null
+        }
+        tvTrackMapFollowedDriver?.text = if (isDriverTelemetryOpen && selectedDriverItem != null) {
+            "Piloto seguido: #${selectedDriverItem!!.driverNumber} ${selectedDriverItem!!.acronym} (${selectedDriverItem!!.teamName})"
+        } else {
+            "Monitoreando a los 22 monoplazas en pista • Emulación en vivo (60 FPS)"
+        }
+
+        // 4. Driver Telemetry update if panel open (every 200ms for live dials!)
+        if (isDriverTelemetryOpen) {
+            updateSimulatedDriverTelemetry(selectedDriverNumber)
+        }
+
+        // 5. Update Tyre Strategy & Race Control (every 1 second)
+        if (isSlowTick || tick == 1) {
+            updateSimulatedTyreStrategy()
+            updateSimulatedRaceControlAndWeather()
+        }
+
+        // 6. Update Simulated Team Radio (sincronizada con telemetría en tiempo real)
+        val activeNum = activeRadioDriverNumber
+        if (activeNum != null) {
+            val driverInfo = activeSimDrivers.find { it.driverNumber == activeNum }?.let {
+                Triple(it.driverNumber, it.fullName, it.acronym)
+            } ?: simulatedDrivers.find { it.driverNumber == activeNum }?.let {
+                Triple(it.driverNumber, it.fullName, it.acronym)
+            }
+            if (driverInfo != null) {
+                val (num, fullName, acronym) = driverInfo
+                val activeDriverState = activeSimDrivers.find { it.driverNumber == num }
+                val cycleTicks = 140 // Transmisión periódica cada 28 segundos
+                val cyclePos = tick % cycleTicks
+                val isPittingNow = activeDriverState?.isPitting == true
+
+                if (cyclePos == 0 || (isPittingNow && tick % 25 == 0)) {
+                    val phase = tick / cycleTicks
+                    val snapshot = getDriverTelemetrySnapshot(num)
+                    val quote = getTelemetryAwareRadioQuote(num, fullName, acronym, snapshot, phase)
+                    tvRadioTitle.text = "📻 [Radio #$num $acronym]: \"$quote\""
+                    radioMessageExpiryTick = tick + 50 // Permanece en pantalla 10 segundos
+                } else if (tick > radioMessageExpiryTick) {
+                    val spd = activeDriverState?.let { getDriverTelemetrySnapshot(num).speed } ?: 290
+                    val sec = activeDriverState?.let { getDriverTelemetrySnapshot(num).sector } ?: 2
+                    tvRadioTitle.text = "📻 [Radio #$num $acronym]: Frecuencia activa • Sector $sec ($spd km/h) • En escucha"
+                }
+            }
+        }
+    }
+
+    private fun updateSimulatedTyreStrategy() {
+        val tyres = activeSimDrivers.map { d ->
+            DriverTyreStrategyItem(
+                driverNumber = d.driverNumber,
+                position = d.position,
+                acronym = d.acronym,
+                fullName = d.fullName,
+                teamName = d.teamName,
+                teamColor = d.teamColor,
+                currentCompound = d.tyreCompound,
+                tyreAge = d.tyreAge,
+                totalStints = d.pitStopsCount + 1,
+                pitStopsCount = d.pitStopsCount,
+                lastPitStopDuration = d.lastPitDuration,
+                stintsHistory = if (d.stintsHistory.isNotBlank()) d.stintsHistory else "${d.tyreCompound.first()} (1-Act)"
+            )
+        }
+        tyreStrategyAdapter.updateData(tyres)
+    }
+
+    private fun updateSimulatedRaceControlAndWeather() {
+        tvRcMainFlagBanner?.text = "🟢 BANDERA VERDE • PISTA LIMPIA Y SECA"
+        tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#22C55E"))
+
+        val trackTemp = 34.2 + (kotlin.math.sin(simulationTick * 0.02) * 1.2)
+        val airTemp = 24.0 + (kotlin.math.sin(simulationTick * 0.01) * 0.5)
+        val windSpeed = 11.8 + (kotlin.math.cos(simulationTick * 0.03) * 1.9)
+
+        tvRcTrackTemp?.text = "Asfalto: ${String.format(Locale.US, "%.1f", trackTemp)} °C"
+        tvRcAirTemp?.text = "Aire: ${String.format(Locale.US, "%.1f", airTemp)} °C"
+        tvRcRain?.text = "Lluvia: ☀️ SECO (0%)"
+        tvRcWind?.text = "Viento: ${String.format(Locale.US, "%.1f", windSpeed)} km/h SO"
+
+        tvWeather?.text = "⛅ Pista: ${String.format(Locale.US, "%.1f", trackTemp)}°C | Aire: ${String.format(Locale.US, "%.1f", airTemp)}°C • Viento ${String.format(Locale.US, "%.1f", windSpeed)} km/h"
+
+        raceControlAdapter.updateData(simRaceControlLog.take(8))
+    }
+
+    private fun isSessionKeyword(text: String?): Boolean {
+        if (text.isNullOrBlank()) return false
+        val lower = text.lowercase(Locale.ROOT)
+        return lower.contains("práctica") || lower.contains("practica") || lower.contains("practice") ||
+                lower.contains("libres") || lower.contains("fp1") || lower.contains("fp2") || lower.contains("fp3") ||
+                lower.contains("clasificación") || lower.contains("clasificacion") || lower.contains("qualifying") ||
+                lower.contains("qualy") || lower.contains("shootout") ||
+                lower.contains("sprint") || lower.contains("spring") ||
+                lower.contains("carrera") || lower.contains("race")
+    }
+
     fun loadTrackMapData() {
+        if (isSimulationMode) return
         scope.launch {
             try {
+                val (circuitName, circuitSpecs) = getCircuitDetails(currentScheduleTitle)
+                tvTrackMapCircuitName?.text = circuitName
+                tvTrackMapCircuitDetails?.text = circuitSpecs
+                trackMapView?.circuitName = circuitName
+
+                val isEvent = isSessionEventActive()
+
+                if (!isEvent) {
+                    // Estado Sin Evento: Mostrar imagen oficial de la carrera / circuito
+                    layoutTrackMapCircuitImageContainer?.visibility = View.VISIBLE
+                    trackMapView?.visibility = View.GONE
+                    trackMapView?.setDriverPositions(emptyList())
+                    lastKnownMarkers = emptyList()
+                    tvTrackMapGpsStatus?.text = "🏁 CIRCUITO OFICIAL • SIN SESIÓN EN VIVO"
+                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#1E293B"))
+                    val nextInfo = nextSessionFormattedDate?.let { " • Próxima cita: $it" } ?: ""
+                    tvTrackMapFollowedDriver?.text = "Sin sesión en vivo activa$nextInfo • El mapa GPS se activará durante el evento oficial"
+                    tvTrackMapLegend?.visibility = View.GONE
+
+                    val imgUrl = currentCircuitImageUrl
+                        ?: repository.findSmartSelectedMeeting(AppConfig.DEFAULT_SEASON)?.circuitImage
+                        ?: repository.getCircuitSilhouetteUrl(circuitName, currentScheduleTitle)
+
+                    if (!imgUrl.isNullOrEmpty()) {
+                        ivTrackMapCircuitImage?.load(imgUrl) {
+                            crossfade(true)
+                        }
+                    }
+                    tvTrackMapImageCaption?.text = "$circuitName • Trazado Oficial de Carrera$nextInfo"
+                    return@launch
+                }
+
+                // Estado Con Evento (Prácticas, Clasificación, Sprint o Carrera): Mostrar mapa GPS con TODOS los pilotos
+                layoutTrackMapCircuitImageContainer?.visibility = View.GONE
+                trackMapView?.visibility = View.VISIBLE
+                tvTrackMapLegend?.visibility = View.VISIBLE
+                tvTrackMapGpsStatus?.text = "🟢 GPS EN VIVO"
+                tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#15803D"))
+
+                // Cargar trazado oficial del circuito específico
+                trackMapView?.loadCircuit(circuitName)
+
                 val key = currentSessionKey ?: return@launch
                 val outline: List<CarLocation> = repository.getTrackOutline(key)
                 if (outline.isNotEmpty()) {
@@ -1597,20 +3065,13 @@ class PitWallViewManager(
                     trackMapView?.setTrackPoints(pts)
                 }
 
-                // Update circuit metadata in HUD card
-                val (circuitName, circuitSpecs) = getCircuitDetails(currentScheduleTitle)
-                tvTrackMapCircuitName?.text = circuitName
-                tvTrackMapCircuitDetails?.text = circuitSpecs
-
                 val locations: List<CarLocation> = repository.getCarLocations(key)
-                val drivers = repository.getDrivers(key).associateBy { it.driverNumber }
+                val sessionDrivers = repository.getDrivers(key).associateBy { it.driverNumber }
 
-                if (locations.isNotEmpty()) {
-                    tvTrackMapGpsStatus?.text = "🟢 GPS EN VIVO"
-                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#15803D"))
-
-                    val markers = locations.map { loc: CarLocation ->
-                        val driver = drivers[loc.driverNumber]
+                val markers: List<TrackMapView.DriverMarker> = if (locations.isNotEmpty()) {
+                    // Posiciones GPS en tiempo real de OpenF1
+                    val realMarkers = locations.map { loc: CarLocation ->
+                        val driver = sessionDrivers[loc.driverNumber]
                         val acronym = driver?.acronym ?: "#${loc.driverNumber}"
                         val teamColor = driver?.teamColour ?: repository.getTeamColor(driver?.teamName ?: "")
                         TrackMapView.DriverMarker(
@@ -1621,53 +3082,102 @@ class PitWallViewManager(
                             rawY = loc.y
                         )
                     }
-
-                    trackMapView?.selectedDriverNumber = if (isDriverTelemetryOpen) selectedDriverNumber else null
-                    trackMapView?.setDriverPositions(markers)
+                    lastKnownMarkers = realMarkers
+                    realMarkers
+                } else if (lastKnownMarkers.isNotEmpty()) {
+                    // Durante la carrera: resiliencia ante cortes momentáneos de red
+                    lastKnownMarkers
                 } else {
-                    tvTrackMapGpsStatus?.text = "📡 TRAZADO OFICIAL"
-                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#1E293B"))
-                    tvTrackMapFollowedDriver?.text = "Trazado oficial • Las posiciones GPS se activan en sesiones en vivo"
-                    trackMapView?.selectedDriverNumber = null
-                    trackMapView?.setDriverPositions(emptyList()) // Static clean circuit outline, NO moving dots
+                    emptyList()
+                }
+
+                trackMapView?.selectedDriverNumber = if (isDriverTelemetryOpen) selectedDriverNumber else null
+                trackMapView?.setDriverPositions(markers)
+                if (markers.isNotEmpty()) {
+                    tvTrackMapFollowedDriver?.text = if (isDriverTelemetryOpen && selectedDriverItem != null) {
+                        "Piloto seguido: #${selectedDriverItem!!.driverNumber} ${selectedDriverItem!!.acronym} (${selectedDriverItem!!.teamName})"
+                    } else {
+                        "Monitoreando a los ${markers.size} pilotos en pista"
+                    }
+                } else {
+                    tvTrackMapFollowedDriver?.text = "Esperando telemetría de monoplazas en pista..."
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Protección durante la carrera: jamás dañar la pantalla ni cerrar la vista
+                Log.w("PitWallViewManager", "Resiliencia activa en telemetría de mapa: ${e.message}")
+                if (lastKnownMarkers.isNotEmpty()) {
+                    trackMapView?.setDriverPositions(lastKnownMarkers)
+                }
             }
         }
     }
 
     private fun getCircuitDetails(title: String): Pair<String, String> {
-        val lower = title.lowercase()
+        val lower = title.lowercase(Locale.ROOT)
         return when {
             lower.contains("vegas") ->
-                "LAS VEGAS STRIP CIRCUIT • EE. UU." to "Longitud: 6.201 km • 17 Curvas • 2 Zonas DRS • Sentido: Antihorario"
+                "LAS VEGAS STRIP CIRCUIT • EE. UU." to "Longitud: 6.201 km • 17 Curvas • 2 Zonas DRS • Récord: 1:35.490 (Piastri) • Sentido: Antihorario"
             lower.contains("sakhir") || lower.contains("bahrain") || lower.contains("barein") ->
-                "BAHRAIN INTERNATIONAL CIRCUIT" to "Longitud: 5.412 km • 15 Curvas • 3 Zonas DRS • Sentido: Horario"
-            lower.contains("jeddah") || lower.contains("arabia") ->
-                "JEDDAH CORNICHE CIRCUIT" to "Longitud: 6.174 km • 27 Curvas • 3 Zonas DRS • Sentido: Antihorario"
+                "BAHRAIN INTERNATIONAL CIRCUIT • SAHIR" to "Longitud: 5.412 km • 15 Curvas • 3 Zonas DRS • Récord: 1:31.447 (De la Rosa) • Sentido: Horario"
+            lower.contains("jeddah") || lower.contains("saudi") || lower.contains("arabia") ->
+                "JEDDAH CORNICHE CIRCUIT • ARABIA SAUDÍ" to "Longitud: 6.174 km • 27 Curvas • 3 Zonas DRS • Récord: 1:30.734 (Hamilton) • Sentido: Antihorario"
             lower.contains("melbourne") || lower.contains("albert") || lower.contains("australia") ->
-                "ALBERT PARK CIRCUIT • MELBOURNE" to "Longitud: 5.278 km • 14 Curvas • 4 Zonas DRS • Sentido: Horario"
-            lower.contains("suzuka") || lower.contains("japan") || lower.contains("japon") ->
-                "SUZUKA INTERNATIONAL RACING COURSE" to "Longitud: 5.807 km • 18 Curvas • 1 Zona DRS • Sentido: Figura 8"
+                "ALBERT PARK CIRCUIT • MELBOURNE" to "Longitud: 5.278 km • 14 Curvas • 4 Zonas DRS • Récord: 1:19.813 (Leclerc) • Sentido: Horario"
+            lower.contains("suzuka") || lower.contains("japan") || lower.contains("japon") || lower.contains("japón") ->
+                "SUZUKA INTERNATIONAL RACING COURSE • JAPÓN" to "Longitud: 5.807 km • 18 Curvas • 1 Zona DRS • Récord: 1:30.983 (Hamilton) • Sentido: Figura 8"
+            lower.contains("shanghai") || lower.contains("china") ->
+                "SHANGHAI INTERNATIONAL CIRCUIT • CHINA" to "Longitud: 5.451 km • 16 Curvas • 2 Zonas DRS • Récord: 1:32.238 (Schumacher) • Sentido: Horario"
             lower.contains("miami") ->
-                "MIAMI INTERNATIONAL AUTODROME" to "Longitud: 5.412 km • 19 Curvas • 3 Zonas DRS • Sentido: Antihorario"
-            lower.contains("monaco") || lower.contains("monte") ->
-                "CIRCUIT DE MONACO" to "Longitud: 3.337 km • 19 Curvas • 1 Zona DRS • Sentido: Horario"
-            lower.contains("silverstone") || lower.contains("gran bretaña") || lower.contains("britain") ->
-                "SILVERSTONE CIRCUIT • REINO UNIDO" to "Longitud: 5.891 km • 18 Curvas • 2 Zonas DRS • Sentido: Horario"
-            lower.contains("spa") || lower.contains("belgica") || lower.contains("belgium") ->
-                "CIRCUIT DE SPA-FRANCORCHAMPS" to "Longitud: 7.004 km • 19 Curvas • 2 Zonas DRS • Sentido: Horario"
+                "MIAMI INTERNATIONAL AUTODROME • EE. UU." to "Longitud: 5.412 km • 19 Curvas • 3 Zonas DRS • Récord: 1:29.708 (Verstappen) • Sentido: Antihorario"
+            lower.contains("imola") || lower.contains("emilia") || lower.contains("romagna") ->
+                "AUTODROMO ENZO E DINO FERRARI • IMOLA" to "Longitud: 4.909 km • 19 Curvas • 1 Zona DRS • Récord: 1:15.484 (Hamilton) • Sentido: Antihorario"
+            lower.contains("monaco") || lower.contains("mónaco") || lower.contains("monte") ->
+                "CIRCUIT DE MONACO • MONTE CARLO" to "Longitud: 3.337 km • 19 Curvas • 1 Zona DRS • Récord: 1:12.909 (Hamilton) • Sentido: Horario"
+            lower.contains("canada") || lower.contains("canadá") || lower.contains("montreal") ->
+                "CIRCUIT GILLES-VILLENEUVE • MONTREAL" to "Longitud: 4.361 km • 14 Curvas • 3 Zonas DRS • Récord: 1:13.078 (Bottas) • Sentido: Horario"
+            lower.contains("catalunya") || lower.contains("barcelona") || lower.contains("españa") || lower.contains("spain") ->
+                "CIRCUIT DE BARCELONA-CATALUNYA • ESPAÑA" to "Longitud: 4.657 km • 14 Curvas • 2 Zonas DRS • Récord: 1:16.330 (Verstappen) • Sentido: Horario"
+            lower.contains("red bull ring") || lower.contains("austria") || lower.contains("spielberg") ->
+                "RED BULL RING • SPIELBERG • AUSTRIA" to "Longitud: 4.318 km • 10 Curvas • 3 Zonas DRS • Récord: 1:05.619 (Sainz) • Sentido: Horario"
+            lower.contains("silverstone") || lower.contains("gran bretaña") || lower.contains("britain") || lower.contains("uk") ->
+                "SILVERSTONE CIRCUIT • REINO UNIDO" to "Longitud: 5.891 km • 18 Curvas • 2 Zonas DRS • Récord: 1:27.097 (Verstappen) • Sentido: Horario"
+            lower.contains("hungaroring") || lower.contains("hungary") || lower.contains("hungria") || lower.contains("hungría") || lower.contains("budapest") ->
+                "HUNGARORING • BUDAPEST • HUNGRÍA" to "Longitud: 4.381 km • 14 Curvas • 2 Zonas DRS • Récord: 1:16.627 (Hamilton) • Sentido: Horario"
+            lower.contains("spa") || lower.contains("belgica") || lower.contains("bélgica") || lower.contains("belgium") || lower.contains("francorchamps") ->
+                "CIRCUIT DE SPA-FRANCORCHAMPS • BÉLGICA" to "Longitud: 7.004 km • 19 Curvas • 2 Zonas DRS • Récord: 1:46.286 (Bottas) • Sentido: Horario"
+            lower.contains("zandvoort") || lower.contains("netherlands") || lower.contains("países bajos") || lower.contains("holanda") ->
+                "CIRCUIT ZANDVOORT • PAÍSES BAJOS" to "Longitud: 4.259 km • 14 Curvas • 2 Zonas DRS • Récord: 1:11.097 (Hamilton) • Sentido: Horario"
             lower.contains("monza") || lower.contains("italia") || lower.contains("italy") ->
-                "AUTODROMO NAZIONALE MONZA" to "Longitud: 5.793 km • 11 Curvas • 2 Zonas DRS • Sentido: Horario"
-            lower.contains("interlagos") || lower.contains("brasil") || lower.contains("brazil") ->
-                "AUTÓDROMO JOSÉ CARLOS PACE • INTERLAGOS" to "Longitud: 4.309 km • 15 Curvas • 2 Zonas DRS • Sentido: Antihorario"
+                "AUTODROMO NAZIONALE MONZA • ITALIA" to "Longitud: 5.793 km • 11 Curvas • 2 Zonas DRS • Récord: 1:21.046 (Barrichello) • Sentido: Horario"
+            lower.contains("baku") || lower.contains("azerbaijan") || lower.contains("azerbaiyán") ->
+                "BAKU CITY CIRCUIT • AZERBAIYÁN" to "Longitud: 6.003 km • 20 Curvas • 2 Zonas DRS • Récord: 1:43.009 (Leclerc) • Sentido: Antihorario"
+            lower.contains("singapore") || lower.contains("singapur") || lower.contains("marina bay") ->
+                "MARINA BAY STREET CIRCUIT • SINGAPUR" to "Longitud: 4.940 km • 19 Curvas • 4 Zonas DRS • Récord: 1:35.867 (Hamilton) • Sentido: Antihorario"
+            lower.contains("austin") || lower.contains("americas") || lower.contains("cota") ||
+                    (lower.contains("united states") && !lower.contains("vegas") && !lower.contains("miami")) ->
+                "CIRCUIT OF THE AMERICAS • AUSTIN • EE. UU." to "Longitud: 5.513 km • 20 Curvas • 2 Zonas DRS • Récord: 1:36.169 (Leclerc) • Sentido: Antihorario"
+            lower.contains("mexico") || lower.contains("méxico") || lower.contains("rodriguez") ->
+                "AUTÓDROMO HERMANOS RODRÍGUEZ • MÉXICO" to "Longitud: 4.304 km • 17 Curvas • 3 Zonas DRS • Récord: 1:17.774 (Bottas) • Sentido: Horario"
+            lower.contains("interlagos") || lower.contains("brasil") || lower.contains("brazil") || lower.contains("são paulo") || lower.contains("sao paulo") ->
+                "AUTÓDROMO JOSÉ CARLOS PACE • INTERLAGOS • BRASIL" to "Longitud: 4.309 km • 15 Curvas • 2 Zonas DRS • Récord: 1:10.540 (Bottas) • Sentido: Antihorario"
+            lower.contains("qatar") || lower.contains("losail") || lower.contains("lusail") ->
+                "LUSAIL INTERNATIONAL CIRCUIT • QATAR" to "Longitud: 5.419 km • 16 Curvas • 1 Zona DRS • Récord: 1:24.319 (Verstappen) • Sentido: Horario"
+            lower.contains("abu dhabi") || lower.contains("yas marina") || lower.contains("uae") || lower.contains("emiratos") ->
+                "YAS MARINA CIRCUIT • ABU DHABI" to "Longitud: 5.281 km • 16 Curvas • 2 Zonas DRS • Récord: 1:26.103 (Verstappen) • Sentido: Antihorario"
             else ->
                 "CIRCUITO OFICIAL FÓRMULA 1" to "Trazado satelital oficial • Sectores 1, 2 y 3 • Zonas DRS"
         }
     }
 
     fun loadTyreStrategyData() {
+        if (isSimulationMode) {
+            updateSimulatedTyreStrategy()
+            return
+        }
+        if (!isSessionEventActive()) {
+            tyreStrategyAdapter.updateData(emptyList())
+            return
+        }
         scope.launch {
             try {
                 val key = currentSessionKey ?: return@launch
@@ -1680,6 +3190,21 @@ class PitWallViewManager(
     }
 
     fun loadRaceControlAndWeatherData() {
+        if (isSimulationMode) {
+            updateSimulatedRaceControlAndWeather()
+            return
+        }
+        if (!isSessionEventActive()) {
+            val nextInfo = nextSessionFormattedDate?.let { " • $it" } ?: ""
+            tvRcMainFlagBanner?.text = "SIN EVENTO EN VIVO • PISTA CERRADA$nextInfo"
+            tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#374151"))
+            tvRcTrackTemp?.text = "Pista: --°C"
+            tvRcAirTemp?.text = "Aire: --°C"
+            tvRcRain?.text = "Lluvia: --%"
+            tvRcWind?.text = "Viento: -- km/h"
+            raceControlAdapter.updateData(emptyList())
+            return
+        }
         scope.launch {
             try {
                 val key = currentSessionKey ?: return@launch
@@ -1731,13 +3256,27 @@ class PitWallViewManager(
         sessionKey: Long,
         isLive: Boolean,
         isUpcoming: Boolean,
-        sessionTitleText: String
+        sessionTitleText: String,
+        sessionType: String? = null,
+        circuitImageUrl: String? = null,
+        formattedSessionDate: String? = null
     ) {
         currentSessionKey = sessionKey
         isLiveSessionActive = isLive
         isUpcomingSession = isUpcoming
         currentScheduleTitle = sessionTitleText
-        tvSessionTitle.text = sessionTitleText
+        nextSessionFormattedDate = formattedSessionDate
+        if (!sessionType.isNullOrBlank()) {
+            currentSessionType = sessionType
+        }
+        if (!circuitImageUrl.isNullOrBlank()) {
+            currentCircuitImageUrl = circuitImageUrl
+        }
+        tvSessionTitle.text = if (!isLive && !formattedSessionDate.isNullOrBlank()) {
+            "Próxima cita: $sessionTitleText • $formattedSessionDate"
+        } else {
+            sessionTitleText
+        }
         tvStandbyTitle.text = sessionTitleText.uppercase()
         updateScheduleBanner()
         refreshActiveTelemetryMode()
@@ -1747,26 +3286,38 @@ class PitWallViewManager(
         currentSessionKey = null
         isLiveSessionActive = false
         isUpcomingSession = false
+        currentSessionType = null
+        nextSessionFormattedDate = null
         currentScheduleTitle = "Calendario de F1 no disponible"
         tvSessionTitle.text = currentScheduleTitle
         tvStandbyTitle.text = "F1 PIT WALL TV"
         updateScheduleBanner()
+        refreshActiveTelemetryMode()
     }
 
     private fun updateScheduleBanner() {
         if (activeSpanishBroadcasts.isEmpty()) {
             when {
+                isSimulationMode -> {
+                    tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
+                    tvStandbyStatusBadge.text = "🔴 EMULACIÓN DE CARRERA EN VIVO (22 MONOPLAZAS)"
+                }
                 isLiveSessionActive -> {
                     tvLiveSessionAlertTitle.text = "🔴 EN DIRECTO: $currentScheduleTitle"
+                    tvStandbyStatusBadge.text = "🔴 SESIÓN EN VIVO: $currentScheduleTitle"
                 }
-                isUpcomingSession -> {
-                    tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA SESIÓN: $currentScheduleTitle"
+                isUpcomingSession || !isLiveSessionActive -> {
+                    val dateStr = nextSessionFormattedDate?.let { " • $it" } ?: ""
+                    tvLiveSessionAlertTitle.text = "⏳ PRÓXIMA FECHA: $currentScheduleTitle$dateStr"
+                    tvStandbyStatusBadge.text = "⏳ PRÓXIMA CITA: $currentScheduleTitle$dateStr"
                 }
                 currentScheduleTitle == "Calendario de F1 no disponible" -> {
                     tvLiveSessionAlertTitle.text = "⚠️ Calendario F1 no disponible"
+                    tvStandbyStatusBadge.text = "⚠️ CALENDARIO F1 NO DISPONIBLE"
                 }
                 else -> {
                     tvLiveSessionAlertTitle.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
+                    tvStandbyStatusBadge.text = "🏁 ÚLTIMA SESIÓN: $currentScheduleTitle"
                 }
             }
         }
@@ -1946,10 +3497,24 @@ class PitWallViewManager(
         }
     }
 
-    private fun updateDynamicServerFocusChain() {
+    fun updateDynamicServerFocusChain() {
+        updatePitWallFocusChains()
+    }
+
+    fun updatePitWallFocusChains() {
+        val firstRadioId = radioButtons.values.firstOrNull()?.id ?: R.id.btnMetricsTiming
+        val isStandby = layoutPlayerStandby.visibility == View.VISIBLE
+
+        // Determine what sits immediately below the top server bar:
+        val targetBelowTopBar = if (isStandby) {
+            btnStandbyPreview.id
+        } else {
+            firstRadioId
+        }
+
         val buttons = dynamicChannelButtons
-        val hasSessionSelector = btnSessionSelector?.visibility == View.VISIBLE && btnSessionSelector != null
-        val hasSourceBadge = btnSourceBadgePitWall?.visibility == View.VISIBLE && btnSourceBadgePitWall != null
+        val hasSessionSelector = btnSessionSelector?.visibility == View.VISIBLE
+        val hasSourceBadge = btnSourceBadgePitWall?.visibility == View.VISIBLE
 
         val leftAnchorId = when {
             hasSessionSelector -> btnSessionSelector!!.id
@@ -1959,7 +3524,7 @@ class PitWallViewManager(
 
         buttons.forEachIndexed { index, button ->
             button.nextFocusUpId = R.id.btnTabPitWall
-            button.nextFocusDownId = R.id.webVideoView
+            button.nextFocusDownId = targetBelowTopBar
             button.nextFocusLeftId = if (index > 0) {
                 buttons[index - 1].id
             } else if (leftAnchorId != View.NO_ID) {
@@ -1976,19 +3541,71 @@ class PitWallViewManager(
 
         btnSessionSelector?.let { sel ->
             sel.nextFocusUpId = R.id.btnTabPitWall
-            sel.nextFocusDownId = R.id.webVideoView
+            sel.nextFocusDownId = targetBelowTopBar
             sel.nextFocusLeftId = if (hasSourceBadge) btnSourceBadgePitWall!!.id else sel.id
             sel.nextFocusRightId = buttons.firstOrNull()?.id ?: R.id.btnLiveSessionAction
         }
 
         btnSourceBadgePitWall?.let { src ->
             src.nextFocusUpId = R.id.btnTabPitWall
-            src.nextFocusDownId = R.id.webVideoView
+            src.nextFocusDownId = targetBelowTopBar
             src.nextFocusLeftId = src.id
             src.nextFocusRightId = if (hasSessionSelector) btnSessionSelector!!.id else buttons.firstOrNull()?.id ?: R.id.btnLiveSessionAction
         }
 
+        btnLiveSessionAction.nextFocusUpId = R.id.btnTabPitWall
+        btnLiveSessionAction.nextFocusDownId = targetBelowTopBar
         btnLiveSessionAction.nextFocusLeftId = buttons.lastOrNull()?.id ?: btnSessionSelector?.id ?: btnSourceBadgePitWall?.id ?: R.id.btnLiveSessionAction
+        btnLiveSessionAction.nextFocusRightId = R.id.btnMetricsTiming
+
+        // Standby action buttons
+        val topBarAnchorId = btnSourceBadgePitWall?.id ?: R.id.btnTabPitWall
+        btnStandbyPreview.nextFocusUpId = topBarAnchorId
+        btnStandbyPreview.nextFocusDownId = firstRadioId
+        btnStandbyPreview.nextFocusLeftId = btnStandbyPreview.id
+        btnStandbyPreview.nextFocusRightId = btnStandbyRecap.id
+
+        btnStandbyRecap.nextFocusUpId = topBarAnchorId
+        btnStandbyRecap.nextFocusDownId = firstRadioId
+        btnStandbyRecap.nextFocusLeftId = btnStandbyPreview.id
+        btnStandbyRecap.nextFocusRightId = btnStandbyOpenWeb.id
+
+        btnStandbyOpenWeb.nextFocusUpId = topBarAnchorId
+        btnStandbyOpenWeb.nextFocusDownId = firstRadioId
+        btnStandbyOpenWeb.nextFocusLeftId = btnStandbyRecap.id
+        btnStandbyOpenWeb.nextFocusRightId = if (btnStandbyStopVideo.visibility == View.VISIBLE) btnStandbyStopVideo.id else btnStandbyOpenWeb.id
+
+        btnStandbyStopVideo.nextFocusUpId = topBarAnchorId
+        btnStandbyStopVideo.nextFocusDownId = firstRadioId
+        btnStandbyStopVideo.nextFocusLeftId = btnStandbyOpenWeb.id
+        btnStandbyStopVideo.nextFocusRightId = btnStandbyStopVideo.id
+
+        // Radio Buttons (Horizontal Chain & Vertical Navigation)
+        val targetAboveRadio = if (isStandby) btnStandbyOpenWeb.id else topBarAnchorId
+        val container = llRadioChips
+        if (container != null) {
+            val count = container.childCount
+            for (i in 0 until count) {
+                val chip = container.getChildAt(i)
+                chip.nextFocusUpId = targetAboveRadio
+                chip.nextFocusDownId = R.id.btnMetricsTiming
+                if (i > 0) {
+                    chip.nextFocusLeftId = container.getChildAt(i - 1).id
+                } else {
+                    chip.nextFocusLeftId = chip.id
+                }
+                if (i < count - 1) {
+                    chip.nextFocusRightId = container.getChildAt(i + 1).id
+                } else {
+                    // Last radio chip (Bottas #77) connects RIGHT to Metrics column
+                    chip.nextFocusRightId = R.id.btnMetricsTiming
+                }
+            }
+        }
+
+        // Metrics Switcher & Leaderboard
+        btnMetricsTiming.nextFocusLeftId = firstRadioId
+        rvLeaderboard.nextFocusLeftId = firstRadioId
     }
 
     private fun onNoSpanishBroadcastsFound(source: BroadcastSource) {
@@ -2047,6 +3664,8 @@ class PitWallViewManager(
     }
 
     fun playSpanishBroadcast(broadcast: SpanishBroadcast) {
+        isUserStoppedPlayback = false
+        startVideoPlaybackWatchdog()
         exoPlayer?.pause()
         exoPlayer?.stop()
         playerView.visibility = View.GONE
@@ -2054,6 +3673,7 @@ class PitWallViewManager(
         webVideoView.visibility = View.VISIBLE
         btnStandbyStopVideo.visibility = View.VISIBLE
         tvLiveSessionAlertTitle.text = "🏎️ " + broadcast.getFormattedTitle()
+        updatePitWallFocusChains()
 
         if (currentLoadedSource == BroadcastSource.FUTBOL_LIBRE) {
             val targetUrl = broadcast.streamUrl?.takeIf { it.isNotBlank() }
@@ -2230,6 +3850,9 @@ class PitWallViewManager(
     }
 
     fun onDestroy() {
+        radioPollingJob?.cancel()
+        radioPollingJob = null
+        stopSimulationEngine()
         stopTrackMapPolling()
         futbolLibreSourcesJob?.cancel()
         flxExtractor.destroy()

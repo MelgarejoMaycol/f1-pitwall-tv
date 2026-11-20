@@ -226,7 +226,6 @@
                                 android:focusable="true"
                                 android:nextFocusUp="@+id/btnTabPitWall"
                                 android:nextFocusRight="@+id/btnSessionSelector"
-                                android:nextFocusDown="@+id/webVideoView"
                                 android:paddingHorizontal="8dp"
                                 android:text="📡 FUENTE: FÚTBOL LIBRE ▼"
                                 android:textColor="@color/f1_red"
@@ -243,7 +242,6 @@
                                 android:focusable="true"
                                 android:nextFocusUp="@+id/btnTabPitWall"
                                 android:nextFocusLeft="@+id/btnSourceBadgePitWall"
-                                android:nextFocusDown="@+id/webVideoView"
                                 android:paddingHorizontal="9dp"
                                 android:text="📅 Sesión: F1 ▼"
                                 android:textColor="@color/text_primary"
@@ -271,7 +269,6 @@
                         android:focusable="true"
                         android:nextFocusUp="@+id/btnTabPitWall"
                         android:nextFocusLeft="@+id/btnSessionSelector"
-                        android:nextFocusDown="@+id/webVideoView"
                         android:paddingHorizontal="10dp"
                         android:text="🔄 Refrescar"
                         android:textColor="@color/text_primary"
@@ -323,7 +320,7 @@
                             android:id="@+id/playerView"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:focusable="true"
+                            android:focusable="false"
                             app:show_buffering="always"
                             app:use_controller="true"
                             android:visibility="gone" />
@@ -332,8 +329,8 @@
                             android:id="@+id/webVideoView"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:focusable="true"
-                            android:focusableInTouchMode="true"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
                             android:background="#000000"
                             android:visibility="gone" />
 
@@ -468,143 +465,52 @@
                     android:orientation="vertical"
                     android:padding="5dp">
 
-                    <LinearLayout
+                    <!-- Live Radio Banner & Transcript Title -->
+                    <TextView
+                        android:id="@+id/tvRadioTitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:text="📻 Radio Oficial: Sintoniza canal por piloto"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10.5sp"
+                        android:textStyle="bold" />
 
-                        <TextView
-                            android:id="@+id/tvRadioTitle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="📻 Radio Oficial: Sintoniza canal por piloto"
-                            android:textColor="@color/text_primary"
-                            android:textSize="10.5sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnPlayRadio"
-                            android:layout_width="wrap_content"
-                            android:layout_height="22dp"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:paddingHorizontal="8dp"
-                            android:text="▶ Reproducir"
-                            android:textColor="@color/text_primary"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <!-- Driver Channel Selector Chips -->
+                    <!-- Radio Driver Channels (Horizontal Scrollable Bar) -->
                     <LinearLayout
-                        android:id="@+id/llRadioChips"
                         android:layout_width="match_parent"
-                        android:layout_height="22dp"
+                        android:layout_height="24dp"
                         android:layout_marginTop="3dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <Button
-                            android:id="@+id/btnRadioVer"
-                            android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#1 VER"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
+                        <TextView
+                            android:id="@+id/tvRadioLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:text="Radios:"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="10sp"
                             android:textStyle="bold" />
 
-                        <Button
-                            android:id="@+id/btnRadioNor"
+                        <HorizontalScrollView
+                            android:id="@+id/scrollRadioChips"
                             android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_marginStart="3dp"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#4 NOR"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
-                            android:textStyle="bold" />
+                            android:focusable="false"
+                            android:descendantFocusability="afterDescendants"
+                            android:scrollbars="none">
 
-                        <Button
-                            android:id="@+id/btnRadioLec"
-                            android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_marginStart="3dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#16 LEC"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnRadioHam"
-                            android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_marginStart="3dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#44 HAM"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnRadioRus"
-                            android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_marginStart="3dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#63 RUS"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnRadioPia"
-                            android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_marginStart="3dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#81 PIA"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnRadioAlo"
-                            android:layout_width="0dp"
-                            android:layout_height="22dp"
-                            android:layout_marginStart="3dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/btn_tab_selector"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:text="#14 ALO"
-                            android:textColor="@color/text_primary"
-                            android:textSize="8.5sp"
-                            android:textStyle="bold" />
+                            <LinearLayout
+                                android:id="@+id/llRadioChips"
+                                android:layout_width="wrap_content"
+                                android:layout_height="match_parent"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal" />
+                        </HorizontalScrollView>
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -1131,13 +1037,54 @@
                             android:textSize="9.5sp" />
                     </LinearLayout>
 
-                    <!-- Custom Track Map View -->
-                    <com.f1pitwall.tv.ui.pitwall.TrackMapView
-                        android:id="@+id/trackMapView"
+                    <!-- Track Map Display Area (Switcher between Circuit Image and Live GPS Map) -->
+                    <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
                         android:layout_weight="1"
-                        android:background="#0A0F1D" />
+                        android:background="#0A0F1D">
+
+                        <!-- Standby / Sin Evento Activo: Imagen Oficial de la Carrera / Circuito -->
+                        <LinearLayout
+                            android:id="@+id/layoutTrackMapCircuitImageContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="12dp"
+                            android:visibility="gone">
+
+                            <ImageView
+                                android:id="@+id/ivTrackMapCircuitImage"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:adjustViewBounds="true"
+                                android:scaleType="fitCenter"
+                                android:contentDescription="Trazado oficial de la carrera" />
+
+                            <TextView
+                                android:id="@+id/tvTrackMapImageCaption"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:background="#1E283D"
+                                android:paddingHorizontal="10dp"
+                                android:paddingVertical="3dp"
+                                android:text="Trazado Oficial de Carrera"
+                                android:textColor="#94A3B8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Evento Activo (Prácticas, Clasificación, Sprint, Carrera): Mapa GPS con todos los pilotos -->
+                        <com.f1pitwall.tv.ui.pitwall.TrackMapView
+                            android:id="@+id/trackMapView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="#0A0F1D"
+                            android:visibility="visible" />
+                    </FrameLayout>
 
                     <!-- Footer Legend / Followed Driver Info -->
                     <LinearLayout
@@ -1648,6 +1595,76 @@
                             android:gravity="center_vertical"
                             android:orientation="horizontal" />
                     </HorizontalScrollView>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Race Simulation / Demo Mode Card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardRaceSimulation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/glass_surface_dock"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🏎️ MODO DEMOSTRACIÓN / EMULACIÓN DE CARRERA"
+                                android:textColor="@color/f1_red"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvSimulationStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Estado: Desactivado (Esperando eventos reales de F1)"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11.5sp" />
+                        </LinearLayout>
+
+                        <Button
+                            android:id="@+id/btnToggleSimulationMode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="38dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="16dp"
+                            android:text="▶️ Iniciar Emulación"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Emula una sesión completa de Gran Premio en vivo con sincronización total: telemetría de los 22 monoplazas de la temporada 2026 en el mapa GPS, torre de tiempos dinámica, radios de equipo, incidentes de Race Control y estrategias de neumáticos para comprobar el funcionamiento idéntico al de la transmisión oficial."
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

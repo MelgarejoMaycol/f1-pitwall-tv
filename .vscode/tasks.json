@@ -1,0 +1,19 @@
+
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Instalar y abrir en TV físico",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/scripts/install-tv.sh"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

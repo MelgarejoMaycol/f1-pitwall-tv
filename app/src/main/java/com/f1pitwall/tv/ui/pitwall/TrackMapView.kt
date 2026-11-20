@@ -19,9 +19,77 @@ class TrackMapView @JvmOverloads constructor(
         val rawY: Float
     )
 
+    class AnimatedDriver(
+        val driverNumber: Int,
+        var acronym: String,
+        var colorHex: String,
+        var currentRawX: Float,
+        var currentRawY: Float,
+        var startRawX: Float = currentRawX,
+        var startRawY: Float = currentRawY,
+        var targetRawX: Float = currentRawX,
+        var targetRawY: Float = currentRawY,
+        var animStartTime: Long = 0L,
+        var animDurationMs: Long = 200L,
+        var lastUpdateUptime: Long = 0L
+    ) {
+        constructor(
+            driverNumber: Int,
+            acronym: String,
+            colorHex: String,
+            currentRawX: Float,
+            currentRawY: Float,
+            targetRawX: Float,
+            targetRawY: Float
+        ) : this(
+            driverNumber = driverNumber,
+            acronym = acronym,
+            colorHex = colorHex,
+            currentRawX = currentRawX,
+            currentRawY = currentRawY,
+            startRawX = currentRawX,
+            startRawY = currentRawY,
+            targetRawX = targetRawX,
+            targetRawY = targetRawY,
+            animStartTime = android.os.SystemClock.uptimeMillis(),
+            animDurationMs = 200L,
+            lastUpdateUptime = android.os.SystemClock.uptimeMillis()
+        )
+    }
+
+    data class SimTrackDriver(
+        val driverNumber: Int,
+        val acronym: String,
+        val colorHex: String,
+        var trackProgress: Float
+    )
+
+    var isSimulationMode: Boolean = false
+    private val simTrackDrivers = mutableListOf<SimTrackDriver>()
+    private var lastSimFrameUptime: Long = 0L
+    private val tempSplinePoint = PointF()
+
     private var rawTrackPoints: List<PointF> = emptyList()
     private var markers: List<DriverMarker> = emptyList()
+    private val animatedDrivers = mutableMapOf<Int, AnimatedDriver>()
+    private val tempScreenPoint = PointF()
+    private val tempStartFinishPoint = PointF()
+    private val tempAnnPoint = PointF()
     var selectedDriverNumber: Int? = null
+    var circuitName: String = "Las Vegas"
+    private var turnAnnotations: List<CircuitOutlinesCatalog.CircuitTurnAnnotation> = emptyList()
+    private val tempRectF = RectF()
+
+    fun getTrackPoints(): List<PointF> = rawTrackPoints
+    fun getAnimatedDrivers(): Map<Int, AnimatedDriver> = animatedDrivers
+    fun getSimulationDrivers(): List<SimTrackDriver> = simTrackDrivers
+
+    fun setSimulationDrivers(drivers: List<SimTrackDriver>) {
+        simTrackDrivers.clear()
+        simTrackDrivers.addAll(drivers)
+        lastSimFrameUptime = android.os.SystemClock.uptimeMillis()
+        postInvalidateOnAnimation()
+    }
 
     // Bounds for coordinate normalization
     private var minX = 0f
@@ -139,49 +207,50 @@ class TrackMapView @JvmOverloads constructor(
     }
 
     init {
-        loadDefaultLasVegasTrack()
+        loadCircuit("Las Vegas")
     }
 
-    private fun loadDefaultLasVegasTrack() {
-        if (rawTrackPoints.isNotEmpty()) return
-        // 120 authentic GPS coordinates from Verstappen's fastest lap at Las Vegas Strip Circuit (OpenF1 session 9644)
-        val officialLap = listOf(
-            PointF(2353f, -289f), PointF(2712f, 111f), PointF(3078f, 520f), PointF(3514f, 1003f),
-            PointF(3761f, 1336f), PointF(3787f, 1570f), PointF(3673f, 1802f), PointF(3460f, 1948f),
-            PointF(3213f, 1993f), PointF(2800f, 1887f), PointF(2519f, 1695f), PointF(2182f, 1372f),
-            PointF(1871f, 1186f), PointF(1405f, 1203f), PointF(1096f, 1345f), PointF(806f, 1606f),
-            PointF(587f, 2117f), PointF(518f, 2830f), PointF(491f, 3254f), PointF(461f, 3903f),
-            PointF(419f, 4955f), PointF(393f, 5689f), PointF(363f, 6552f), PointF(340f, 7207f),
-            PointF(322f, 7720f), PointF(296f, 8456f), PointF(274f, 9086f), PointF(253f, 9684f),
-            PointF(279f, 10341f), PointF(356f, 10534f), PointF(522f, 10683f), PointF(844f, 10709f),
-            PointF(1205f, 10710f), PointF(1418f, 10712f), PointF(1699f, 10714f), PointF(2184f, 10720f),
-            PointF(2623f, 10810f), PointF(3216f, 11141f), PointF(3471f, 11394f), PointF(3702f, 11739f),
-            PointF(3819f, 12025f), PointF(3877f, 12293f), PointF(3873f, 12595f), PointF(3755f, 12837f),
-            PointF(3533f, 12921f), PointF(3275f, 12926f), PointF(3546f, 13543f), PointF(3640f, 13812f),
-            PointF(3611f, 14008f), PointF(3419f, 14125f), PointF(3058f, 14154f), PointF(2470f, 14167f),
-            PointF(1795f, 14182f), PointF(1088f, 14207f), PointF(413f, 14246f), PointF(-200f, 14299f),
-            PointF(-489f, 14352f), PointF(-552f, 14426f), PointF(-555f, 14516f), PointF(-517f, 14577f),
-            PointF(-487f, 14643f), PointF(-682f, 14761f), PointF(-1217f, 15096f), PointF(-1815f, 15467f),
-            PointF(-2440f, 15858f), PointF(-3093f, 16265f), PointF(-3777f, 16692f), PointF(-4474f, 17130f),
-            PointF(-4767f, 17629f), PointF(-4986f, 17774f), PointF(-5235f, 17740f), PointF(-5451f, 17482f),
-            PointF(-5736f, 16906f), PointF(-6076f, 16086f), PointF(-6409f, 15152f), PointF(-6718f, 14032f),
-            PointF(-6909f, 13142f), PointF(-7042f, 12450f), PointF(-7179f, 11666f), PointF(-7304f, 10839f),
-            PointF(-7419f, 9993f), PointF(-7522f, 9152f), PointF(-7615f, 8318f), PointF(-7662f, 7502f),
-            PointF(-7684f, 6635f), PointF(-7706f, 5779f), PointF(-7719f, 4930f), PointF(-7723f, 4075f),
-            PointF(-7724f, 3216f), PointF(-7728f, 2351f), PointF(-7730f, 1479f), PointF(-7733f, 608f),
-            PointF(-7733f, -474f), PointF(-7734f, -738f), PointF(-7724f, -979f), PointF(-7637f, -1193f),
-            PointF(-7437f, -1373f), PointF(-7130f, -1497f), PointF(-6738f, -1559f), PointF(-6288f, -1591f),
-            PointF(-5802f, -1614f), PointF(-5310f, -1645f), PointF(-4821f, -1695f), PointF(-4334f, -1717f),
-            PointF(-3844f, -1719f), PointF(-3353f, -1722f), PointF(-2862f, -1719f), PointF(-2372f, -1718f),
-            PointF(-1879f, -1700f), PointF(-1388f, -1666f), PointF(-1297f, -1653f), PointF(-588f, -1643f),
-            PointF(94f, -1619f), PointF(811f, -1538f), PointF(1672f, -1058f), PointF(2353f, -289f)
-        )
-        setTrackPoints(officialLap)
+    fun loadCircuit(circuitOrGpName: String) {
+        circuitName = circuitOrGpName
+        val data = CircuitOutlinesCatalog.getCircuitData(circuitOrGpName)
+        turnAnnotations = data.annotations
+        rawTrackPoints = data.outlinePoints
+        calculateBounds()
+        rebuildTrackPaths()
+        animatedDrivers.clear()
+        if (isSimulationMode && simTrackDrivers.isNotEmpty()) {
+            val n = rawTrackPoints.size.coerceAtLeast(1)
+            simTrackDrivers.forEachIndexed { idx, d ->
+                d.trackProgress = idx * (n.toFloat() / simTrackDrivers.size.toFloat())
+            }
+        }
+        invalidate()
+    }
+
+    private fun getTrackPointAtProgress(progress: Float, outPoint: PointF) {
+        val n = rawTrackPoints.size
+        if (n == 0) {
+            outPoint.set(0f, 0f)
+            return
+        }
+        val p = (progress % n + n) % n
+        val i0 = p.toInt() % n
+        val i1 = (i0 + 1) % n
+        val frac = p - i0.toFloat()
+
+        val p0 = rawTrackPoints[i0]
+        val p1 = rawTrackPoints[i1]
+
+        outPoint.x = p0.x + (p1.x - p0.x) * frac
+        outPoint.y = p0.y + (p1.y - p0.y) * frac
     }
 
     fun setTrackPoints(points: List<PointF>) {
         if (points.isEmpty()) return
         rawTrackPoints = points
+        if (turnAnnotations.isEmpty()) {
+            turnAnnotations = CircuitOutlinesCatalog.getCircuitData(circuitName).annotations
+        }
         calculateBounds()
         rebuildTrackPaths()
         invalidate()
@@ -193,7 +262,73 @@ class TrackMapView @JvmOverloads constructor(
             calculateBoundsFromMarkers()
             rebuildTrackPaths()
         }
-        invalidate()
+
+        if (newMarkers.isEmpty()) {
+            animatedDrivers.clear()
+            invalidate()
+            return
+        }
+
+        val now = android.os.SystemClock.uptimeMillis()
+        val activeDriverNumbers = HashSet<Int>(newMarkers.size)
+        val maxTrackDimension = (maxX - minX).coerceAtLeast(maxY - minY)
+
+        for (marker in newMarkers) {
+            activeDriverNumbers.add(marker.driverNumber)
+            val driver = animatedDrivers[marker.driverNumber]
+            if (driver == null) {
+                animatedDrivers[marker.driverNumber] = AnimatedDriver(
+                    driverNumber = marker.driverNumber,
+                    acronym = marker.acronym,
+                    colorHex = marker.colorHex,
+                    currentRawX = marker.rawX,
+                    currentRawY = marker.rawY,
+                    startRawX = marker.rawX,
+                    startRawY = marker.rawY,
+                    targetRawX = marker.rawX,
+                    targetRawY = marker.rawY,
+                    animStartTime = now,
+                    animDurationMs = 200L,
+                    lastUpdateUptime = now
+                )
+            } else {
+                driver.acronym = marker.acronym
+                driver.colorHex = marker.colorHex
+
+                val interval = if (driver.lastUpdateUptime > 0L) {
+                    (now - driver.lastUpdateUptime).coerceIn(60L, 2000L)
+                } else {
+                    200L
+                }
+
+                // Check for sudden teleport / first initialization
+                val dx = marker.rawX - driver.currentRawX
+                val dy = marker.rawY - driver.currentRawY
+                val distSq = dx * dx + dy * dy
+                val maxAllowedDistSq = (maxTrackDimension * 0.45f) * (maxTrackDimension * 0.45f)
+
+                if ((driver.currentRawX == 0f && driver.currentRawY == 0f) ||
+                    (maxTrackDimension > 10f && distSq > maxAllowedDistSq)) {
+                    // Snap directly if distance is abnormally huge (e.g. initial spawn or pit teleport)
+                    driver.currentRawX = marker.rawX
+                    driver.currentRawY = marker.rawY
+                    driver.startRawX = marker.rawX
+                    driver.startRawY = marker.rawY
+                } else {
+                    driver.startRawX = driver.currentRawX
+                    driver.startRawY = driver.currentRawY
+                }
+
+                driver.targetRawX = marker.rawX
+                driver.targetRawY = marker.rawY
+                driver.animStartTime = now
+                driver.animDurationMs = interval
+                driver.lastUpdateUptime = now
+            }
+        }
+
+        animatedDrivers.keys.retainAll(activeDriverNumbers)
+        postInvalidateOnAnimation()
     }
 
     private fun calculateBounds() {
@@ -290,7 +425,13 @@ class TrackMapView @JvmOverloads constructor(
         }
     }
 
-    private fun transformPoint(rawX: Float, rawY: Float): PointF {
+    fun transformPoint(rawX: Float, rawY: Float): PointF {
+        val pt = PointF()
+        transformPointInPlace(rawX, rawY, pt)
+        return pt
+    }
+
+    private fun transformPointInPlace(rawX: Float, rawY: Float, outPoint: PointF) {
         val rangeX = (maxX - minX).coerceAtLeast(1f)
         val rangeY = (maxY - minY).coerceAtLeast(1f)
 
@@ -303,11 +444,9 @@ class TrackMapView @JvmOverloads constructor(
         val offsetX = padding + (availW - (rangeX * scale)) / 2f
         val offsetY = padding + (availH - (rangeY * scale)) / 2f
 
-        val screenX = offsetX + ((rawX - minX) * scale)
+        outPoint.x = offsetX + ((rawX - minX) * scale)
         // Flip Y axis because F1 GPS coordinates usually have positive Y pointing North
-        val screenY = offsetY + ((maxY - rawY) * scale)
-
-        return PointF(screenX, screenY)
+        outPoint.y = offsetY + ((maxY - rawY) * scale)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -325,82 +464,157 @@ class TrackMapView @JvmOverloads constructor(
             canvas.drawPath(pathSector3, trackPaintS3)
 
             // 2. Draw Start / Finish line
-            val startPt = transformPoint(rawTrackPoints.first().x, rawTrackPoints.first().y)
-            canvas.drawCircle(startPt.x, startPt.y, 8f, startFinishPaint)
-            drawAnnotationBadge(canvas, "🏁 META", startPt.x, startPt.y + 26f, annotationBadgeBg, annotationTextPaint)
+            transformPointInPlace(rawTrackPoints.first().x, rawTrackPoints.first().y, tempStartFinishPoint)
+            canvas.drawCircle(tempStartFinishPoint.x, tempStartFinishPoint.y, 8f, startFinishPaint)
+            drawAnnotationBadge(canvas, "🏁 META", tempStartFinishPoint.x, tempStartFinishPoint.y + 26f, annotationBadgeBg, annotationTextPaint)
 
-            // 3. Draw key turn annotations on track (clean, non-intrusive)
-            val n = rawTrackPoints.size
-            if (n >= 100) {
-                // T1 (Curva 1)
-                val t1Pt = transformPoint(rawTrackPoints[10].x, rawTrackPoints[10].y)
-                drawAnnotationBadge(canvas, "T1", t1Pt.x + 22f, t1Pt.y - 10f, annotationBadgeBg, annotationTextPaint)
+            // 3. Draw authentic corner and DRS annotations from catalog
+            val activeAnnotations = if (turnAnnotations.isNotEmpty()) {
+                turnAnnotations
+            } else {
+                CircuitOutlinesCatalog.getCircuitData(circuitName).annotations
+            }
 
-                // T4 (The Sphere)
-                val t4Pt = transformPoint(rawTrackPoints[25].x, rawTrackPoints[25].y)
-                drawAnnotationBadge(canvas, "T4 Sphere", t4Pt.x + 36f, t4Pt.y, annotationBadgeBg, annotationTextPaint)
-
-                // DRS 1 Zone
-                val drs1Pt = transformPoint(rawTrackPoints[35].x, rawTrackPoints[35].y)
-                drawAnnotationBadge(canvas, "DRS 1", drs1Pt.x, drs1Pt.y - 20f, drsBadgeBg, drsTextPaint)
-
-                // T12 (Las Vegas Blvd)
-                val t12Pt = transformPoint(rawTrackPoints[70].x, rawTrackPoints[70].y)
-                drawAnnotationBadge(canvas, "T12 Strip", t12Pt.x - 36f, t12Pt.y, annotationBadgeBg, annotationTextPaint)
-
-                // DRS 2 Zone (The Strip 1.9km Straight)
-                val drs2Pt = transformPoint(rawTrackPoints[85].x, rawTrackPoints[85].y)
-                drawAnnotationBadge(canvas, "DRS 2 (1.9 km)", drs2Pt.x - 60f, drs2Pt.y, drsBadgeBg, drsTextPaint)
-
-                // T14 (Frenada Strip)
-                val t14Pt = transformPoint(rawTrackPoints[95].x, rawTrackPoints[95].y)
-                drawAnnotationBadge(canvas, "T14", t14Pt.x - 22f, t14Pt.y + 22f, annotationBadgeBg, annotationTextPaint)
+            val totalPts = rawTrackPoints.size
+            if (totalPts > 0) {
+                for (ann in activeAnnotations) {
+                    val ptIdx = ann.pointIndex.coerceIn(0, totalPts - 1)
+                    transformPointInPlace(rawTrackPoints[ptIdx].x, rawTrackPoints[ptIdx].y, tempAnnPoint)
+                    val bgPaint = if (ann.isDrs) drsBadgeBg else annotationBadgeBg
+                    val tPaint = if (ann.isDrs) drsTextPaint else annotationTextPaint
+                    drawAnnotationBadge(canvas, ann.label, tempAnnPoint.x, tempAnnPoint.y - 14f, bgPaint, tPaint)
+                }
             }
         }
 
-        // 4. Draw Real-time Drivers ONLY if there are active live markers on track
-        if (markers.isNotEmpty()) {
-            for (marker in markers) {
-                if (marker.rawX == 0f && marker.rawY == 0f) continue
-                val pt = transformPoint(marker.rawX, marker.rawY)
+        // 4. Draw Real-time Drivers smoothly animated at 60 FPS
+        if (isSimulationMode && simTrackDrivers.isNotEmpty() && rawTrackPoints.size >= 3) {
+            val now = android.os.SystemClock.uptimeMillis()
+            val dt = if (lastSimFrameUptime > 0L) {
+                ((now - lastSimFrameUptime) / 1000f).coerceIn(0.001f, 0.05f)
+            } else {
+                0.0166f
+            }
+            lastSimFrameUptime = now
+
+            val n = rawTrackPoints.size
+            // Lap speed: complete full circuit in ~75 seconds
+            val baseSpeed = n.toFloat() / 75f
+
+            for (i in simTrackDrivers.indices) {
+                val driver = simTrackDrivers[i]
+                driver.trackProgress = (driver.trackProgress + baseSpeed * dt) % n.toFloat()
+
+                getTrackPointAtProgress(driver.trackProgress, tempSplinePoint)
+                transformPointInPlace(tempSplinePoint.x, tempSplinePoint.y, tempScreenPoint)
+
+                val ptX = tempScreenPoint.x
+                val ptY = tempScreenPoint.y
 
                 val color = try {
-                    val hex = if (marker.colorHex.startsWith("#")) marker.colorHex else "#${marker.colorHex}"
+                    val hex = if (driver.colorHex.startsWith("#")) driver.colorHex else "#${driver.colorHex}"
                     Color.parseColor(hex)
                 } catch (e: Exception) {
                     Color.parseColor("#E10600")
                 }
                 markerFillPaint.color = color
 
-                val isSelected = marker.driverNumber == selectedDriverNumber
+                val isSelected = driver.driverNumber == selectedDriverNumber
                 if (isSelected) {
-                    canvas.drawCircle(pt.x, pt.y, 24f, highlightRingPaint)
+                    canvas.drawCircle(ptX, ptY, 22f, highlightRingPaint)
                 }
 
-                canvas.drawCircle(pt.x, pt.y, if (isSelected) 15f else 12f, markerFillPaint)
-                canvas.drawCircle(pt.x, pt.y, if (isSelected) 15f else 12f, markerStrokePaint)
+                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerFillPaint)
+                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerStrokePaint)
 
-                val label = marker.acronym
+                val label = if (isSelected) "★ ${driver.acronym}" else driver.acronym
                 val currentTextPaint = if (isSelected) selectedTextPaint else textPaint
                 val currentBgPaint = if (isSelected) selectedLabelBgPaint else labelBgPaint
                 val textWidth = currentTextPaint.measureText(label)
 
-                val rect = RectF(
-                    pt.x - textWidth / 2f - 6f,
-                    pt.y - 38f,
-                    pt.x + textWidth / 2f + 6f,
-                    pt.y - 16f
+                tempRectF.set(
+                    ptX - textWidth / 2f - 7f,
+                    ptY - 38f,
+                    ptX + textWidth / 2f + 7f,
+                    ptY - 15f
                 )
-                canvas.drawRoundRect(rect, 4f, 4f, currentBgPaint)
-                canvas.drawText(label, pt.x, pt.y - 20f, currentTextPaint)
+                canvas.drawRoundRect(tempRectF, 4f, 4f, currentBgPaint)
+                canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
+            }
+
+            postInvalidateOnAnimation()
+        } else if (animatedDrivers.isNotEmpty()) {
+            var hasActiveMotion = false
+            val now = android.os.SystemClock.uptimeMillis()
+
+            for (driver in animatedDrivers.values) {
+                if (driver.targetRawX == 0f && driver.targetRawY == 0f) continue
+
+                val elapsed = now - driver.animStartTime
+                val duration = driver.animDurationMs.coerceAtLeast(1L).toFloat()
+                val rawProgress = elapsed.toFloat() / duration
+
+                if (rawProgress < 1.0f) {
+                    driver.currentRawX = driver.startRawX + (driver.targetRawX - driver.startRawX) * rawProgress
+                    driver.currentRawY = driver.startRawY + (driver.targetRawY - driver.startRawY) * rawProgress
+                    hasActiveMotion = true
+                } else if (rawProgress < 1.4f) {
+                    // Soft extrapolation buffer in case next GPS packet has small network/dispatch jitter
+                    val extra = (rawProgress - 1.0f).coerceAtMost(0.4f)
+                    val damping = 1.0f - (extra / 0.4f)
+                    driver.currentRawX = driver.targetRawX + (driver.targetRawX - driver.startRawX) * extra * damping * 0.5f
+                    driver.currentRawY = driver.targetRawY + (driver.targetRawY - driver.startRawY) * extra * damping * 0.5f
+                    hasActiveMotion = true
+                } else {
+                    driver.currentRawX = driver.targetRawX
+                    driver.currentRawY = driver.targetRawY
+                }
+
+                transformPointInPlace(driver.currentRawX, driver.currentRawY, tempScreenPoint)
+                val ptX = tempScreenPoint.x
+                val ptY = tempScreenPoint.y
+
+                val color = try {
+                    val hex = if (driver.colorHex.startsWith("#")) driver.colorHex else "#${driver.colorHex}"
+                    Color.parseColor(hex)
+                } catch (e: Exception) {
+                    Color.parseColor("#E10600")
+                }
+                markerFillPaint.color = color
+
+                val isSelected = driver.driverNumber == selectedDriverNumber
+                if (isSelected) {
+                    canvas.drawCircle(ptX, ptY, 22f, highlightRingPaint)
+                }
+
+                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerFillPaint)
+                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerStrokePaint)
+
+                val label = if (isSelected) "★ ${driver.acronym}" else driver.acronym
+                val currentTextPaint = if (isSelected) selectedTextPaint else textPaint
+                val currentBgPaint = if (isSelected) selectedLabelBgPaint else labelBgPaint
+                val textWidth = currentTextPaint.measureText(label)
+
+                tempRectF.set(
+                    ptX - textWidth / 2f - 7f,
+                    ptY - 38f,
+                    ptX + textWidth / 2f + 7f,
+                    ptY - 15f
+                )
+                canvas.drawRoundRect(tempRectF, 4f, 4f, currentBgPaint)
+                canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
+            }
+
+            if (hasActiveMotion) {
+                postInvalidateOnAnimation()
             }
         }
     }
 
     private fun drawAnnotationBadge(canvas: Canvas, text: String, x: Float, y: Float, bgPaint: Paint, tPaint: Paint) {
         val tw = tPaint.measureText(text)
-        val rect = RectF(x - tw / 2f - 6f, y - 16f, x + tw / 2f + 6f, y + 6f)
-        canvas.drawRoundRect(rect, 4f, 4f, bgPaint)
+        tempRectF.set(x - tw / 2f - 7f, y - 16f, x + tw / 2f + 7f, y + 6f)
+        canvas.drawRoundRect(tempRectF, 4f, 4f, bgPaint)
         canvas.drawText(text, x, y, tPaint)
     }
 }

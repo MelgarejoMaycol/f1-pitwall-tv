@@ -922,18 +922,22 @@ class F1Repository(
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Netherlands_Circuit.png"
             loc.contains("monza") || loc.contains("italy") || loc.contains("italia") ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Italy_Circuit.png"
+            loc.contains("imola") || loc.contains("emilia") || loc.contains("romagna") || loc.contains("enzo") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Emilia_Romagna_Circuit.png"
             loc.contains("baku") || loc.contains("azerbaijan") || loc.contains("azerbaiyán") ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Baku_Circuit.png"
             loc.contains("singapore") || loc.contains("singapur") || loc.contains("marina bay") ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Singapore_Circuit.png"
-            loc.contains("austin") || loc.contains("americas") || loc.contains("united states") || loc.contains("estados unidos") ->
+            loc.contains("vegas") ->
+                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Las_Vegas_Circuit.png"
+            loc.contains("austin") || loc.contains("americas") || loc.contains("cota") ||
+                    (loc.contains("united states") && !loc.contains("vegas") && !loc.contains("miami")) ||
+                    (loc.contains("estados unidos") && !loc.contains("vegas") && !loc.contains("miami")) ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/USA_Circuit.png"
             loc.contains("mexico") || loc.contains("méxico") || loc.contains("rodriguez") ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Mexico_Circuit.png"
             loc.contains("interlagos") || loc.contains("brazil") || loc.contains("brasil") || loc.contains("são paulo") || loc.contains("sao paulo") ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Brazil_Circuit.png"
-            loc.contains("vegas") ->
-                "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Las_Vegas_Circuit.png"
             loc.contains("qatar") || loc.contains("losail") || loc.contains("lusail") ->
                 "https://media.formula1.com/image/upload/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/Qatar_Circuit.png"
             loc.contains("abu dhabi") || loc.contains("yas marina") || loc.contains("uae") || loc.contains("emiratos") ->
