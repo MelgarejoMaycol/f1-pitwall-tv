@@ -5,6 +5,7 @@ import com.f1pitwall.tv.core.util.TimeUtils
 import com.f1pitwall.tv.data.model.*
 import com.f1pitwall.tv.model.CarTelemetry
 import com.f1pitwall.tv.model.Meeting
+import com.f1pitwall.tv.model.Session
 import com.f1pitwall.tv.network.JolpicaApiClient
 import com.f1pitwall.tv.network.OpenF1ApiClient
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,38 @@ class F1Repository(
         val meetings = openF1Api.getMeetings(year)
         cachedMeetings[year] = meetings
         meetings
+    }
+
+    /**
+     * Returns the session that should drive the Pit Wall:
+     * active now -> nearest future session -> most recently completed session.
+     * It queries the full season, not only the last session of the latest meeting.
+     */
+    suspend fun getCurrentOrNextSession(year: Int = AppConfig.DEFAULT_SEASON): Session? = withContext(Dispatchers.IO) {
+        val now = Date()
+
+        fun chooseSession(sessions: List<Session>): Session? {
+            val timed = sessions.mapNotNull { session ->
+                val start = TimeUtils.parseUtc(session.dateStart)
+                val end = TimeUtils.parseUtc(session.dateEnd)
+                if (start != null && end != null) Triple(session, start, end) else null
+            }.sortedBy { it.second.time }
+
+            return timed.firstOrNull { (_, start, end) ->
+                !now.before(start) && !now.after(end)
+            }?.first
+                ?: timed.firstOrNull { (_, start, _) -> start.after(now) }?.first
+                ?: timed.filter { (_, _, end) -> !end.after(now) }
+                    .maxByOrNull { it.third.time }?.first
+        }
+
+        val seasonSessions = openF1Api.getSessionsForYear(year)
+        chooseSession(seasonSessions)?.let { return@withContext it }
+
+        // Fallback for a partially populated season endpoint.
+        val selectedMeeting = findSmartSelectedMeeting(year)
+        val meetingSessions = selectedMeeting?.let { openF1Api.getSessions(it.meetingKey) }.orEmpty()
+        chooseSession(meetingSessions)
     }
 
     /**
