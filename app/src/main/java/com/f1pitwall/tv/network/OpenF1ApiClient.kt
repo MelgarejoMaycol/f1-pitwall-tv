@@ -86,8 +86,25 @@ class OpenF1ApiClient {
 
     suspend fun getLatestSession(): Session? {
         val type = object : TypeToken<List<Session>>() {}
-        val list = get("$baseUrl/sessions?meeting_key=latest", type, useCache = false)
-        return list?.lastOrNull()
+        val list = get("$baseUrl/sessions?meeting_key=latest", type, useCache = false) ?: emptyList()
+        val now = System.currentTimeMillis()
+        val timed = list.mapNotNull { session ->
+            val start = com.f1pitwall.tv.core.util.TimeUtils.parseUtc(session.dateStart)?.time
+            val end = com.f1pitwall.tv.core.util.TimeUtils.parseUtc(session.dateEnd)?.time
+            if (start != null && end != null) Triple(session, start, end) else null
+        }
+        return timed.firstOrNull { now >= it.second && now <= it.third }?.first
+            ?: timed.filter { it.second > now }.minByOrNull { it.second }?.first
+            ?: timed.filter { it.third < now }.maxByOrNull { it.third }?.first
+    }
+
+    /**
+     * Retrieves the complete season calendar. OpenF1 exposes future sessions through
+     * the year filter; selecting sessions?meeting_key=latest alone is insufficient.
+     */
+    suspend fun getSessionsForYear(year: Int): List<Session> {
+        val type = object : TypeToken<List<Session>>() {}
+        return get("$baseUrl/sessions?year=$year&limit=300", type, useCache = false) ?: emptyList()
     }
 
     suspend fun getDrivers(sessionKey: Long): List<Driver> {
