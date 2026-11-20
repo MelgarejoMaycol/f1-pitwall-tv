@@ -146,9 +146,23 @@ class PitWallViewManager(
     private val rvLeaderboard: RecyclerView = rootView.findViewById(R.id.rvLeaderboard)
     private val layoutTelemetryPanel: View = rootView.findViewById(R.id.layoutTelemetryPanel)
     private val btnBackToTiming: Button? = rootView.findViewById(R.id.btnBackToTiming)
-    private val layoutTrackMapPanel: View? = rootView.findViewById(R.id.layoutTrackMapPanel)
+    private val layoutTrackMapPanel: View? = rootView.findViewById(R.id.layoutUnifiedTrackMapContainer)
     private val layoutTyresPanel: View? = rootView.findViewById(R.id.layoutTyresPanel)
     private val layoutRaceControlPanel: View? = rootView.findViewById(R.id.layoutRaceControlPanel)
+
+    // Unified Master Pit Wall Views (Pista + Tiempos + Control/Clima en una sola vista)
+    private val layoutUnifiedPitWallPanel: View? = rootView.findViewById(R.id.layoutUnifiedPitWallPanel)
+    private val layoutUnifiedStatusHeader: View? = rootView.findViewById(R.id.layoutUnifiedStatusHeader)
+    private val tvUnifiedFlagBanner: TextView? = rootView.findViewById(R.id.tvUnifiedFlagBanner)
+    private val tvUnifiedTrackTemp: TextView? = rootView.findViewById(R.id.tvUnifiedTrackTemp)
+    private val tvUnifiedAirTemp: TextView? = rootView.findViewById(R.id.tvUnifiedAirTemp)
+    private val tvUnifiedRain: TextView? = rootView.findViewById(R.id.tvUnifiedRain)
+    private val tvUnifiedWind: TextView? = rootView.findViewById(R.id.tvUnifiedWind)
+    private val tvUnifiedLatestRaceControl: TextView? = rootView.findViewById(R.id.tvUnifiedLatestRaceControl)
+    private val layoutUnifiedTrackMapContainer: View? = rootView.findViewById(R.id.layoutUnifiedTrackMapContainer)
+    private val layoutUnifiedTrackMapHeader: View? = rootView.findViewById(R.id.layoutUnifiedTrackMapHeader)
+    private val frameTrackMapArea: View? = rootView.findViewById(R.id.frameTrackMapArea)
+    private val tvLeaderboardHeader: TextView? = rootView.findViewById(R.id.tvLeaderboardHeader)
 
     // Track Map Views
     private val trackMapView: TrackMapView? = rootView.findViewById(R.id.trackMapView)
@@ -312,6 +326,7 @@ class PitWallViewManager(
         selectedDriverItem = item
         selectedDriverNumber = item.driverNumber
 
+        layoutUnifiedPitWallPanel?.visibility = View.GONE
         rvLeaderboard.visibility = View.GONE
         layoutTelemetryPanel.visibility = View.VISIBLE
 
@@ -327,12 +342,27 @@ class PitWallViewManager(
         isDriverTelemetryOpen = false
         layoutTelemetryPanel.visibility = View.GONE
         if (activeTelemetryMode == TelemetryMode.TIMING) {
+            layoutUnifiedPitWallPanel?.visibility = View.VISIBLE
             rvLeaderboard.visibility = View.VISIBLE
             rvLeaderboard.requestFocus()
         }
     }
 
     init {
+        leaderboardAdapter.onDriverKeyLeft = { item ->
+            val chip = radioButtons[item.driverNumber] ?: radioButtons.values.firstOrNull()
+            chip?.let {
+                it.requestFocus()
+                scrollRadioChips?.smoothScrollTo((it.left - 40).coerceAtLeast(0), 0)
+                true
+            } ?: false
+        }
+
+        leaderboardAdapter.onFirstItemKeyUp = {
+            btnMetricsTiming.requestFocus()
+            true
+        }
+
         setupWebView()
         initPlayers()
         setupListeners()
@@ -1704,6 +1734,12 @@ class PitWallViewManager(
                 isSelected = (activeRadioDriverNumber == driver.driverNumber)
                 nextFocusUpId = R.id.btnSourceBadgePitWall
 
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) {
+                        scrollRadioChips?.smoothScrollTo((left - 40).coerceAtLeast(0), 0)
+                    }
+                }
+
                 setOnClickListener {
                     toggleRadioDriver(driver.driverNumber, driver.fullName, driver.acronym)
                 }
@@ -1726,8 +1762,11 @@ class PitWallViewManager(
             if (i > 0) {
                 current.nextFocusLeftId = container.getChildAt(i - 1).id
             }
+            current.nextFocusDownId = R.id.rvLeaderboard
             if (i < container.childCount - 1) {
                 current.nextFocusRightId = container.getChildAt(i + 1).id
+            } else {
+                current.nextFocusRightId = R.id.rvLeaderboard
             }
         }
         updatePitWallFocusChains()
@@ -2524,11 +2563,39 @@ class PitWallViewManager(
         btnMetricsTyres?.isSelected = (mode == TelemetryMode.TYRES)
         btnMetricsRaceControl?.isSelected = (mode == TelemetryMode.RACE_CONTROL)
 
-        rvLeaderboard.visibility = if (mode == TelemetryMode.TIMING) View.VISIBLE else View.GONE
-        layoutTelemetryPanel.visibility = View.GONE // Only shown when clicking a driver in Tiempos!
-        layoutTrackMapPanel?.visibility = if (mode == TelemetryMode.TRACK_MAP) View.VISIBLE else View.GONE
+        layoutTelemetryPanel.visibility = View.GONE
         layoutTyresPanel?.visibility = if (mode == TelemetryMode.TYRES) View.VISIBLE else View.GONE
         layoutRaceControlPanel?.visibility = if (mode == TelemetryMode.RACE_CONTROL) View.VISIBLE else View.GONE
+
+        val density = context.resources.displayMetrics.density
+        when (mode) {
+            TelemetryMode.TIMING -> {
+                // UNIFIED VIEW: Status Header (Control/Clima) + Track Map (160dp) + Leaderboard
+                layoutUnifiedPitWallPanel?.visibility = View.VISIBLE
+                layoutUnifiedStatusHeader?.visibility = View.VISIBLE
+                layoutUnifiedTrackMapContainer?.visibility = View.VISIBLE
+                frameTrackMapArea?.layoutParams?.height = (160 * density).toInt()
+                frameTrackMapArea?.requestLayout()
+                tvLeaderboardHeader?.visibility = View.VISIBLE
+                rvLeaderboard.visibility = View.VISIBLE
+                startTrackMapPolling()
+            }
+            TelemetryMode.TRACK_MAP -> {
+                // SOLO PISTA: Map fills full height
+                layoutUnifiedPitWallPanel?.visibility = View.VISIBLE
+                layoutUnifiedStatusHeader?.visibility = View.GONE
+                layoutUnifiedTrackMapContainer?.visibility = View.VISIBLE
+                frameTrackMapArea?.layoutParams?.height = ViewGroup.LayoutParams.MATCH_PARENT
+                frameTrackMapArea?.requestLayout()
+                tvLeaderboardHeader?.visibility = View.GONE
+                rvLeaderboard.visibility = View.GONE
+                startTrackMapPolling()
+            }
+            else -> {
+                layoutUnifiedPitWallPanel?.visibility = View.GONE
+                stopTrackMapPolling()
+            }
+        }
 
         // Keep active button visible in horizontal scroll view
         val activeBtn = when (mode) {
@@ -2539,13 +2606,6 @@ class PitWallViewManager(
         }
         activeBtn?.let { b ->
             scrollTelemetryModes?.smoothScrollTo(b.left - 40, 0)
-        }
-
-        // Manage background polling for live GPS map
-        if (mode == TelemetryMode.TRACK_MAP) {
-            startTrackMapPolling()
-        } else {
-            stopTrackMapPolling()
         }
 
         refreshActiveTelemetryMode()
@@ -3025,7 +3085,7 @@ class PitWallViewManager(
         }
 
         // 3. GPS Track Map (hardware-accelerated continuous spline animation)
-        if (activeTelemetryMode == TelemetryMode.TRACK_MAP) {
+        if (activeTelemetryMode == TelemetryMode.TIMING || activeTelemetryMode == TelemetryMode.TRACK_MAP) {
             layoutTrackMapCircuitImageContainer?.visibility = View.GONE
             trackMapView?.visibility = View.VISIBLE
             tvTrackMapLegend?.visibility = View.VISIBLE
@@ -3122,17 +3182,34 @@ class PitWallViewManager(
     }
 
     private fun updateSimulatedRaceControlAndWeather() {
-        tvRcMainFlagBanner?.text = "🟢 BANDERA VERDE • PISTA LIMPIA Y SECA"
+        val flagBanner = "🟢 BANDERA VERDE • VUELTA $currentRaceLap / $totalRaceLaps"
+        tvRcMainFlagBanner?.text = flagBanner
         tvRcMainFlagBanner?.setBackgroundColor(Color.parseColor("#22C55E"))
+        tvUnifiedFlagBanner?.text = flagBanner
+        tvUnifiedFlagBanner?.setBackgroundColor(Color.parseColor("#15803D"))
 
         val trackTemp = 34.2 + (kotlin.math.sin(simulationTick * 0.02) * 1.2)
         val airTemp = 24.0 + (kotlin.math.sin(simulationTick * 0.01) * 0.5)
         val windSpeed = 11.8 + (kotlin.math.cos(simulationTick * 0.03) * 1.9)
 
-        tvRcTrackTemp?.text = "Asfalto: ${String.format(Locale.US, "%.1f", trackTemp)} °C"
-        tvRcAirTemp?.text = "Aire: ${String.format(Locale.US, "%.1f", airTemp)} °C"
-        tvRcRain?.text = "Lluvia: ☀️ SECO (0%)"
-        tvRcWind?.text = "Viento: ${String.format(Locale.US, "%.1f", windSpeed)} km/h SO"
+        val trackTempStr = "Asfalto: ${String.format(Locale.US, "%.1f", trackTemp)} °C"
+        val airTempStr = "Aire: ${String.format(Locale.US, "%.1f", airTemp)} °C"
+        val rainStr = "Lluvia: ☀️ SECO (0%)"
+        val windStr = "Viento: ${String.format(Locale.US, "%.1f", windSpeed)} km/h SO"
+
+        tvRcTrackTemp?.text = trackTempStr
+        tvRcAirTemp?.text = airTempStr
+        tvRcRain?.text = rainStr
+        tvRcWind?.text = windStr
+
+        tvUnifiedTrackTemp?.text = "🌡️ $trackTempStr"
+        tvUnifiedAirTemp?.text = "⛅ $airTempStr"
+        tvUnifiedRain?.text = "💧 Seco"
+        tvUnifiedWind?.text = "💨 ${String.format(Locale.US, "%.1f", windSpeed)} km/h"
+
+        if (simRaceControlLog.isNotEmpty()) {
+            tvUnifiedLatestRaceControl?.text = "📢 " + simRaceControlLog.first().message
+        }
 
         tvWeather?.text = "⛅ Pista: ${String.format(Locale.US, "%.1f", trackTemp)}°C | Aire: ${String.format(Locale.US, "%.1f", airTemp)}°C • Viento ${String.format(Locale.US, "%.1f", windSpeed)} km/h"
 
@@ -3383,6 +3460,15 @@ class PitWallViewManager(
                     tvRcAirTemp?.text = "Aire: ${w.airTemp ?: "--"} °C"
                     tvRcRain?.text = if ((w.rainfall ?: 0) > 0) "Lluvia: 🌧️ DETECTADA" else "Lluvia: ☀️ SECO"
                     tvRcWind?.text = "Viento: ${w.windSpeed ?: "--"} km/h"
+                }
+
+                tvUnifiedFlagBanner?.text = tvRcMainFlagBanner?.text
+                tvUnifiedTrackTemp?.text = "🌡️ " + (tvRcTrackTemp?.text ?: "")
+                tvUnifiedAirTemp?.text = "⛅ " + (tvRcAirTemp?.text ?: "")
+                tvUnifiedRain?.text = tvRcRain?.text
+                tvUnifiedWind?.text = tvRcWind?.text
+                latestMsg?.message?.let {
+                    tvUnifiedLatestRaceControl?.text = "📢 $it"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -3726,7 +3812,7 @@ class PitWallViewManager(
             for (i in 0 until count) {
                 val chip = container.getChildAt(i)
                 chip.nextFocusUpId = targetAboveRadio
-                chip.nextFocusDownId = R.id.btnMetricsTiming
+                chip.nextFocusDownId = R.id.rvLeaderboard
                 if (i > 0) {
                     chip.nextFocusLeftId = container.getChildAt(i - 1).id
                 } else {
@@ -3735,14 +3821,39 @@ class PitWallViewManager(
                 if (i < count - 1) {
                     chip.nextFocusRightId = container.getChildAt(i + 1).id
                 } else {
-                    // Last radio chip (Bottas #77) connects RIGHT to Metrics column
-                    chip.nextFocusRightId = R.id.btnMetricsTiming
+                    // Last radio chip (Bottas #77) connects RIGHT to Leaderboard
+                    chip.nextFocusRightId = R.id.rvLeaderboard
                 }
             }
         }
 
         // Metrics Switcher & Leaderboard
-        btnMetricsTiming.nextFocusLeftId = firstRadioId
+        btnMetricsTiming.nextFocusUpId = R.id.btnTabPitWall
+        btnMetricsTiming.nextFocusLeftId = R.id.btnLiveSessionAction
+        btnMetricsTiming.nextFocusRightId = btnMetricsTrackMap?.id ?: (btnMetricsTyres?.id ?: R.id.btnRefreshLive)
+        btnMetricsTiming.nextFocusDownId = R.id.rvLeaderboard
+
+        btnMetricsTrackMap?.nextFocusUpId = R.id.btnTabPitWall
+        btnMetricsTrackMap?.nextFocusLeftId = btnMetricsTiming.id
+        btnMetricsTrackMap?.nextFocusRightId = btnMetricsTyres?.id ?: (btnMetricsRaceControl?.id ?: R.id.btnRefreshLive)
+        btnMetricsTrackMap?.nextFocusDownId = R.id.rvLeaderboard
+
+        btnMetricsTyres?.nextFocusUpId = R.id.btnTabPitWall
+        btnMetricsTyres?.nextFocusLeftId = btnMetricsTrackMap?.id ?: btnMetricsTiming.id
+        btnMetricsTyres?.nextFocusRightId = btnMetricsRaceControl?.id ?: R.id.btnRefreshLive
+        btnMetricsTyres?.nextFocusDownId = R.id.rvTyreStrategy
+
+        btnMetricsRaceControl?.nextFocusUpId = R.id.btnTabPitWall
+        btnMetricsRaceControl?.nextFocusLeftId = btnMetricsTyres?.id ?: (btnMetricsTrackMap?.id ?: btnMetricsTiming.id)
+        btnMetricsRaceControl?.nextFocusRightId = R.id.btnRefreshLive
+        btnMetricsRaceControl?.nextFocusDownId = R.id.rvRaceControl
+
+        btnRefreshLive?.nextFocusUpId = R.id.btnTabPitWall
+        btnRefreshLive?.nextFocusLeftId = btnMetricsRaceControl?.id ?: btnMetricsTiming.id
+        btnRefreshLive?.nextFocusRightId = btnRefreshLive?.id ?: View.NO_ID
+        btnRefreshLive?.nextFocusDownId = R.id.rvLeaderboard
+
+        rvLeaderboard.nextFocusUpId = btnMetricsTiming.id
         rvLeaderboard.nextFocusLeftId = firstRadioId
     }
 

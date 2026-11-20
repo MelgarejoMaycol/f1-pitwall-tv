@@ -1,6 +1,7 @@
 package com.f1pitwall.tv.ui
 
 import android.graphics.Color
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +14,9 @@ class LeaderboardAdapter(
     private var items: List<DriverLeaderboardItem> = emptyList(),
     private val onDriverClick: (DriverLeaderboardItem) -> Unit = {}
 ) : RecyclerView.Adapter<LeaderboardAdapter.ViewHolder>() {
+
+    var onDriverKeyLeft: ((DriverLeaderboardItem) -> Boolean)? = null
+    var onFirstItemKeyUp: (() -> Boolean)? = null
 
     fun updateData(newItems: List<DriverLeaderboardItem>) {
         items = newItems
@@ -115,6 +119,17 @@ class LeaderboardAdapter(
 
             itemView.setOnClickListener {
                 onDriverClick(item)
+            }
+
+            itemView.setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                        if (onDriverKeyLeft?.invoke(item) == true) return@setOnKeyListener true
+                    } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && bindingAdapterPosition == 0) {
+                        if (onFirstItemKeyUp?.invoke() == true) return@setOnKeyListener true
+                    }
+                }
+                false
             }
         }
     }

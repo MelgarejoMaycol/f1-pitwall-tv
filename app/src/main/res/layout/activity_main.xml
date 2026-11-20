@@ -546,7 +546,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:paddingHorizontal="10dp"
-                            android:text="⏱️ TIEMPOS"
+                            android:text="🏁 VISTA TOTAL"
                             android:textColor="@color/text_primary"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -560,7 +560,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:paddingHorizontal="10dp"
-                            android:text="🗺️ MAPA GPS"
+                            android:text="🗺️ SOLO PISTA"
                             android:textColor="@color/text_primary"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -588,7 +588,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:paddingHorizontal="10dp"
-                            android:text="🚩 CONTROL/CLIMA"
+                            android:text="🚩 MENSAJES FIA"
                             android:textColor="@color/text_primary"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -620,13 +620,259 @@
                     android:textSize="11sp"
                     android:textStyle="bold" />
 
-                <!-- Container 1: Leaderboard RecyclerView -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvLeaderboard"
+                <!-- MASTER UNIFIED PIT WALL PANEL (PISTA + TIEMPOS + CLIMA/CONTROL EN UNA SOLA VISTA) -->
+                <LinearLayout
+                    android:id="@+id/layoutUnifiedPitWallPanel"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:focusable="true"
-                    android:visibility="visible" />
+                    android:orientation="vertical"
+                    android:visibility="visible">
+
+                    <!-- 1. CONTROL DE CARRERA & CLIMA STATUS HUD -->
+                    <LinearLayout
+                        android:id="@+id/layoutUnifiedStatusHeader"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="4dp">
+
+                        <!-- Flag Banner & GPS Status -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="24dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvUnifiedFlagBanner"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:background="#15803D"
+                                android:gravity="center_vertical"
+                                android:paddingHorizontal="8dp"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="🟢 BANDERA VERDE • VUELTA 1 / 57"
+                                android:textColor="#FFFFFF"
+                                android:textSize="9.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvTrackMapGpsStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="match_parent"
+                                android:layout_marginStart="4dp"
+                                android:background="#1E293B"
+                                android:gravity="center"
+                                android:paddingHorizontal="8dp"
+                                android:text="🟢 GPS EN VIVO"
+                                android:textColor="#22C55E"
+                                android:textSize="8.5sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Weather HUD -->
+                        <LinearLayout
+                            android:id="@+id/layoutUnifiedWeatherHud"
+                            android:layout_width="match_parent"
+                            android:layout_height="20dp"
+                            android:layout_marginTop="2dp"
+                            android:background="#111827"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="6dp">
+
+                            <TextView
+                                android:id="@+id/tvUnifiedTrackTemp"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="🌡️ Asfalto: 34.2 °C"
+                                android:textColor="@color/accent_gold"
+                                android:textSize="8.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvUnifiedAirTemp"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="⛅ Aire: 24.0 °C"
+                                android:textColor="@color/text_primary"
+                                android:textSize="8.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvUnifiedRain"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="💧 Seco"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="8.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvUnifiedWind"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="💨 11.8 km/h"
+                                android:textColor="@color/text_muted"
+                                android:textSize="8.5sp" />
+                        </LinearLayout>
+
+                        <!-- Race Control Ticker / Latest FIA Message -->
+                        <TextView
+                            android:id="@+id/tvUnifiedLatestRaceControl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:background="#1E1B4B"
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="2dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="📢 DIRECCIÓN DE CARRERA: PISTA LIMPIA"
+                            android:textColor="#C7D2FE"
+                            android:textSize="8.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- 2. TRACK MAP (EL DE LA PISTA) -->
+                    <LinearLayout
+                        android:id="@+id/layoutUnifiedTrackMapContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="4dp">
+
+                        <LinearLayout
+                            android:id="@+id/layoutUnifiedTrackMapHeader"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="#1E293B"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="3dp">
+
+                            <TextView
+                                android:id="@+id/tvTrackMapCircuitName"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="LAS VEGAS STRIP CIRCUIT"
+                                android:textColor="@color/accent_blue"
+                                android:textSize="10.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvTrackMapCircuitDetails"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="6.201 km • 17 Curvas"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="8.5sp" />
+                        </LinearLayout>
+
+                        <FrameLayout
+                            android:id="@+id/frameTrackMapArea"
+                            android:layout_width="match_parent"
+                            android:layout_height="160dp"
+                            android:background="#0A0F1D">
+
+                            <LinearLayout
+                                android:id="@+id/layoutTrackMapCircuitImageContainer"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical"
+                                android:padding="8dp"
+                                android:visibility="gone">
+
+                                <ImageView
+                                    android:id="@+id/ivTrackMapCircuitImage"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:adjustViewBounds="true"
+                                    android:scaleType="fitCenter"
+                                    android:contentDescription="Trazado oficial de la carrera" />
+
+                                <TextView
+                                    android:id="@+id/tvTrackMapImageCaption"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="3dp"
+                                    android:background="#1E283D"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="2dp"
+                                    android:text="Trazado Oficial de Carrera"
+                                    android:textColor="#94A3B8"
+                                    android:textSize="9sp" />
+                            </LinearLayout>
+
+                            <com.f1pitwall.tv.ui.pitwall.TrackMapView
+                                android:id="@+id/trackMapView"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="#0A0F1D"
+                                android:visibility="visible" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="2dp">
+
+                            <TextView
+                                android:id="@+id/tvTrackMapFollowedDriver"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="Monitoreando a los 22 monoplazas en pista"
+                                android:textColor="@color/accent_gold"
+                                android:textSize="8sp" />
+
+                            <TextView
+                                android:id="@+id/tvTrackMapLegend"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="S1: Cyan • S2: Púrpura • S3: Oro"
+                                android:textColor="@color/text_muted"
+                                android:textSize="8sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 3. LEADERBOARD (DONDE SALEN LOS PUNTOS Y TIEMPOS) -->
+                    <TextView
+                        android:id="@+id/tvLeaderboardHeader"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#1E2433"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="3dp"
+                        android:text="POS   PILOTO       INTERVALO   VUELTA RÁPIDA   TYRE"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="8.5sp"
+                        android:textStyle="bold" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvLeaderboard"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:focusable="true"
+                        android:descendantFocusability="afterDescendants"
+                        android:visibility="visible" />
+                </LinearLayout>
 
                 <!-- Container 2: Car Telemetry Panel -->
                 <LinearLayout
@@ -978,144 +1224,7 @@
                             android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- 3. LIVE GPS TRACK MAP PANEL -->
-                <LinearLayout
-                    android:id="@+id/layoutTrackMapPanel"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:visibility="gone">
 
-                    <!-- Track Map Header Info Card -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="#1E293B"
-                        android:orientation="vertical"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="6dp"
-                        android:layout_marginBottom="4dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:id="@+id/tvTrackMapCircuitName"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:ellipsize="end"
-                                android:maxLines="1"
-                                android:text="LAS VEGAS STRIP CIRCUIT"
-                                android:textColor="@color/accent_blue"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvTrackMapGpsStatus"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="#15803D"
-                                android:paddingHorizontal="6dp"
-                                android:paddingVertical="1dp"
-                                android:text="🟢 GPS ACTIVO"
-                                android:textColor="#FFFFFF"
-                                android:textSize="8.5sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <TextView
-                            android:id="@+id/tvTrackMapCircuitDetails"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Longitud: 6.201 km • 17 Curvas • 2 Zonas DRS • Sentido: Antihorario"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="9.5sp" />
-                    </LinearLayout>
-
-                    <!-- Track Map Display Area (Switcher between Circuit Image and Live GPS Map) -->
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:background="#0A0F1D">
-
-                        <!-- Standby / Sin Evento Activo: Imagen Oficial de la Carrera / Circuito -->
-                        <LinearLayout
-                            android:id="@+id/layoutTrackMapCircuitImageContainer"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:orientation="vertical"
-                            android:padding="12dp"
-                            android:visibility="gone">
-
-                            <ImageView
-                                android:id="@+id/ivTrackMapCircuitImage"
-                                android:layout_width="match_parent"
-                                android:layout_height="0dp"
-                                android:layout_weight="1"
-                                android:adjustViewBounds="true"
-                                android:scaleType="fitCenter"
-                                android:contentDescription="Trazado oficial de la carrera" />
-
-                            <TextView
-                                android:id="@+id/tvTrackMapImageCaption"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
-                                android:background="#1E283D"
-                                android:paddingHorizontal="10dp"
-                                android:paddingVertical="3dp"
-                                android:text="Trazado Oficial de Carrera"
-                                android:textColor="#94A3B8"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <!-- Evento Activo (Prácticas, Clasificación, Sprint, Carrera): Mapa GPS con todos los pilotos -->
-                        <com.f1pitwall.tv.ui.pitwall.TrackMapView
-                            android:id="@+id/trackMapView"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:background="#0A0F1D"
-                            android:visibility="visible" />
-                    </FrameLayout>
-
-                    <!-- Footer Legend / Followed Driver Info -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="4dp">
-
-                        <TextView
-                            android:id="@+id/tvTrackMapFollowedDriver"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="Piloto seguido: Ninguno (selecciona uno en Tiempos)"
-                            android:textColor="@color/accent_gold"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvTrackMapLegend"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="S1: Cyan • S2: Púrpura • S3: Oro"
-                            android:textColor="@color/text_muted"
-                            android:textSize="9sp" />
-                    </LinearLayout>
-                </LinearLayout>
 
                 <!-- 4. TYRES & PIT STRATEGY PANEL -->
                 <LinearLayout
