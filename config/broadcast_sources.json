@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-20T15:10:00Z",
+  "updatedAt": "2026-11-20T15:36:00Z",
   "providers": [
     {
       "id": "futbol_libre",
@@ -67,6 +67,14 @@
       "type": "WEB",
       "enabled": true,
       "order": 4
+    },
+    {
+      "id": "remote_canal_live_test_99",
+      "name": "Canal Remoto Extra 99",
+      "url": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+      "type": "HLS",
+      "enabled": true,
+      "order": 99
     }
   ]
 }
