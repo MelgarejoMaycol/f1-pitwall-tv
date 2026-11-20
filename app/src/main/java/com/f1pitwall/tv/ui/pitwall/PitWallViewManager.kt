@@ -297,7 +297,8 @@ class PitWallViewManager(
             host == "golygoals.com" ||
             host.endsWith(".golygoals.com")
 
-        if (uri == null || !allowedHost || uri.scheme !in listOf("http", "https")) {
+        val scheme = uri?.scheme?.lowercase()
+        if (uri == null || !allowedHost || (scheme != "http" && scheme != "https")) {
             Toast.makeText(context, "El evento fue detectado; abre la cartelera del proveedor para entrar manualmente.", Toast.LENGTH_LONG).show()
             openDefaultWebSource("Fútbol Vivo / Fútbol Libre")
             return
