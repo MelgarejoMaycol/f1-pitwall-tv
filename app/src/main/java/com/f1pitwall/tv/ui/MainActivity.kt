@@ -823,6 +823,33 @@ class MainActivity : AppCompatActivity() {
         pitWallViewManager.onPause()
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            val keyCode = event.keyCode
+            when (keyCode) {
+                KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> {
+                    if (::layoutPitWall.isInitialized) {
+                        if (layoutPitWall.visibility != View.VISIBLE) {
+                            btnTabPitWall.performClick()
+                        }
+                        pitWallViewManager.cycleTelemetryMode(forward = false)
+                        return true
+                    }
+                }
+                KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> {
+                    if (::layoutPitWall.isInitialized) {
+                        if (layoutPitWall.visibility != View.VISIBLE) {
+                            btnTabPitWall.performClick()
+                        }
+                        pitWallViewManager.cycleTelemetryMode(forward = true)
+                        return true
+                    }
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (layoutPitWall.visibility == View.VISIBLE && pitWallViewManager.handleBackPressed()) {

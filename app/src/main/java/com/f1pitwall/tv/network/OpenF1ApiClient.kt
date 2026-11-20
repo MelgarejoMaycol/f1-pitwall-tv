@@ -197,6 +197,26 @@ class OpenF1ApiClient {
         if (list.isEmpty() && driverNumber != 4) {
             list = get("$baseUrl/location?session_key=$sessionKey&driver_number=4", type, useCache = true) ?: emptyList()
         }
+
+        // If current session has no location points (e.g. upcoming race before cars run):
+        if (list.isEmpty()) {
+            try {
+                val sessionType = object : TypeToken<List<Session>>() {}
+                val sInfo = get("$baseUrl/sessions?session_key=$sessionKey", sessionType, useCache = true)?.firstOrNull()
+                val circuitKey = sInfo?.circuitKey
+                if (circuitKey != null) {
+                    val circuitRaces = get("$baseUrl/sessions?circuit_key=$circuitKey&session_name=Race", sessionType, useCache = true) ?: emptyList()
+                    val pastRace = circuitRaces.filter { (it.year ?: 0) <= 2024 }.lastOrNull()
+                        ?: circuitRaces.firstOrNull { it.sessionKey != sessionKey }
+                    if (pastRace != null) {
+                        list = get("$baseUrl/location?session_key=${pastRace.sessionKey}&driver_number=1", type, useCache = true) ?: emptyList()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         val validPoints = list.filter { it.x != 0f || it.y != 0f }
         if (validPoints.size <= 250) return validPoints
         val step = (validPoints.size / 250).coerceAtLeast(1)

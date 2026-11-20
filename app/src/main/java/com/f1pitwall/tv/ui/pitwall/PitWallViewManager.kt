@@ -42,6 +42,8 @@ import com.f1pitwall.tv.ui.LeaderboardAdapter
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -112,16 +114,23 @@ class PitWallViewManager(
     private val tvSessionTitle: TextView = rootView.findViewById(R.id.tvSessionTitle)
     private val btnRefreshLive: Button? = rootView.findViewById(R.id.btnRefreshLive)
 
-    enum class TelemetryMode {
-        TIMING, DRIVER, TRACK_MAP, TYRES, RACE_CONTROL
+    enum class TelemetryMode(val title: String, val icon: String) {
+        TIMING("Tiempos", "⏱️ TIEMPOS"),
+        DRIVER("Piloto", "📈 PILOTO"),
+        TRACK_MAP("Mapa GPS", "🗺️ MAPA GPS"),
+        TYRES("Neumáticos", "🛞 NEUMÁTICOS"),
+        RACE_CONTROL("Control / Clima", "🚩 CONTROL/CLIMA")
     }
 
     var activeTelemetryMode: TelemetryMode = TelemetryMode.TIMING
         private set
 
     private var selectedDriverNumber: Int = 1
+    private var selectedDriverItem: DriverLeaderboardItem? = null
+    private var hasUserSelectedDriver: Boolean = false
 
     // Metrics Switcher & Containers
+    private val scrollTelemetryModes: HorizontalScrollView? = rootView.findViewById(R.id.scrollTelemetryModes)
     private val btnMetricsTiming: Button = rootView.findViewById(R.id.btnMetricsTiming)
     private val btnMetricsTelemetry: Button = rootView.findViewById(R.id.btnMetricsTelemetry)
     private val btnMetricsTrackMap: Button? = rootView.findViewById(R.id.btnMetricsTrackMap)
@@ -130,13 +139,23 @@ class PitWallViewManager(
 
     private val rvLeaderboard: RecyclerView = rootView.findViewById(R.id.rvLeaderboard)
     private val layoutTelemetryPanel: View = rootView.findViewById(R.id.layoutTelemetryPanel)
+    private val layoutTelemetryEmptyPrompt: View? = rootView.findViewById(R.id.layoutTelemetryEmptyPrompt)
+    private val layoutTelemetryActiveContent: View? = rootView.findViewById(R.id.layoutTelemetryActiveContent)
+    private val btnGoToTimingForDriver: Button? = rootView.findViewById(R.id.btnGoToTimingForDriver)
+    private val btnChangeDriver: Button? = rootView.findViewById(R.id.btnChangeDriver)
     private val layoutTrackMapPanel: View? = rootView.findViewById(R.id.layoutTrackMapPanel)
     private val layoutTyresPanel: View? = rootView.findViewById(R.id.layoutTyresPanel)
     private val layoutRaceControlPanel: View? = rootView.findViewById(R.id.layoutRaceControlPanel)
 
     // Track Map Views
     private val trackMapView: TrackMapView? = rootView.findViewById(R.id.trackMapView)
-    private val tvTrackMapTitle: TextView? = rootView.findViewById(R.id.tvTrackMapTitle)
+    private val tvTrackMapCircuitName: TextView? = rootView.findViewById(R.id.tvTrackMapCircuitName)
+    private val tvTrackMapGpsStatus: TextView? = rootView.findViewById(R.id.tvTrackMapGpsStatus)
+    private val tvTrackMapCircuitDetails: TextView? = rootView.findViewById(R.id.tvTrackMapCircuitDetails)
+    private val tvTrackMapFollowedDriver: TextView? = rootView.findViewById(R.id.tvTrackMapFollowedDriver)
+    private val tvTrackMapLegend: TextView? = rootView.findViewById(R.id.tvTrackMapLegend)
+    private var trackMapPollingJob: Job? = null
+    private var telemetryToast: Toast? = null
 
     // Tyres Views & Adapter
     private val rvTyreStrategy: RecyclerView? = rootView.findViewById(R.id.rvTyreStrategy)
@@ -193,9 +212,12 @@ class PitWallViewManager(
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
 
     val leaderboardAdapter = LeaderboardAdapter { item ->
+        selectedDriverItem = item
         selectedDriverNumber = item.driverNumber
+        hasUserSelectedDriver = true
         tvTelemetryDriverHeader.text = "#${item.driverNumber} ${item.fullName} • ${item.teamName}"
         trackMapView?.selectedDriverNumber = item.driverNumber
+        tvTrackMapFollowedDriver?.text = "Piloto seguido: #${item.driverNumber} ${item.acronym} (${item.teamName})"
         switchTelemetryMode(TelemetryMode.DRIVER)
         loadDriverTelemetry(item.driverNumber)
     }
@@ -982,6 +1004,16 @@ class PitWallViewManager(
             loadDriverTelemetry(selectedDriverNumber)
         }
 
+        btnGoToTimingForDriver?.setOnClickListener {
+            switchTelemetryMode(TelemetryMode.TIMING)
+            rvLeaderboard.requestFocus()
+        }
+
+        btnChangeDriver?.setOnClickListener {
+            switchTelemetryMode(TelemetryMode.TIMING)
+            rvLeaderboard.requestFocus()
+        }
+
         switchTelemetryMode(TelemetryMode.TIMING)
     }
 
@@ -1464,7 +1496,75 @@ class PitWallViewManager(
         layoutTyresPanel?.visibility = if (mode == TelemetryMode.TYRES) View.VISIBLE else View.GONE
         layoutRaceControlPanel?.visibility = if (mode == TelemetryMode.RACE_CONTROL) View.VISIBLE else View.GONE
 
+        // Keep active button visible in horizontal scroll view
+        val activeBtn = when (mode) {
+            TelemetryMode.TIMING -> btnMetricsTiming
+            TelemetryMode.DRIVER -> btnMetricsTelemetry
+            TelemetryMode.TRACK_MAP -> btnMetricsTrackMap
+            TelemetryMode.TYRES -> btnMetricsTyres
+            TelemetryMode.RACE_CONTROL -> btnMetricsRaceControl
+        }
+        activeBtn?.let { b ->
+            scrollTelemetryModes?.smoothScrollTo(b.left - 40, 0)
+        }
+
+        // Manage Driver panel visibility (State A: prompt vs State B: active gauges)
+        if (mode == TelemetryMode.DRIVER) {
+            updateDriverPanelVisibility()
+        }
+
+        // Manage background polling for live GPS map
+        if (mode == TelemetryMode.TRACK_MAP) {
+            startTrackMapPolling()
+        } else {
+            stopTrackMapPolling()
+        }
+
         refreshActiveTelemetryMode()
+    }
+
+    private fun updateDriverPanelVisibility() {
+        if (hasUserSelectedDriver && selectedDriverItem != null) {
+            layoutTelemetryEmptyPrompt?.visibility = View.GONE
+            layoutTelemetryActiveContent?.visibility = View.VISIBLE
+        } else {
+            layoutTelemetryEmptyPrompt?.visibility = View.VISIBLE
+            layoutTelemetryActiveContent?.visibility = View.GONE
+        }
+    }
+
+    fun cycleTelemetryMode(forward: Boolean) {
+        val modes = TelemetryMode.values()
+        val currentIndex = modes.indexOf(activeTelemetryMode)
+        val nextIndex = if (forward) {
+            (currentIndex + 1) % modes.size
+        } else {
+            if (currentIndex - 1 < 0) modes.size - 1 else currentIndex - 1
+        }
+        val targetMode = modes[nextIndex]
+        switchTelemetryMode(targetMode)
+        showTelemetryModeToast(targetMode)
+    }
+
+    private fun showTelemetryModeToast(mode: TelemetryMode) {
+        telemetryToast?.cancel()
+        telemetryToast = Toast.makeText(context, "Telemetría: ${mode.icon}", Toast.LENGTH_SHORT)
+        telemetryToast?.show()
+    }
+
+    private fun startTrackMapPolling() {
+        trackMapPollingJob?.cancel()
+        trackMapPollingJob = scope.launch {
+            while (isActive && activeTelemetryMode == TelemetryMode.TRACK_MAP) {
+                loadTrackMapData()
+                delay(3000L) // Poll every 3 seconds for car GPS updates
+            }
+        }
+    }
+
+    private fun stopTrackMapPolling() {
+        trackMapPollingJob?.cancel()
+        trackMapPollingJob = null
     }
 
     fun refreshActiveTelemetryMode() {
@@ -1473,7 +1573,9 @@ class PitWallViewManager(
                 // Actualizado por MainActivity en cada ciclo
             }
             TelemetryMode.DRIVER -> {
-                loadDriverTelemetry(selectedDriverNumber)
+                if (hasUserSelectedDriver) {
+                    loadDriverTelemetry(selectedDriverNumber)
+                }
             }
             TelemetryMode.TRACK_MAP -> {
                 loadTrackMapData()
@@ -1497,27 +1599,72 @@ class PitWallViewManager(
                     trackMapView?.setTrackPoints(pts)
                 }
 
+                // Update circuit metadata in HUD card
+                val (circuitName, circuitSpecs) = getCircuitDetails(currentScheduleTitle)
+                tvTrackMapCircuitName?.text = circuitName
+                tvTrackMapCircuitDetails?.text = circuitSpecs
+
                 val locations: List<CarLocation> = repository.getCarLocations(key)
                 val drivers = repository.getDrivers(key).associateBy { it.driverNumber }
 
-                val markers = locations.map { loc: CarLocation ->
-                    val driver = drivers[loc.driverNumber]
-                    val acronym = driver?.acronym ?: "#${loc.driverNumber}"
-                    val teamColor = driver?.teamColour ?: repository.getTeamColor(driver?.teamName ?: "")
-                    TrackMapView.DriverMarker(
-                        driverNumber = loc.driverNumber,
-                        acronym = acronym,
-                        colorHex = teamColor,
-                        rawX = loc.x,
-                        rawY = loc.y
-                    )
-                }
+                if (locations.isNotEmpty()) {
+                    tvTrackMapGpsStatus?.text = "🟢 GPS EN VIVO"
+                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#15803D"))
 
-                trackMapView?.selectedDriverNumber = selectedDriverNumber
-                trackMapView?.setDriverPositions(markers)
+                    val markers = locations.map { loc: CarLocation ->
+                        val driver = drivers[loc.driverNumber]
+                        val acronym = driver?.acronym ?: "#${loc.driverNumber}"
+                        val teamColor = driver?.teamColour ?: repository.getTeamColor(driver?.teamName ?: "")
+                        TrackMapView.DriverMarker(
+                            driverNumber = loc.driverNumber,
+                            acronym = acronym,
+                            colorHex = teamColor,
+                            rawX = loc.x,
+                            rawY = loc.y
+                        )
+                    }
+
+                    trackMapView?.selectedDriverNumber = if (hasUserSelectedDriver) selectedDriverNumber else null
+                    trackMapView?.setDriverPositions(markers)
+                } else {
+                    tvTrackMapGpsStatus?.text = "📡 GPS EN ESPERA DE SESIÓN"
+                    tvTrackMapGpsStatus?.setBackgroundColor(Color.parseColor("#1E3A8A"))
+                    trackMapView?.selectedDriverNumber = if (hasUserSelectedDriver) selectedDriverNumber else null
+                    trackMapView?.setDriverPositions(emptyList()) // Activates smooth broadcast simulation
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    private fun getCircuitDetails(title: String): Pair<String, String> {
+        val lower = title.lowercase()
+        return when {
+            lower.contains("vegas") ->
+                "LAS VEGAS STRIP CIRCUIT • EE. UU." to "Longitud: 6.201 km • 17 Curvas • 2 Zonas DRS • Sentido: Antihorario"
+            lower.contains("sakhir") || lower.contains("bahrain") || lower.contains("barein") ->
+                "BAHRAIN INTERNATIONAL CIRCUIT" to "Longitud: 5.412 km • 15 Curvas • 3 Zonas DRS • Sentido: Horario"
+            lower.contains("jeddah") || lower.contains("arabia") ->
+                "JEDDAH CORNICHE CIRCUIT" to "Longitud: 6.174 km • 27 Curvas • 3 Zonas DRS • Sentido: Antihorario"
+            lower.contains("melbourne") || lower.contains("albert") || lower.contains("australia") ->
+                "ALBERT PARK CIRCUIT • MELBOURNE" to "Longitud: 5.278 km • 14 Curvas • 4 Zonas DRS • Sentido: Horario"
+            lower.contains("suzuka") || lower.contains("japan") || lower.contains("japon") ->
+                "SUZUKA INTERNATIONAL RACING COURSE" to "Longitud: 5.807 km • 18 Curvas • 1 Zona DRS • Sentido: Figura 8"
+            lower.contains("miami") ->
+                "MIAMI INTERNATIONAL AUTODROME" to "Longitud: 5.412 km • 19 Curvas • 3 Zonas DRS • Sentido: Antihorario"
+            lower.contains("monaco") || lower.contains("monte") ->
+                "CIRCUIT DE MONACO" to "Longitud: 3.337 km • 19 Curvas • 1 Zona DRS • Sentido: Horario"
+            lower.contains("silverstone") || lower.contains("gran bretaña") || lower.contains("britain") ->
+                "SILVERSTONE CIRCUIT • REINO UNIDO" to "Longitud: 5.891 km • 18 Curvas • 2 Zonas DRS • Sentido: Horario"
+            lower.contains("spa") || lower.contains("belgica") || lower.contains("belgium") ->
+                "CIRCUIT DE SPA-FRANCORCHAMPS" to "Longitud: 7.004 km • 19 Curvas • 2 Zonas DRS • Sentido: Horario"
+            lower.contains("monza") || lower.contains("italia") || lower.contains("italy") ->
+                "AUTODROMO NAZIONALE MONZA" to "Longitud: 5.793 km • 11 Curvas • 2 Zonas DRS • Sentido: Horario"
+            lower.contains("interlagos") || lower.contains("brasil") || lower.contains("brazil") ->
+                "AUTÓDROMO JOSÉ CARLOS PACE • INTERLAGOS" to "Longitud: 4.309 km • 15 Curvas • 2 Zonas DRS • Sentido: Antihorario"
+            else ->
+                "CIRCUITO OFICIAL FÓRMULA 1" to "Trazado satelital oficial • Sectores 1, 2 y 3 • Zonas DRS"
         }
     }
 
@@ -2066,6 +2213,7 @@ class PitWallViewManager(
     }
 
     fun onPause() {
+        stopTrackMapPolling()
         exoPlayer?.pause()
         webVideoView.onPause()
         flxExtractor.destroy()
@@ -2074,12 +2222,16 @@ class PitWallViewManager(
     }
 
     fun onResume() {
+        if (activeTelemetryMode == TelemetryMode.TRACK_MAP) {
+            startTrackMapPolling()
+        }
         webVideoView.onResume()
         webVideoView.resumeTimers()
         futbolVivoExtractor.onResume()
     }
 
     fun onDestroy() {
+        stopTrackMapPolling()
         futbolLibreSourcesJob?.cancel()
         flxExtractor.destroy()
         futbolVivoExtractor.destroy()

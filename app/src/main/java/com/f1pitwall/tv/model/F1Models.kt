@@ -27,8 +27,10 @@ data class Session(
     @SerializedName("date_start") val dateStart: String?,
     @SerializedName("date_end") val dateEnd: String?,
     @SerializedName("meeting_key") val meetingKey: Long,
+    @SerializedName("circuit_key") val circuitKey: Long? = null,
     @SerializedName("circuit_short_name") val circuitShortName: String?,
     @SerializedName("country_name") val countryName: String?,
+    @SerializedName("year") val year: Int? = null,
     @SerializedName("is_cancelled") val isCancelled: Boolean? = false
 )
 

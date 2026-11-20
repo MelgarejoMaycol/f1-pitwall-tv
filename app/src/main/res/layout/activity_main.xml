@@ -620,6 +620,7 @@
 
                 <!-- Header & Mode Switcher (5 Dynamic Telemetry Modes) -->
                 <HorizontalScrollView
+                    android:id="@+id/scrollTelemetryModes"
                     android:layout_width="match_parent"
                     android:layout_height="32dp"
                     android:scrollbars="none"
@@ -743,331 +744,405 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <!-- Selected Driver Tag -->
+                    <!-- State A: No Driver Selected Prompt -->
                     <LinearLayout
+                        android:id="@+id/layoutTelemetryEmptyPrompt"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="#1E2433"
-                        android:orientation="horizontal"
-                        android:padding="8dp">
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_glass_hud_badge"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="20dp"
+                        android:visibility="visible">
 
                         <TextView
-                            android:id="@+id/tvTelemetryDriverHeader"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="#1 Max Verstappen • Red Bull Racing"
-                            android:textColor="@color/text_primary"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvTelemetryDrs"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="#15803D"
-                            android:paddingHorizontal="6dp"
-                            android:paddingVertical="1dp"
-                            android:text="DRS ACTIVO"
-                            android:textColor="#FFFFFF"
-                            android:textSize="9sp"
+                            android:text="🏎️"
+                            android:textSize="38sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="TELEMETRÍA DE MONOPLAZA"
+                            android:textColor="@color/f1_red"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:text="Selecciona a cualquier piloto en la torre de TIEMPOS para cargar su velocidad en vivo, tacómetro de RPM, marcha, acelerador, frenos, DRS y sectores."
+                            android:textColor="@color/text_secondary"
+                            android:textSize="10.5sp" />
+
+                        <Button
+                            android:id="@+id/btnGoToTimingForDriver"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginTop="16dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingHorizontal="16dp"
+                            android:text="⏱️ ELEGIR PILOTO EN TIEMPOS"
+                            android:textColor="@color/text_primary"
+                            android:textSize="10.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
-                    <!-- Speed & Gear Gauges -->
+                    <!-- State B: Active Driver Telemetry Content -->
                     <LinearLayout
+                        android:id="@+id/layoutTelemetryActiveContent"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="horizontal">
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:visibility="gone">
 
-                        <!-- Speed Box -->
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="72dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/bg_glass_hud_badge"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvTelemetrySpeed"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="294"
-                                android:textColor="@color/text_primary"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="KM/H"
-                                android:textColor="@color/f1_red"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <!-- Gear Box -->
-                        <LinearLayout
-                            android:layout_width="72dp"
-                            android:layout_height="72dp"
-                            android:layout_marginStart="6dp"
-                            android:background="@drawable/bg_glass_hud_badge"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvTelemetryGear"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="7"
-                                android:textColor="#22C55E"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="MARCHA"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="9sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <!-- RPM Gauge -->
-                    <TextView
-                        android:id="@+id/tvTelemetryRpm"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="11,480 RPM"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <ProgressBar
-                        android:id="@+id/pbTelemetryRpm"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="8dp"
-                        android:max="15000"
-                        android:progress="11480"
-                        android:progressTint="#EAB308" />
-
-                    <!-- Throttle Gauge -->
-                    <TextView
-                        android:id="@+id/tvTelemetryThrottle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Acelerador: 100%"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
-
-                    <ProgressBar
-                        android:id="@+id/pbTelemetryThrottle"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="8dp"
-                        android:max="100"
-                        android:progress="100"
-                        android:progressTint="#22C55E" />
-
-                    <!-- Brake Gauge -->
-                    <TextView
-                        android:id="@+id/tvTelemetryBrake"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Freno: 0%"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
-
-                    <ProgressBar
-                        android:id="@+id/pbTelemetryBrake"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="8dp"
-                        android:max="100"
-                        android:progress="0"
-                        android:progressTint="#EF4444" />
-
-                    <!-- Sectors Telemetry Card -->
-                    <androidx.cardview.widget.CardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        app:cardBackgroundColor="@color/glass_surface_dock"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="0dp">
-
+                        <!-- Selected Driver Header -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
+                            android:background="#1E2433"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
                             android:padding="8dp">
 
                             <TextView
-                                android:layout_width="match_parent"
+                                android:id="@+id/tvTelemetryDriverHeader"
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:text="⏱️ TIEMPOS Y VELOCIDADES POR SECTOR"
-                                android:textColor="@color/f1_red"
-                                android:textSize="10.5sp"
+                                android:layout_weight="1"
+                                android:text="#1 Max Verstappen • Red Bull Racing"
+                                android:textColor="@color/text_primary"
+                                android:textSize="11.5sp"
                                 android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvTelemetryDrs"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="#15803D"
+                                android:paddingHorizontal="6dp"
+                                android:paddingVertical="1dp"
+                                android:text="DRS ACTIVO"
+                                android:textColor="#FFFFFF"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnChangeDriver"
+                                android:layout_width="wrap_content"
+                                android:layout_height="26dp"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="8dp"
+                                android:text="🔄 Cambiar"
+                                android:textColor="@color/text_primary"
+                                android:textSize="8.5sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Speed & Gear Gauges -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <!-- Speed Box -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="72dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_glass_hud_badge"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTelemetrySpeed"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="294"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="28sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="KM/H"
+                                    android:textColor="@color/f1_red"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- Gear Box -->
+                            <LinearLayout
+                                android:layout_width="72dp"
+                                android:layout_height="72dp"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/bg_glass_hud_badge"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTelemetryGear"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="7"
+                                    android:textColor="#22C55E"
+                                    android:textSize="28sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="MARCHA"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="9sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- RPM Gauge -->
+                        <TextView
+                            android:id="@+id/tvTelemetryRpm"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="11,480 RPM"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <ProgressBar
+                            android:id="@+id/pbTelemetryRpm"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="8dp"
+                            android:max="15000"
+                            android:progress="11480"
+                            android:progressTint="#EAB308" />
+
+                        <!-- Throttle Gauge -->
+                        <TextView
+                            android:id="@+id/tvTelemetryThrottle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Acelerador: 100%"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <ProgressBar
+                            android:id="@+id/pbTelemetryThrottle"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="8dp"
+                            android:max="100"
+                            android:progress="100"
+                            android:progressTint="#22C55E" />
+
+                        <!-- Brake Gauge -->
+                        <TextView
+                            android:id="@+id/tvTelemetryBrake"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Freno: 0%"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <ProgressBar
+                            android:id="@+id/pbTelemetryBrake"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="8dp"
+                            android:max="100"
+                            android:progress="0"
+                            android:progressTint="#EF4444" />
+
+                        <!-- Sectors Telemetry Card -->
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:cardBackgroundColor="@color/glass_surface_dock"
+                            app:cardCornerRadius="10dp"
+                            app:cardElevation="0dp">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
-                                android:orientation="horizontal">
+                                android:orientation="vertical"
+                                android:padding="8dp">
 
-                                <!-- Sector 1 -->
-                                <LinearLayout
-                                    android:layout_width="0dp"
+                                <TextView
+                                    android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:background="#161B26"
-                                    android:gravity="center"
-                                    android:orientation="vertical"
-                                    android:padding="4dp">
+                                    android:text="⏱️ TIEMPOS Y VELOCIDADES POR SECTOR"
+                                    android:textColor="@color/f1_red"
+                                    android:textSize="10.5sp"
+                                    android:textStyle="bold" />
 
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="SECTOR 1"
-                                        android:textColor="@color/text_secondary"
-                                        android:textSize="9sp"
-                                        android:textStyle="bold" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="6dp"
+                                    android:orientation="horizontal">
 
-                                    <TextView
-                                        android:id="@+id/tvTelemetryS1"
-                                        android:layout_width="wrap_content"
+                                    <!-- Sector 1 -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:layout_marginTop="2dp"
-                                        android:text="--.---"
-                                        android:textColor="@color/sector_purple"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
+                                        android:layout_weight="1"
+                                        android:background="#161B26"
+                                        android:gravity="center"
+                                        android:orientation="vertical"
+                                        android:padding="4dp">
 
-                                    <TextView
-                                        android:id="@+id/tvTelemetryS1Speed"
-                                        android:layout_width="wrap_content"
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="SECTOR 1"
+                                            android:textColor="@color/text_secondary"
+                                            android:textSize="9sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvTelemetryS1"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="--.---"
+                                            android:textColor="@color/sector_purple"
+                                            android:textSize="12sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvTelemetryS1Speed"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Trampa: --- km/h"
+                                            android:textColor="@color/text_muted"
+                                            android:textSize="8sp" />
+                                    </LinearLayout>
+
+                                    <!-- Sector 2 -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="Trampa: --- km/h"
-                                        android:textColor="@color/text_muted"
-                                        android:textSize="8sp" />
+                                        android:layout_marginStart="4dp"
+                                        android:layout_weight="1"
+                                        android:background="#161B26"
+                                        android:gravity="center"
+                                        android:orientation="vertical"
+                                        android:padding="4dp">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="SECTOR 2"
+                                            android:textColor="@color/text_secondary"
+                                            android:textSize="9sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvTelemetryS2"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="--.---"
+                                            android:textColor="@color/sector_green"
+                                            android:textSize="12sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvTelemetryS2Speed"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Trampa: --- km/h"
+                                            android:textColor="@color/text_muted"
+                                            android:textSize="8sp" />
+                                    </LinearLayout>
+
+                                    <!-- Sector 3 -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="4dp"
+                                        android:layout_weight="1"
+                                        android:background="#161B26"
+                                        android:gravity="center"
+                                        android:orientation="vertical"
+                                        android:padding="4dp">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="SECTOR 3"
+                                            android:textColor="@color/text_secondary"
+                                            android:textSize="9sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvTelemetryS3"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="--.---"
+                                            android:textColor="@color/sector_yellow"
+                                            android:textSize="12sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvTelemetryS3Speed"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Meta: --- km/h"
+                                            android:textColor="@color/text_muted"
+                                            android:textSize="8sp" />
+                                    </LinearLayout>
                                 </LinearLayout>
 
-                                <!-- Sector 2 -->
-                                <LinearLayout
-                                    android:layout_width="0dp"
+                                <!-- Lap Time -->
+                                <TextView
+                                    android:id="@+id/tvTelemetryLapTime"
+                                    android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginStart="4dp"
-                                    android:layout_weight="1"
-                                    android:background="#161B26"
+                                    android:layout_marginTop="6dp"
                                     android:gravity="center"
-                                    android:orientation="vertical"
-                                    android:padding="4dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="SECTOR 2"
-                                        android:textColor="@color/text_secondary"
-                                        android:textSize="9sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:id="@+id/tvTelemetryS2"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:layout_marginTop="2dp"
-                                        android:text="--.---"
-                                        android:textColor="@color/sector_green"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:id="@+id/tvTelemetryS2Speed"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Trampa: --- km/h"
-                                        android:textColor="@color/text_muted"
-                                        android:textSize="8sp" />
-                                </LinearLayout>
-
-                                <!-- Sector 3 -->
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="4dp"
-                                    android:layout_weight="1"
-                                    android:background="#161B26"
-                                    android:gravity="center"
-                                    android:orientation="vertical"
-                                    android:padding="4dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="SECTOR 3"
-                                        android:textColor="@color/text_secondary"
-                                        android:textSize="9sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:id="@+id/tvTelemetryS3"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:layout_marginTop="2dp"
-                                        android:text="--.---"
-                                        android:textColor="@color/sector_yellow"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:id="@+id/tvTelemetryS3Speed"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Meta: --- km/h"
-                                        android:textColor="@color/text_muted"
-                                        android:textSize="8sp" />
-                                </LinearLayout>
+                                    android:text="⏱️ TIEMPO VUELTA: --:--.---"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
                             </LinearLayout>
+                        </androidx.cardview.widget.CardView>
 
-                            <!-- Lap Time -->
-                            <TextView
-                                android:id="@+id/tvTelemetryLapTime"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
-                                android:gravity="center"
-                                android:text="⏱️ TIEMPO VUELTA: --:--.---"
-                                android:textColor="@color/text_primary"
-                                android:textSize="11sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:layout_weight="1" />
 
-                    <View
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:layout_weight="1" />
-
-                    <!-- Demo Telemetry Toggle Button -->
-                    <Button
-                        android:id="@+id/btnTelemetryDemoToggle"
-                        android:layout_width="match_parent"
-                        android:layout_height="34dp"
-                        android:background="@drawable/btn_tab_selector"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:text="⚡ Cargar Datos Oficiales (OpenF1)"
-                        android:textColor="@color/text_primary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        <!-- Demo Telemetry Toggle Button -->
+                        <Button
+                            android:id="@+id/btnTelemetryDemoToggle"
+                            android:layout_width="match_parent"
+                            android:layout_height="34dp"
+                            android:background="@drawable/btn_tab_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="⚡ Cargar Datos Oficiales (OpenF1)"
+                            android:textColor="@color/text_primary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 3. LIVE GPS TRACK MAP PANEL -->
@@ -1078,16 +1153,56 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <TextView
-                        android:id="@+id/tvTrackMapTitle"
+                    <!-- Track Map Header Info Card -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="🗺️ TRAZADO EN VIVO • POSICIONES GPS"
-                        android:textColor="@color/accent_blue"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="4dp" />
+                        android:background="#1E293B"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="6dp"
+                        android:layout_marginBottom="4dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvTrackMapCircuitName"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="LAS VEGAS STRIP CIRCUIT"
+                                android:textColor="@color/accent_blue"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvTrackMapGpsStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="#15803D"
+                                android:paddingHorizontal="6dp"
+                                android:paddingVertical="1dp"
+                                android:text="🟢 GPS ACTIVO"
+                                android:textColor="#FFFFFF"
+                                android:textSize="8.5sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvTrackMapCircuitDetails"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Longitud: 6.201 km • 17 Curvas • 2 Zonas DRS • Sentido: Antihorario"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="9.5sp" />
+                    </LinearLayout>
 
                     <!-- Custom Track Map View -->
                     <com.f1pitwall.tv.ui.pitwall.TrackMapView
@@ -1095,17 +1210,37 @@
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
                         android:layout_weight="1"
-                        android:background="#0F172A" />
+                        android:background="#0A0F1D" />
 
-                    <TextView
-                        android:id="@+id/tvTrackMapLegend"
+                    <!-- Footer Legend / Followed Driver Info -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="Puntos con colores de escudería y siglas en directo"
-                        android:textColor="@color/text_muted"
-                        android:textSize="9sp"
-                        android:layout_marginTop="4dp" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="4dp">
+
+                        <TextView
+                            android:id="@+id/tvTrackMapFollowedDriver"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="Piloto seguido: Ninguno (selecciona uno en Tiempos)"
+                            android:textColor="@color/accent_gold"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTrackMapLegend"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="S1: Cyan • S2: Púrpura • S3: Oro"
+                            android:textColor="@color/text_muted"
+                            android:textSize="9sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 4. TYRES & PIT STRATEGY PANEL -->
