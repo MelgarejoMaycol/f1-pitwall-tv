@@ -5,18 +5,24 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -38,8 +44,26 @@ import com.f1pitwall.tv.ui.discovery.DiscoveredChannel
 import com.f1pitwall.tv.ui.discovery.DiscoveredEvent
 import com.f1pitwall.tv.ui.discovery.F1ContentDiscovery
 
+/**
+ * Motor unificado de reproducción de video para F1PitWallTV.
+ *
+ * Administra de forma integrada y sin duplicación de Activities:
+ * - Reproducción nativa HLS/DASH/MP4 con ExoPlayer (Media3).
+ * - Reproducción web HTML5 con Chromium WebView optimizado para Android TV:
+ *     - Gestión de ventanas secundarias con WebChromeClient.onCreateWindow() para target="_blank" y window.open().
+ *     - Traslado dinámico (reparenting) de la instancia única de WebView entre el contenedor
+ *       integrado del Muro de Pits y la pantalla completa dedicada, preservando el estado multimedia,
+ *       cookies, búfer y reproducción continua sin recargas de página.
+ *     - Pantalla completa HTML5 (onShowCustomView / onHideCustomView).
+ *     - Descubrimiento automático de eventos de F1 y canales reales (Live 1, Live 2).
+ *     - Manejo de saturación de servidor (HTTP 429) con sugerencia y enfoque automático de Live 2.
+ *     - Control unificado de audio (mute/unmute), recarga y navegación con control remoto (D-Pad).
+ */
 class VideoPlaybackManager(
     private val context: Context,
+    // Superficies de renderizado
+    private val framePitWallSurface: FrameLayout,
+    private val frameDedicatedSurface: FrameLayout,
     // Inline Pit Wall Controls
     private val playerView: PlayerView,
     private val webVideoView: WebView,
@@ -53,13 +77,14 @@ class VideoPlaybackManager(
     // Dedicated Fullscreen Controls
     private val layoutDedicatedPlayback: FrameLayout,
     private val playerViewDedicated: PlayerView,
-    private val webVideoViewDedicated: WebView,
     private val layoutDedicatedTopBar: LinearLayout,
     private val btnDedicatedBack: Button,
     private val tvDedicatedSourceName: TextView,
     private val tvDedicatedSourceTypeBadge: TextView,
     private val btnDedicatedPlayPause: Button,
     private val btnDedicatedReload: Button,
+    private val btnDedicatedMute: Button? = null,
+    private val btnDedicatedSessions: Button? = null,
     private val layoutDedicatedStatusOverlay: LinearLayout,
     private val pbDedicatedLoading: ProgressBar,
     private val tvDedicatedStatusTitle: TextView,
@@ -68,6 +93,16 @@ class VideoPlaybackManager(
     private val btnDedicatedRetry: Button,
     private val btnDedicatedGoSettings: Button,
     private val llDedicatedChannels: LinearLayout? = null,
+    // Inline Pit Wall Active Controls Bar
+    private val llPitWallPlayerBar: LinearLayout? = null,
+    private val llPitWallChannels: LinearLayout? = null,
+    private val btnPitWallMute: Button? = null,
+    private val btnPitWallReload: Button? = null,
+    private val btnPitWallSessions: Button? = null,
+    private val btnPitWallFullscreenInline: Button? = null,
+    // Contenedores auxiliares para HTML5 fullscreen y popups de WebView
+    private val layoutCustomViewContainer: FrameLayout? = null,
+    private val layoutPopupContainer: FrameLayout? = null,
     // Callbacks
     private val onPlaybackStarted: () -> Unit = {},
     private val onNavigateToSettings: () -> Unit = {},
@@ -84,12 +119,24 @@ class VideoPlaybackManager(
         private set
     var isDedicatedFullscreenActive: Boolean = false
         private set
+    var isMuted: Boolean = false
+        private set
 
-    // Estado del motor de canales F1
+    // Estado del motor de canales y descubrimiento F1
+    private enum class PageMode { DIRECTORY, EVENT_PLAYER, DIRECT_STREAM }
+    private var currentMode = PageMode.DIRECTORY
     private var discoveredChannels: List<DiscoveredChannel> = emptyList()
     private var activeChannelIndex: Int = 0
-    private var channelButtons: MutableList<Button> = mutableListOf()
+    private var channelButtonsDedicated: MutableList<Button> = mutableListOf()
+    private var channelButtonsInline: MutableList<Button> = mutableListOf()
     private var currentF1Event: DiscoveredEvent? = null
+
+    // Gestión de ventanas emergentes secundarias (onCreateWindow)
+    private val activePopupWebViews: MutableList<WebView> = mutableListOf()
+
+    // Gestión de pantalla completa HTML5 nativa
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
     companion object {
         private const val TAG = "VideoPlaybackManager"
@@ -105,44 +152,25 @@ class VideoPlaybackManager(
                 PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
                     "Fuente no disponible: El servidor devolvió un error HTTP o el archivo no existe."
                 PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
-                PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
-                PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
-                    "Formato incompatible: La transmisión no pudo ser decodificada (verifica si es HLS, DASH o MP4)."
+                PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
+                    "Formato incompatible: La transmisión no tiene un formato reproducible válido."
                 else ->
-                    "Error de reproducción: ${fallbackMessage ?: "No se pudo reproducir la transmisión."}"
+                    "Error de reproducción: ${fallbackMessage ?: "Ocurrió un error inesperado al reproducir el video."}"
             }
-        }
-    }
-
-    // Bridge para descubrimiento en WebView
-    inner class WebDiscoveryBridge(private val webView: WebView) {
-        @JavascriptInterface
-        fun onF1Events(json: String) {
-            mainHandler.post {
-                handleF1EventsDiscovered(webView, json)
-            }
-        }
-
-        @JavascriptInterface
-        fun onChannels(json: String) {
-            mainHandler.post {
-                handleChannelsDiscovered(json)
-            }
-        }
-
-        @JavascriptInterface
-        fun onLog(msg: String) {
-            Log.d(TAG, "Bridge: $msg")
         }
     }
 
     init {
-        initExoPlayer()
-        setupWebViews()
+        setupExoPlayer()
+        setupWebView()
         setupActions()
     }
 
-    private fun initExoPlayer() {
+    // ======================================================================
+    // Configuración de ExoPlayer (Media3)
+    // ======================================================================
+
+    private fun setupExoPlayer() {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("F1PitWallTV/1.0 (Android TV)")
             .setConnectTimeoutMs(15000)
@@ -163,8 +191,7 @@ class VideoPlaybackManager(
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) {
                     onPlaybackStarted()
-                    layoutPlayerStatusOverlay.visibility = View.GONE
-                    layoutDedicatedStatusOverlay.visibility = View.GONE
+                    dismissOverlays()
                     btnDedicatedPlayPause.text = "⏸ Pausa"
                 } else {
                     btnDedicatedPlayPause.text = "▶ Reanudar"
@@ -181,8 +208,7 @@ class VideoPlaybackManager(
                         }
                     }
                     Player.STATE_READY -> {
-                        layoutPlayerStatusOverlay.visibility = View.GONE
-                        layoutDedicatedStatusOverlay.visibility = View.GONE
+                        dismissOverlays()
                     }
                     Player.STATE_ENDED -> {
                         val endMsg = "La transmisión ha finalizado"
@@ -190,7 +216,7 @@ class VideoPlaybackManager(
                         showDedicatedError(endMsg)
                     }
                     Player.STATE_IDLE -> {
-                        // Estado en reposo
+                        // Reposo
                     }
                 }
             }
@@ -204,16 +230,13 @@ class VideoPlaybackManager(
         })
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun setupWebViews() {
-        configureWebView(webVideoView, isDedicated = false)
-        configureWebView(webVideoViewDedicated, isDedicated = true)
-    }
+    // ======================================================================
+    // Configuración del WebView Único
+    // ======================================================================
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun configureWebView(webView: WebView, isDedicated: Boolean) {
-        webView.apply {
-            // Aceleración por hardware obligatoria en TV para video HTML5/WebGL
+    private fun setupWebView() {
+        webVideoView.apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             isFocusable = true
             isFocusableInTouchMode = true
@@ -235,40 +258,65 @@ class VideoPlaybackManager(
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 }
                 userAgentString = DESKTOP_UA
+                javaScriptCanOpenWindowsAutomatically = true
+                setSupportMultipleWindows(true)
             }
 
             CookieManager.getInstance().apply {
                 setAcceptCookie(true)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    setAcceptThirdPartyCookies(webView, true)
+                    setAcceptThirdPartyCookies(webVideoView, true)
                 }
             }
 
-            addJavascriptInterface(WebDiscoveryBridge(webView), "F1Bridge")
+            addJavascriptInterface(WebDiscoveryBridge(), "F1Bridge")
 
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url ?: return true
                     val scheme = url.scheme ?: ""
-                    val isWeb = scheme == "https" || scheme == "http"
-                    return !isWeb // false = navegar internamente sin abrir navegadores externos
+                    val urlStr = url.toString()
+                    val sanitized = sanitizeUrl(urlStr)
+                    Log.d(TAG, "shouldOverrideUrlLoading: $sanitized (scheme=$scheme)")
+
+                    if (scheme == "http" || scheme == "https") {
+                        if (urlStr.contains("vivogoal.space")) {
+                            val fixedUrl = urlStr.replace("vivogoal.space", "golygoals.com")
+                            Log.i(TAG, "Normalizando dominio a golygoals.com: ${sanitizeUrl(fixedUrl)}")
+                            view?.loadUrl(fixedUrl)
+                            return true
+                        }
+                        return false // permitir navegación interna dentro del WebView sin abrir navegador externo
+                    }
+
+                    Log.w(TAG, "Esquema no permitido rechazado: $scheme")
+                    return true
                 }
 
                 @Deprecated("Deprecated in Java")
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    val urlStr = url ?: return false
+                    if (urlStr.contains("vivogoal.space")) {
+                        val fixedUrl = urlStr.replace("vivogoal.space", "golygoals.com")
+                        view?.loadUrl(fixedUrl)
+                        return true
+                    }
                     return false
                 }
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
                     val title = "Cargando señal: ${currentPlayingSourceName ?: "F1 Web"}"
-                    if (isDedicated) {
+                    val sanitized = sanitizeUrl(url)
+                    Log.i(TAG, "onPageStarted: $sanitized")
+
+                    if (isDedicatedFullscreenActive) {
                         showDedicatedBuffering(title, "Conectando con reproductor...")
                     } else {
                         showPlayerBufferingState(title, "Conectando con reproductor...")
                     }
 
-                    // Watchdog de seguridad: el overlay NUNCA debe quedarse más de 4 segundos tapando el video
+                    // Watchdog: descartar overlay si el video comienza
                     mainHandler.postDelayed({
                         dismissOverlays()
                     }, 4000)
@@ -276,25 +324,69 @@ class VideoPlaybackManager(
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
+                    val currentUrl = url.orEmpty().lowercase()
+                    val sanitized = sanitizeUrl(url)
+                    Log.i(TAG, "onPageFinished: $sanitized")
+
                     dismissOverlays()
                     onPlaybackStarted()
-                    webView.requestFocus()
+                    webVideoView.requestFocus()
 
-                    val currentUrl = url.orEmpty().lowercase()
                     val isEventPage = currentUrl.contains("soccer.html") ||
                             currentUrl.contains("us.html") ||
                             currentUrl.contains("latin.html")
 
                     if (isEventPage) {
-                        // Estamos en la página del evento: extraer canales y limpiar UI
+                        currentMode = PageMode.EVENT_PLAYER
                         view?.evaluateJavascript(F1ContentDiscovery.buildEventPageScannerJs(), null)
                     } else if (currentUrl.contains("futbolvivo.tv") || currentUrl.contains("futbollibre")) {
-                        // Estamos en el directorio: buscar eventos de F1 automáticamente
+                        currentMode = PageMode.DIRECTORY
                         view?.evaluateJavascript(F1ContentDiscovery.buildDirectoryScannerJs(), null)
                     }
 
-                    // Inyección de autolimpieza de banners publicitarios y unmute automático
+                    // Autolimpieza y unmute
                     injectAdCleanAndAutoplay(view)
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    errorResponse: WebResourceResponse?
+                ) {
+                    val status = errorResponse?.statusCode ?: 0
+                    val isMain = request?.isForMainFrame == true
+                    val sanitizedUrl = sanitizeUrl(request?.url?.toString())
+                    Log.w(TAG, "HTTP $status en $sanitizedUrl (isMain=$isMain)")
+
+                    if (status == 429) {
+                        mainHandler.post {
+                            val limitMsg = "⚠️ Servidor temporalmente limitado (HTTP 429). Selecciona Live 2 arriba."
+                            if (isDedicatedFullscreenActive) {
+                                showDedicatedBuffering("Límite de Servidor (429)", limitMsg)
+                            } else {
+                                showPlayerBufferingState("Límite de Servidor (429)", limitMsg)
+                            }
+                            mainHandler.postDelayed({ dismissOverlays() }, 3500)
+
+                            // Sugerir y enfocar automáticamente Live 2 si estamos en Live 1 (índice 0)
+                            if (activeChannelIndex == 0 && discoveredChannels.size > 1) {
+                                if (isDedicatedFullscreenActive) {
+                                    channelButtonsDedicated.getOrNull(1)?.requestFocus()
+                                } else {
+                                    channelButtonsInline.getOrNull(1)?.requestFocus()
+                                }
+                            }
+                        }
+                    } else if (isMain && status >= 400) {
+                        mainHandler.post {
+                            val msg = "Error del servidor (HTTP $status)"
+                            if (isDedicatedFullscreenActive) {
+                                showDedicatedError(msg)
+                            } else {
+                                showPlayerErrorState(msg)
+                            }
+                        }
+                    }
                 }
 
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
@@ -302,7 +394,8 @@ class VideoPlaybackManager(
                     if (request?.isForMainFrame == true) {
                         val desc = error?.description?.toString() ?: "No se pudo conectar con el sitio web."
                         val msg = "Error al abrir la señal: $desc"
-                        if (isDedicated) {
+                        Log.e(TAG, "onReceivedError: $msg")
+                        if (isDedicatedFullscreenActive) {
                             showDedicatedError(msg)
                         } else {
                             showPlayerErrorState(msg)
@@ -312,13 +405,68 @@ class VideoPlaybackManager(
             }
 
             webChromeClient = object : WebChromeClient() {
+                // 1. Manejo de múltiples ventanas para target="_blank" y window.open()
+                override fun onCreateWindow(
+                    view: WebView?,
+                    isDialog: Boolean,
+                    isUserGesture: Boolean,
+                    resultMsg: Message?
+                ): Boolean {
+                    Log.i(TAG, "onCreateWindow invocado (isDialog=$isDialog, isUserGesture=$isUserGesture)")
+                    val childWv = createChildWebView()
+                    val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                    transport.webView = childWv
+                    resultMsg.sendToTarget()
+                    return true
+                }
+
+                override fun onCloseWindow(window: WebView?) {
+                    Log.i(TAG, "onCloseWindow invocado")
+                    closeChildWebView(window)
+                }
+
+                // 2. Pantalla completa HTML5 (onShowCustomView / onHideCustomView)
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    Log.i(TAG, "onShowCustomView: entrando a pantalla completa HTML5")
+                    if (customView != null) {
+                        onHideCustomView()
+                        return
+                    }
+                    customView = view
+                    customViewCallback = callback
+
+                    val container = layoutCustomViewContainer
+                    if (container != null && view != null) {
+                        container.removeAllViews()
+                        container.addView(
+                            view,
+                            FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        )
+                        container.visibility = View.VISIBLE
+                        container.bringToFront()
+                        view.requestFocus()
+                    }
+                }
+
+                override fun onHideCustomView() {
+                    hideCustomViewInternal()
+                }
+
                 override fun onPermissionRequest(request: PermissionRequest?) {
                     request?.grant(request.resources)
-                    Log.d(TAG, "Permisos de media concedidos en WebView")
+                    Log.i(TAG, "Permisos multimedia concedidos: ${request?.resources?.toList()}")
                 }
 
                 override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
                     Log.d(TAG, "JS[${msg?.messageLevel()}]: ${msg?.message()}")
+                    return true
+                }
+
+                override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                    result?.confirm()
                     return true
                 }
 
@@ -331,94 +479,235 @@ class VideoPlaybackManager(
         }
     }
 
-    private fun dismissOverlays() {
-        layoutDedicatedStatusOverlay.visibility = View.GONE
-        layoutPlayerStatusOverlay.visibility = View.GONE
+    // ======================================================================
+    // Gestión de Ventanas Emergentes Secundarias (onCreateWindow)
+    // ======================================================================
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun createChildWebView(): WebView {
+        val child = WebView(context).apply {
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            isFocusable = false
+            visibility = View.GONE
+
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                setSupportMultipleWindows(false)
+                javaScriptCanOpenWindowsAutomatically = false
+                userAgentString = DESKTOP_UA
+            }
+
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val urlStr = request?.url?.toString() ?: return false
+                    val sanitized = sanitizeUrl(urlStr)
+                    Log.i(TAG, "ChildWebView -> Redirigiendo URL: $sanitized")
+
+                    if (isAllowedSportsUrl(urlStr)) {
+                        val finalUrl = if (urlStr.contains("vivogoal.space")) {
+                            urlStr.replace("vivogoal.space", "golygoals.com")
+                        } else urlStr
+
+                        webVideoView.loadUrl(finalUrl)
+                        closeChildWebView(this@apply)
+                        return true
+                    }
+
+                    Log.w(TAG, "Popup publicitario bloqueado: $sanitized")
+                    closeChildWebView(this@apply)
+                    return true
+                }
+
+                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                    val urlStr = url.orEmpty()
+                    if (urlStr.isNotBlank() && urlStr != "about:blank") {
+                        val sanitized = sanitizeUrl(urlStr)
+                        Log.i(TAG, "ChildWebView onPageStarted: $sanitized")
+                        if (isAllowedSportsUrl(urlStr)) {
+                            val finalUrl = if (urlStr.contains("vivogoal.space")) {
+                                urlStr.replace("vivogoal.space", "golygoals.com")
+                            } else urlStr
+
+                            webVideoView.loadUrl(finalUrl)
+                            closeChildWebView(this@apply)
+                        }
+                    }
+                }
+            }
+
+            webChromeClient = object : WebChromeClient() {
+                override fun onCloseWindow(window: WebView?) {
+                    closeChildWebView(window)
+                }
+            }
+        }
+
+        activePopupWebViews.add(child)
+        layoutPopupContainer?.addView(child, FrameLayout.LayoutParams(1, 1))
+        return child
     }
 
-    /**
-     * Inyecta script para eliminar banners flotantes molestos y asegurar reproducción activa
-     */
-    private fun injectAdCleanAndAutoplay(view: WebView?) {
-        val cleanJs = """
-            (function() {
-                // 1. Eliminar overlays de publicidad comunes
-                var ads = document.querySelectorAll('#html1, #button1, .ads, [id*="banner"], [class*="banner"]');
-                ads.forEach(function(el) { el.style.display = 'none'; el.remove(); });
-                
-                // 2. Intentar desmutear y reproducir videos HTML5
-                document.querySelectorAll('video').forEach(function(v) {
-                    v.muted = false;
-                    v.play().catch(function(){});
-                });
-                
-                // 3. Clic automático en botones de desmuteo conocidos
-                var unmute = document.getElementById('unmute') || document.querySelector('.clappr-play-button');
-                if (unmute) { unmute.click(); }
-            })();
-        """.trimIndent()
-        view?.evaluateJavascript(cleanJs, null)
+    private fun closeChildWebView(wv: WebView?) {
+        wv ?: return
+        try {
+            activePopupWebViews.remove(wv)
+            layoutPopupContainer?.removeView(wv)
+            wv.stopLoading()
+            wv.loadUrl("about:blank")
+            wv.destroy()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al cerrar child webview: ${e.message}")
+        }
+    }
+
+    private fun closeAllPopups() {
+        activePopupWebViews.toList().forEach { closeChildWebView(it) }
+        activePopupWebViews.clear()
+        layoutPopupContainer?.removeAllViews()
+        layoutPopupContainer?.visibility = View.GONE
+    }
+
+    private fun isAllowedSportsUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.contains("futbolvivo.tv") ||
+                lower.contains("golygoals.com") ||
+                lower.contains("vivogoal.space") ||
+                lower.contains("soccer.html") ||
+                lower.contains("us.html") ||
+                lower.contains("latin.html") ||
+                lower.contains("kora") ||
+                lower.contains("streame") ||
+                lower.contains("clappr") ||
+                lower.contains("sportycos")
+    }
+
+    private fun hideCustomViewInternal() {
+        val view = customView ?: return
+        Log.i(TAG, "hideCustomViewInternal: saliendo de pantalla completa HTML5")
+        layoutCustomViewContainer?.removeView(view)
+        layoutCustomViewContainer?.visibility = View.GONE
+        customViewCallback?.onCustomViewHidden()
+        customView = null
+        customViewCallback = null
+        webVideoView.visibility = View.VISIBLE
+        webVideoView.requestFocus()
     }
 
     // ======================================================================
-    // Manejo de eventos descubiertos
+    // Descubrimiento de Contenido F1 y Cambio Dinámico de Canales
     // ======================================================================
 
-    private fun handleF1EventsDiscovered(webView: WebView, json: String) {
+    private inner class WebDiscoveryBridge {
+        @JavascriptInterface
+        fun onF1Events(json: String) {
+            mainHandler.post { handleF1EventsDiscovered(json) }
+        }
+
+        @JavascriptInterface
+        fun onChannels(json: String) {
+            mainHandler.post { handleChannelsDiscovered(json) }
+        }
+
+        @JavascriptInterface
+        fun onLog(msg: String) {
+            Log.d(TAG, "F1Bridge: $msg")
+        }
+    }
+
+    private fun handleF1EventsDiscovered(json: String) {
         val events = F1ContentDiscovery.parseF1Events(json)
-        Log.d(TAG, "F1 Events descubiertos en VideoPlaybackManager: ${events.size}")
+        Log.d(TAG, "F1 Events descubiertos: ${events.size}")
         if (events.isNotEmpty()) {
             val target = events.first()
             currentF1Event = target
             tvDedicatedSourceName.text = target.title
-            Log.d(TAG, "Navegando a F1 target: ${target.title} -> ${target.url}")
-            webView.loadUrl(target.url)
+            Log.i(TAG, "Navegando a evento F1: ${target.title} -> ${target.url}")
+            currentMode = PageMode.EVENT_PLAYER
+            webVideoView.loadUrl(target.url)
         }
     }
 
     private fun handleChannelsDiscovered(json: String) {
         val (title, channels) = F1ContentDiscovery.parseEventPageChannels(json)
-        Log.d(TAG, "Canales descubiertos en VideoPlaybackManager: ${channels.size}")
+        Log.i(TAG, "Canales descubiertos: ${channels.size}")
         discoveredChannels = channels
         if (title.isNotBlank()) {
             tvDedicatedSourceName.text = title
         }
-        if (channels.isNotEmpty() && llDedicatedChannels != null) {
-            buildDedicatedChannelButtons(channels)
+        if (channels.isNotEmpty()) {
+            buildChannelButtons(channels)
             activeChannelIndex = 0
-            highlightDedicatedChannel(0)
+            highlightActiveChannel(0)
         }
     }
 
-    private fun buildDedicatedChannelButtons(channels: List<DiscoveredChannel>) {
-        val container = llDedicatedChannels ?: return
-        container.removeAllViews()
-        channelButtons.clear()
+    private fun buildChannelButtons(channels: List<DiscoveredChannel>) {
+        // 1. Selector en la barra de pantalla completa dedicada
+        llDedicatedChannels?.let { container ->
+            container.removeAllViews()
+            channelButtonsDedicated.clear()
 
-        channels.forEachIndexed { i, ch ->
-            val btn = Button(context).apply {
-                text = ch.name
-                isFocusable = true
-                isFocusableInTouchMode = true
-                textSize = 11f
-                setPadding(dp(10), dp(2), dp(10), dp(2))
-                stylePill(this, Color.rgb(25, 35, 50), Color.rgb(180, 210, 240))
-                setOnClickListener {
-                    switchToDiscoveredChannel(i)
+            channels.forEachIndexed { i, ch ->
+                val btn = Button(context).apply {
+                    text = ch.name
+                    isFocusable = true
+                    isFocusableInTouchMode = true
+                    textSize = 11f
+                    setPadding(dp(12), dp(2), dp(12), dp(2))
+                    stylePill(this, Color.rgb(25, 35, 50), Color.rgb(180, 210, 240))
+                    setOnClickListener {
+                        switchToDiscoveredChannel(i)
+                    }
                 }
+                channelButtonsDedicated.add(btn)
+                val params = LinearLayout.LayoutParams(-2, dp(34)).apply {
+                    marginEnd = dp(6)
+                }
+                container.addView(btn, params)
             }
-            channelButtons.add(btn)
-            val params = LinearLayout.LayoutParams(-2, dp(34)).apply {
-                marginEnd = dp(6)
-            }
-            container.addView(btn, params)
+            container.visibility = View.VISIBLE
         }
 
-        container.visibility = View.VISIBLE
+        // 2. Selector en la barra integrada del Muro de Pits
+        llPitWallChannels?.let { container ->
+            container.removeAllViews()
+            channelButtonsInline.clear()
+
+            channels.forEachIndexed { i, ch ->
+                val btn = Button(context).apply {
+                    text = ch.name
+                    isFocusable = true
+                    isFocusableInTouchMode = true
+                    textSize = 10f
+                    setPadding(dp(10), dp(2), dp(10), dp(2))
+                    stylePill(this, Color.rgb(25, 35, 50), Color.rgb(180, 210, 240))
+                    setOnClickListener {
+                        switchToDiscoveredChannel(i)
+                    }
+                }
+                channelButtonsInline.add(btn)
+                val params = LinearLayout.LayoutParams(-2, dp(30)).apply {
+                    marginEnd = dp(6)
+                }
+                container.addView(btn, params)
+            }
+            container.visibility = View.VISIBLE
+        }
     }
 
-    private fun highlightDedicatedChannel(index: Int) {
-        channelButtons.forEachIndexed { i, btn ->
+    private fun highlightActiveChannel(index: Int) {
+        channelButtonsDedicated.forEachIndexed { i, btn ->
+            if (i == index) {
+                stylePill(btn, Color.rgb(225, 6, 0), Color.WHITE)
+            } else {
+                stylePill(btn, Color.rgb(25, 35, 50), Color.rgb(180, 210, 240))
+            }
+        }
+        channelButtonsInline.forEachIndexed { i, btn ->
             if (i == index) {
                 stylePill(btn, Color.rgb(225, 6, 0), Color.WHITE)
             } else {
@@ -427,36 +716,40 @@ class VideoPlaybackManager(
         }
     }
 
-    private fun switchToDiscoveredChannel(index: Int) {
+    fun switchToDiscoveredChannel(index: Int) {
         if (index !in discoveredChannels.indices) return
         activeChannelIndex = index
-        highlightDedicatedChannel(index)
+        highlightActiveChannel(index)
         val ch = discoveredChannels[index]
         tvDedicatedSourceName.text = "${currentF1Event?.title ?: "F1"} · ${ch.name}"
 
         val switchJs = F1ContentDiscovery.buildSwitchChannelJs(index)
-        val targetWv = if (isDedicatedFullscreenActive) webVideoViewDedicated else webVideoView
-        targetWv.evaluateJavascript(switchJs) {
+        webVideoView.evaluateJavascript(switchJs) {
             Log.d(TAG, "Cambio a canal $index: $it")
-            mainHandler.postDelayed({ injectAdCleanAndAutoplay(targetWv) }, 1000)
+            mainHandler.postDelayed({ injectAdCleanAndAutoplay(webVideoView) }, 1000)
         }
     }
 
-    private fun stylePill(btn: Button, bgColor: Int, textColor: Int) {
-        val shape = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(6).toFloat()
-            setColor(bgColor)
-            setStroke(dp(1), Color.argb(90, 255, 255, 255))
-        }
-        btn.background = shape
-        btn.setTextColor(textColor)
+    private fun injectAdCleanAndAutoplay(view: WebView?) {
+        val cleanJs = """
+            (function() {
+                var ads = document.querySelectorAll('#html1, #button1, .ads, [id*="banner"], [class*="banner"]');
+                ads.forEach(function(el) { el.style.display = 'none'; el.remove(); });
+                
+                document.querySelectorAll('video').forEach(function(v) {
+                    v.muted = false;
+                    v.play().catch(function(){});
+                });
+                
+                var unmute = document.getElementById('unmute') || document.querySelector('.clappr-play-button');
+                if (unmute) { unmute.click(); }
+            })();
+        """.trimIndent()
+        view?.evaluateJavascript(cleanJs, null)
     }
-
-    private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
 
     // ======================================================================
-    // Reproducción
+    // Reproducción Unificada (Inline & Fullscreen)
     // ======================================================================
 
     private fun setupActions() {
@@ -475,6 +768,14 @@ class VideoPlaybackManager(
 
         btnDedicatedPlayPause.setOnClickListener { togglePlayPause() }
         btnDedicatedReload.setOnClickListener { reloadCurrent() }
+        btnDedicatedMute?.setOnClickListener { toggleMute() }
+        btnDedicatedSessions?.setOnClickListener { returnToDirectory() }
+
+        // Botones integrados del Muro de Pits
+        btnPitWallReload?.setOnClickListener { reloadCurrent() }
+        btnPitWallMute?.setOnClickListener { toggleMute() }
+        btnPitWallSessions?.setOnClickListener { returnToDirectory() }
+        btnPitWallFullscreenInline?.setOnClickListener { openDedicatedFullscreen() }
     }
 
     fun playStream(
@@ -504,31 +805,30 @@ class VideoPlaybackManager(
             playerView.visibility = View.GONE
             playerViewDedicated.visibility = View.GONE
 
+            llPitWallPlayerBar?.visibility = View.VISIBLE
+
+            // Asegurar que webVideoView esté en el contenedor correcto según el modo
+            ensureWebViewParent()
+
+            webVideoView.visibility = View.VISIBLE
+            val buffTitle = "Cargando señal: $currentPlayingSourceName"
             if (isDedicatedFullscreenActive) {
-                webVideoView.visibility = View.GONE
-                webVideoViewDedicated.visibility = View.VISIBLE
-                showDedicatedBuffering("Cargando señal: $currentPlayingSourceName", "Conectando...")
-                webVideoViewDedicated.stopLoading()
-                webVideoViewDedicated.loadUrl(url)
-                webVideoViewDedicated.requestFocus()
+                showDedicatedBuffering(buffTitle, "Conectando...")
             } else {
-                webVideoViewDedicated.visibility = View.GONE
-                webVideoView.visibility = View.VISIBLE
-                showPlayerBufferingState("Cargando señal: $currentPlayingSourceName", "Conectando...")
-                webVideoView.stopLoading()
-                webVideoView.loadUrl(url)
-                webVideoView.requestFocus()
+                showPlayerBufferingState(buffTitle, "Conectando...")
             }
+
+            webVideoView.stopLoading()
+            webVideoView.loadUrl(url)
+            webVideoView.requestFocus()
         } else {
             webVideoView.stopLoading()
             webVideoView.loadUrl("about:blank")
             webVideoView.visibility = View.GONE
 
-            webVideoViewDedicated.stopLoading()
-            webVideoViewDedicated.loadUrl("about:blank")
-            webVideoViewDedicated.visibility = View.GONE
-
             llDedicatedChannels?.visibility = View.GONE
+            llPitWallChannels?.visibility = View.GONE
+            llPitWallPlayerBar?.visibility = View.GONE
 
             if (isDedicatedFullscreenActive) {
                 playerView.visibility = View.GONE
@@ -554,7 +854,12 @@ class VideoPlaybackManager(
         }
     }
 
+    /**
+     * Preserva la sesión multimedia realizando reparenting dinámico de la única instancia
+     * de WebView hacia la superficie de pantalla completa dedicada.
+     */
     fun openDedicatedFullscreen() {
+        if (isDedicatedFullscreenActive) return
         isDedicatedFullscreenActive = true
         layoutDedicatedPlayback.visibility = View.VISIBLE
 
@@ -563,42 +868,143 @@ class VideoPlaybackManager(
 
         if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
             playerViewDedicated.visibility = View.GONE
-            webVideoViewDedicated.visibility = View.VISIBLE
-            webVideoView.visibility = View.GONE
-
-            val url = currentPlayingSourceUrl
-            if (url != null && webVideoViewDedicated.url != url) {
-                showDedicatedBuffering("Cargando señal: $currentPlayingSourceName", "Conectando...")
-                webVideoViewDedicated.loadUrl(url)
-            }
-            webVideoViewDedicated.requestFocus()
-        } else {
-            webVideoViewDedicated.visibility = View.GONE
-            playerViewDedicated.visibility = View.VISIBLE
             playerView.visibility = View.GONE
+
+            // Reparenting limpio sin recrear ni reiniciar el WebView
+            if (webVideoView.parent != frameDedicatedSurface) {
+                (webVideoView.parent as? ViewGroup)?.removeView(webVideoView)
+                frameDedicatedSurface.addView(
+                    webVideoView,
+                    0,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+            webVideoView.visibility = View.VISIBLE
+            webVideoView.requestFocus()
+        } else {
+            playerView.visibility = View.GONE
+            playerViewDedicated.visibility = View.VISIBLE
+            playerViewDedicated.player = exoPlayer
             playerViewDedicated.requestFocus()
         }
+        highlightActiveChannel(activeChannelIndex)
     }
 
+    /**
+     * Devuelve la instancia de WebView a la superficie integrada del Muro de Pits,
+     * manteniendo intacto el estado de reproducción sin recargas.
+     */
     fun closeDedicatedFullscreen() {
+        if (!isDedicatedFullscreenActive) return
         isDedicatedFullscreenActive = false
         layoutDedicatedPlayback.visibility = View.GONE
 
         if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
-            webVideoViewDedicated.stopLoading()
-            webVideoViewDedicated.visibility = View.GONE
+            playerViewDedicated.visibility = View.GONE
+
+            if (webVideoView.parent != framePitWallSurface) {
+                (webVideoView.parent as? ViewGroup)?.removeView(webVideoView)
+                val targetIndex = if (framePitWallSurface.childCount > 1) 1 else 0
+                framePitWallSurface.addView(
+                    webVideoView,
+                    targetIndex,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
             webVideoView.visibility = View.VISIBLE
             webVideoView.requestFocus()
         } else {
             playerViewDedicated.visibility = View.GONE
             playerView.visibility = View.VISIBLE
+            playerView.player = exoPlayer
             playerView.requestFocus()
+        }
+        highlightActiveChannel(activeChannelIndex)
+    }
+
+    private fun ensureWebViewParent() {
+        val targetContainer = if (isDedicatedFullscreenActive) frameDedicatedSurface else framePitWallSurface
+        if (webVideoView.parent != targetContainer) {
+            (webVideoView.parent as? ViewGroup)?.removeView(webVideoView)
+            val insertIndex = if (isDedicatedFullscreenActive) 0 else (if (framePitWallSurface.childCount > 1) 1 else 0)
+            targetContainer.addView(
+                webVideoView,
+                insertIndex,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+    }
+
+    // ======================================================================
+    // Controles de Reproductor (Audio, Recarga, Sesiones, Pausa)
+    // ======================================================================
+
+    fun toggleMute() {
+        isMuted = !isMuted
+        val muteLabel = if (isMuted) "🔇 Silenciado" else "🔊 Audio"
+
+        btnDedicatedMute?.text = muteLabel
+        btnPitWallMute?.text = muteLabel
+
+        if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
+            val muteJs = """
+                (function() {
+                    var targetMute = ${isMuted};
+                    document.querySelectorAll('video').forEach(function(v) {
+                        v.muted = targetMute;
+                    });
+                    var unmuteBtn = document.getElementById('unmute');
+                    if (unmuteBtn && !targetMute) { unmuteBtn.click(); }
+                    return targetMute ? 'muted' : 'unmuted';
+                })();
+            """.trimIndent()
+            webVideoView.evaluateJavascript(muteJs, null)
+        } else {
+            exoPlayer?.volume = if (isMuted) 0f else 1f
+        }
+    }
+
+    fun reloadCurrent() {
+        if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
+            webVideoView.reload()
+        } else {
+            retryPlayback()
+        }
+    }
+
+    fun returnToDirectory() {
+        if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
+            currentMode = PageMode.DIRECTORY
+            discoveredChannels = emptyList()
+            llDedicatedChannels?.visibility = View.GONE
+            llPitWallChannels?.visibility = View.GONE
+            val dirUrl = currentPlayingSourceUrl ?: "https://futbolvivo.tv/"
+            webVideoView.loadUrl(dirUrl)
         }
     }
 
     fun togglePlayPause() {
         if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
-            retryPlayback()
+            val playPauseJs = """
+                (function() {
+                    var v = document.querySelector('video');
+                    if (v) {
+                        if (v.paused) { v.play(); return 'playing'; }
+                        else { v.pause(); return 'paused'; }
+                    }
+                    return 'no_video';
+                })();
+            """.trimIndent()
+            webVideoView.evaluateJavascript(playPauseJs, null)
         } else {
             val player = exoPlayer ?: return
             if (player.isPlaying) {
@@ -609,40 +1015,49 @@ class VideoPlaybackManager(
         }
     }
 
-    fun reloadCurrent() {
-        if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
-            if (isDedicatedFullscreenActive) {
-                webVideoViewDedicated.reload()
-            } else {
-                webVideoView.reload()
-            }
-        } else {
-            retryPlayback()
-        }
-    }
-
     fun retryPlayback() {
         val url = currentPlayingSourceUrl ?: return
         playStream(url, currentPlayingSourceType, currentPlayingSourceName, isDedicatedFullscreenActive)
     }
 
     fun handleBackPressed(): Boolean {
+        // 1. Salir de pantalla completa HTML5 si está activa
+        if (customView != null) {
+            hideCustomViewInternal()
+            return true
+        }
+
+        // 2. Cerrar ventanas emergentes si existen
+        if (activePopupWebViews.isNotEmpty()) {
+            closeAllPopups()
+            return true
+        }
+
+        // 3. Si está en pantalla completa dedicada, volver a la vista integrada de Muro de Pits
         if (isDedicatedFullscreenActive) {
-            if ((currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") && webVideoViewDedicated.canGoBack()) {
-                webVideoViewDedicated.goBack()
-                return true
-            }
             closeDedicatedFullscreen()
             onExitDedicatedFullscreen()
             return true
         }
 
-        if ((currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") && webVideoView.visibility == View.VISIBLE && webVideoView.canGoBack()) {
+        // 4. Si estamos en la página del evento, volver al directorio de sesiones
+        if (currentMode == PageMode.EVENT_PLAYER) {
+            returnToDirectory()
+            return true
+        }
+
+        // 5. Historial del WebView
+        if (webVideoView.visibility == View.VISIBLE && webVideoView.canGoBack()) {
             webVideoView.goBack()
             return true
         }
 
         return false
+    }
+
+    private fun dismissOverlays() {
+        layoutDedicatedStatusOverlay.visibility = View.GONE
+        layoutPlayerStatusOverlay.visibility = View.GONE
     }
 
     fun showPlayerBufferingState(title: String, message: String? = null) {
@@ -680,7 +1095,6 @@ class VideoPlaybackManager(
     fun pause() {
         exoPlayer?.pause()
         webVideoView.onPause()
-        webVideoViewDedicated.onPause()
     }
 
     fun stop() {
@@ -689,15 +1103,12 @@ class VideoPlaybackManager(
         webVideoView.loadUrl("about:blank")
         webVideoView.visibility = View.GONE
 
-        webVideoViewDedicated.stopLoading()
-        webVideoViewDedicated.loadUrl("about:blank")
-        webVideoViewDedicated.visibility = View.GONE
-
         playerView.visibility = View.GONE
         playerViewDedicated.visibility = View.GONE
         layoutPlayerStatusOverlay.visibility = View.GONE
         layoutDedicatedStatusOverlay.visibility = View.GONE
         layoutDedicatedPlayback.visibility = View.GONE
+        llPitWallPlayerBar?.visibility = View.GONE
         isDedicatedFullscreenActive = false
 
         currentPlayingSourceUrl = null
@@ -707,16 +1118,61 @@ class VideoPlaybackManager(
 
     fun isPlaying(): Boolean {
         return if (currentPlayingSourceType == "WEB" || currentPlayingSourceType == "WEBVIEW" || currentPlayingSourceType == "HTML") {
-            webVideoView.visibility == View.VISIBLE || webVideoViewDedicated.visibility == View.VISIBLE
+            webVideoView.visibility == View.VISIBLE
         } else {
             exoPlayer?.isPlaying == true
         }
     }
 
     fun release() {
+        closeAllPopups()
         exoPlayer?.release()
         exoPlayer = null
+        webVideoView.stopLoading()
+        webVideoView.clearHistory()
         webVideoView.destroy()
-        webVideoViewDedicated.destroy()
     }
+
+    // ======================================================================
+    // Helpers de estilo y sanitización
+    // ======================================================================
+
+    private fun sanitizeUrl(rawUrl: String?): String {
+        if (rawUrl.isNullOrBlank()) return ""
+        return try {
+            val uri = Uri.parse(rawUrl)
+            val scheme = uri.scheme ?: "https"
+            val host = uri.host ?: ""
+            val path = uri.path ?: ""
+            "$scheme://$host$path"
+        } catch (_: Exception) {
+            rawUrl.substringBefore('?')
+        }
+    }
+
+    private fun stylePill(btn: Button, bgColor: Int, textColor: Int) {
+        val normalState = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(6).toFloat()
+            setColor(bgColor)
+            setStroke(dp(1), Color.argb(90, 255, 255, 255))
+        }
+
+        val focusedState = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(6).toFloat()
+            setColor(Color.rgb(0, 160, 255))
+            setStroke(dp(2), Color.WHITE)
+        }
+
+        val stateList = StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), focusedState)
+            addState(intArrayOf(), normalState)
+        }
+
+        btn.background = stateList
+        btn.setTextColor(textColor)
+    }
+
+    private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
 }

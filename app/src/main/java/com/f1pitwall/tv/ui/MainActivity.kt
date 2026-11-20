@@ -1,7 +1,5 @@
 package com.f1pitwall.tv.ui
 
-import android.content.Intent
-
 import android.graphics.Color
 import android.os.Bundle
 import android.view.KeyEvent
@@ -159,6 +157,8 @@ class MainActivity : AppCompatActivity() {
         // 1. Video Playback Manager (Inline Pit Wall + Dedicated Fullscreen)
         videoPlaybackManager = VideoPlaybackManager(
             context = this,
+            framePitWallSurface = findViewById(R.id.framePitWallSurface),
+            frameDedicatedSurface = findViewById(R.id.frameDedicatedSurface),
             // Inline Pit Wall Controls
             playerView = findViewById(R.id.playerView),
             webVideoView = findViewById(R.id.webVideoView),
@@ -172,13 +172,14 @@ class MainActivity : AppCompatActivity() {
             // Dedicated Fullscreen Controls
             layoutDedicatedPlayback = findViewById(R.id.layoutDedicatedPlayback),
             playerViewDedicated = findViewById(R.id.playerViewDedicated),
-            webVideoViewDedicated = findViewById(R.id.webVideoViewDedicated),
             layoutDedicatedTopBar = findViewById(R.id.layoutDedicatedTopBar),
             btnDedicatedBack = findViewById(R.id.btnDedicatedBack),
             tvDedicatedSourceName = findViewById(R.id.tvDedicatedSourceName),
             tvDedicatedSourceTypeBadge = findViewById(R.id.tvDedicatedSourceTypeBadge),
             btnDedicatedPlayPause = findViewById(R.id.btnDedicatedPlayPause),
             btnDedicatedReload = findViewById(R.id.btnDedicatedReload),
+            btnDedicatedMute = findViewById(R.id.btnDedicatedMute),
+            btnDedicatedSessions = findViewById(R.id.btnDedicatedSessions),
             layoutDedicatedStatusOverlay = findViewById(R.id.layoutDedicatedStatusOverlay),
             pbDedicatedLoading = findViewById(R.id.pbDedicatedLoading),
             tvDedicatedStatusTitle = findViewById(R.id.tvDedicatedStatusTitle),
@@ -187,6 +188,15 @@ class MainActivity : AppCompatActivity() {
             btnDedicatedRetry = findViewById(R.id.btnDedicatedRetry),
             btnDedicatedGoSettings = findViewById(R.id.btnDedicatedGoSettings),
             llDedicatedChannels = findViewById(R.id.llDedicatedChannels),
+            // Inline Pit Wall Active Controls Bar
+            llPitWallPlayerBar = findViewById(R.id.llPitWallPlayerBar),
+            llPitWallChannels = findViewById(R.id.llPitWallChannels),
+            btnPitWallMute = findViewById(R.id.btnPitWallMute),
+            btnPitWallReload = findViewById(R.id.btnPitWallReload),
+            btnPitWallSessions = findViewById(R.id.btnPitWallSessions),
+            btnPitWallFullscreenInline = findViewById(R.id.btnPitWallFullscreenInline),
+            layoutCustomViewContainer = findViewById(R.id.layoutCustomViewContainer),
+            layoutPopupContainer = findViewById(R.id.layoutPopupContainer),
             onPlaybackStarted = {
                 radioManager.pause()
             },
@@ -273,16 +283,8 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onStartPlayback = { url, type, name ->
-                if (type.uppercase() == "WEB") {
-                    val intent = Intent(this@MainActivity, PitWallTvActivity::class.java).apply {
-                        putExtra("preview_url", url)
-                        putExtra("preview_name", name)
-                    }
-                    startActivity(intent)
-                } else {
-                    navigateToPitWallForPlayback()
-                    videoPlaybackManager.playStream(url, type, name, startInFullscreen = true)
-                }
+                navigateToPitWallForPlayback()
+                videoPlaybackManager.playStream(url, type, name, startInFullscreen = false)
             },
             onBeforeEditing = {
                 pushCurrentScreenToBackstack()
@@ -548,16 +550,8 @@ class MainActivity : AppCompatActivity() {
         btnStandbyOpenStream.setOnClickListener {
             val active = preferencesManager.getSelectedSource()
             if (active != null) {
-                if (active.type.uppercase() == "WEB") {
-                    val intent = Intent(this@MainActivity, PitWallTvActivity::class.java).apply {
-                        putExtra("preview_url", active.streamUrl)
-                        putExtra("preview_name", active.name)
-                    }
-                    startActivity(intent)
-                } else {
-                    navigateToPitWallForPlayback()
-                    videoPlaybackManager.playStream(active.streamUrl, active.type, active.name, startInFullscreen = true)
-                }
+                navigateToPitWallForPlayback()
+                videoPlaybackManager.playStream(active.streamUrl, active.type, active.name, startInFullscreen = false)
             } else {
                 Toast.makeText(this@MainActivity, "Configura una señal en Ajustes para ver la transmisión", Toast.LENGTH_SHORT).show()
                 btnTabSettings.performClick()
@@ -680,7 +674,7 @@ class MainActivity : AppCompatActivity() {
                             btnLiveSessionAction.text = "⚡ Ver ${activeUpcoming.name}"
                             btnLiveSessionAction.setOnClickListener {
                                 navigateToPitWallForPlayback()
-                                videoPlaybackManager.playStream(activeUpcoming.streamUrl, activeUpcoming.type, activeUpcoming.name, startInFullscreen = true)
+                                videoPlaybackManager.playStream(activeUpcoming.streamUrl, activeUpcoming.type, activeUpcoming.name, startInFullscreen = false)
                             }
                         } else {
                             btnLiveSessionAction.text = "Configurar Video"
@@ -733,7 +727,7 @@ class MainActivity : AppCompatActivity() {
                             btnLiveSessionAction.text = "⚡ Ver ${activeCompleted.name}"
                             btnLiveSessionAction.setOnClickListener {
                                 navigateToPitWallForPlayback()
-                                videoPlaybackManager.playStream(activeCompleted.streamUrl, activeCompleted.type, activeCompleted.name, startInFullscreen = true)
+                                videoPlaybackManager.playStream(activeCompleted.streamUrl, activeCompleted.type, activeCompleted.name, startInFullscreen = false)
                             }
                         } else {
                             btnLiveSessionAction.text = "Configurar Video"

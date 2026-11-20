@@ -23,11 +23,6 @@
         android:theme="@style/Theme.F1PitWallTV"
         android:networkSecurityConfig="@xml/network_security_config">
         <activity
-            android:name=".ui.PitWallTvActivity"
-            android:exported="true"
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
-        <activity
             android:name=".ui.MainActivity"
             android:exported="true"
             android:screenOrientation="landscape"

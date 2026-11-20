@@ -296,6 +296,86 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
+                <!-- Pit Wall Active Playback Control Bar (Channels, Audio, Reload, Sessions, Fullscreen) -->
+                <LinearLayout
+                    android:id="@+id/llPitWallPlayerBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"
+                    android:layout_marginBottom="4dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <!-- Dynamic Channels Container (Live 1, Live 2...) -->
+                    <LinearLayout
+                        android:id="@+id/llPitWallChannels"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <Button
+                        android:id="@+id/btnPitWallMute"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="🔊 Audio"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnPitWallReload"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="🔄 Recargar"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnPitWallSessions"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="📋 Sesiones"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnPitWallFullscreenInline"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/btn_tab_selector"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="10dp"
+                        android:text="⛶ Pantalla Completa"
+                        android:textColor="@color/text_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
                 <!-- Pit Wall Video Screen: Player + Standby Container -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
@@ -306,6 +386,7 @@
                     app:cardElevation="0dp">
 
                     <FrameLayout
+                        android:id="@+id/framePitWallSurface"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent">
 
@@ -1648,14 +1729,6 @@
                     android:visibility="gone"
                     app:show_buffering="always"
                     app:use_controller="true" />
-
-                <WebView
-                    android:id="@+id/webVideoViewDedicated"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:visibility="gone" />
             </FrameLayout>
 
             <!-- Dedicated Top Bar Controls -->
@@ -1734,6 +1807,20 @@
                     android:textStyle="bold" />
 
                 <Button
+                    android:id="@+id/btnDedicatedMute"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="12dp"
+                    android:text="🔊 Audio"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
                     android:id="@+id/btnDedicatedReload"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
@@ -1743,6 +1830,20 @@
                     android:focusable="true"
                     android:paddingHorizontal="14dp"
                     android:text="🔄 Recargar"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnDedicatedSessions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/btn_tab_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="12dp"
+                    android:text="📋 Sesiones"
                     android:textColor="#FFFFFF"
                     android:textSize="11sp"
                     android:textStyle="bold" />
@@ -1824,5 +1925,20 @@
                 </LinearLayout>
             </LinearLayout>
         </FrameLayout>
+
+        <!-- HTML5 Fullscreen container -->
+        <FrameLayout
+            android:id="@+id/layoutCustomViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#000000"
+            android:visibility="gone" />
+
+        <!-- Invisible container for popup WebView management -->
+        <FrameLayout
+            android:id="@+id/layoutPopupContainer"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
     </FrameLayout>
 </LinearLayout>
