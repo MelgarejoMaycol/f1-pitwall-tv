@@ -18,6 +18,9 @@ import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
 import com.f1pitwall.tv.ui.home.HomeViewManager
 import com.f1pitwall.tv.ui.pitwall.PitWallViewManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -75,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPresetDemo2: Button
     private lateinit var btnReloadGitSources: Button
 
+    private var sessionRefreshJob: Job? = null
     private var selectedMeeting: Meeting? = null
     private var selectedYear: Int = AppConfig.DEFAULT_SEASON // 2026
 
@@ -362,66 +366,67 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadInitialData() {
-        loadLiveSessionData()
         updateYearButtonHighlights()
     }
 
-    private fun loadLiveSessionData() {
-        lifecycleScope.launch {
-            try {
-                val session = repository.getCurrentOrNextSession(AppConfig.DEFAULT_SEASON)
-                if (session == null) {
-                    pitWallViewManager.onScheduleUnavailable()
-                    pitWallViewManager.leaderboardAdapter.updateData(emptyList())
-                    tvRaceFlag.text = "🏁 CALENDARIO NO DISPONIBLE"
-                    tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
-                    tvWeather.text = "⛅ Pista: -- | Aire: --"
-                    return@launch
-                }
-
-                val now = Date()
-                val start = TimeUtils.parseUtc(session.dateStart)
-                val isLive = TimeUtils.isCurrentlyLive(session.dateStart, session.dateEnd)
-                val isUpcoming = start?.after(now) == true
-                val venue = session.circuitShortName ?: session.countryName ?: "F1"
-                val title = "$venue • ${session.sessionName ?: "Sesión"}"
-                pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, isUpcoming, title)
-
-                if (!isLive) {
-                    pitWallViewManager.leaderboardAdapter.updateData(emptyList())
-                    tvRaceFlag.text = if (isUpcoming) "🏁 PRÓXIMA SESIÓN" else "🏁 ÚLTIMA SESIÓN"
-                    tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
-                    tvWeather.text = "⛅ Pista: -- | Aire: --"
-                    return@launch
-                }
-
-                val weather = api.getLatestWeather(session.sessionKey)
-                weather?.let { w ->
-                    tvWeather.text = "⛅ Pista: ${w.trackTemp ?: 0}°C | Aire: ${w.airTemp ?: 0}°C"
-                }
-
-                val raceControl = api.getLatestRaceControl(session.sessionKey)
-                raceControl?.let { rc ->
-                    tvRaceFlag.text = "🏁 ${rc.flag ?: "ESTADO"}: ${rc.message ?: "NORMAL"}"
-                    when {
-                        rc.flag.equals("YELLOW", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EAB308"))
-                        rc.flag.equals("RED", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EF4444"))
-                        else -> tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
-                    }
-                }
-
-                val drivers = api.getDrivers(session.sessionKey)
-                val positions = api.getLatestPositions(session.sessionKey)
-                val intervals = api.getLatestIntervals(session.sessionKey)
-                val laps = api.getLatestLaps(session.sessionKey)
-                val stints = api.getStints(session.sessionKey)
-
-                val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
-                pitWallViewManager.leaderboardAdapter.updateData(items)
-            } catch (e: Exception) {
-                e.printStackTrace()
+    private suspend fun loadLiveSessionData() {
+        try {
+            val session = repository.getCurrentOrNextSession(AppConfig.DEFAULT_SEASON)
+            if (session == null) {
                 pitWallViewManager.onScheduleUnavailable()
+                pitWallViewManager.leaderboardAdapter.updateData(emptyList())
+                tvRaceFlag.text = "🏁 CALENDARIO NO DISPONIBLE"
+                tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
+                tvWeather.text = "⛅ Pista: -- | Aire: --"
+                return
             }
+
+            val now = Date()
+            val start = TimeUtils.parseUtc(session.dateStart)
+            val isLive = TimeUtils.isCurrentlyLive(session.dateStart, session.dateEnd)
+            val isUpcoming = start?.after(now) == true
+            val venue = session.circuitShortName ?: session.countryName ?: "F1"
+            val title = "$venue • ${session.sessionName ?: "Sesión"}"
+            pitWallViewManager.onSessionUpdated(session.sessionKey, isLive, isUpcoming, title)
+
+            if (!isLive) {
+                pitWallViewManager.leaderboardAdapter.updateData(emptyList())
+                tvRaceFlag.text = if (isUpcoming) "🏁 PRÓXIMA SESIÓN" else "🏁 ÚLTIMA SESIÓN"
+                tvRaceFlag.setTextColor(Color.parseColor("#9CA3AF"))
+                tvWeather.text = "⛅ Pista: -- | Aire: --"
+                return
+            }
+
+            tvRaceFlag.text = "🏁 SESIÓN ACTIVA"
+            tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
+            tvWeather.text = "⛅ Pista: -- | Aire: --"
+
+            val weather = api.getLatestWeather(session.sessionKey)
+            weather?.let { w ->
+                tvWeather.text = "⛅ Pista: ${w.trackTemp ?: 0}°C | Aire: ${w.airTemp ?: 0}°C"
+            }
+
+            val raceControl = api.getLatestRaceControl(session.sessionKey)
+            raceControl?.let { rc ->
+                tvRaceFlag.text = "🏁 ${rc.flag ?: "ESTADO"}: ${rc.message ?: "NORMAL"}"
+                when {
+                    rc.flag.equals("YELLOW", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EAB308"))
+                    rc.flag.equals("RED", true) -> tvRaceFlag.setTextColor(Color.parseColor("#EF4444"))
+                    else -> tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
+                }
+            }
+
+            val drivers = api.getDrivers(session.sessionKey)
+            val positions = api.getLatestPositions(session.sessionKey)
+            val intervals = api.getLatestIntervals(session.sessionKey)
+            val laps = api.getLatestLaps(session.sessionKey)
+            val stints = api.getStints(session.sessionKey)
+
+            val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
+            pitWallViewManager.leaderboardAdapter.updateData(items)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            pitWallViewManager.onScheduleUnavailable()
         }
     }
 
@@ -560,9 +565,18 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         pitWallViewManager.onResume()
+        sessionRefreshJob?.cancel()
+        sessionRefreshJob = lifecycleScope.launch {
+            while (isActive) {
+                loadLiveSessionData()
+                delay(60_000L)
+            }
+        }
     }
 
     override fun onPause() {
+        sessionRefreshJob?.cancel()
+        sessionRefreshJob = null
         super.onPause()
         pitWallViewManager.onPause()
     }
