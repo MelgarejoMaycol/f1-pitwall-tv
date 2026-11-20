@@ -130,6 +130,8 @@ class VideoPlaybackManager(
     private var channelButtonsDedicated: MutableList<Button> = mutableListOf()
     private var channelButtonsInline: MutableList<Button> = mutableListOf()
     private var currentF1Event: DiscoveredEvent? = null
+    // Avoid repeatedly switching channels when the current event's primary edge is rate-limited.
+    private var autoFallbackTriggered: Boolean = false
 
     // Gestión de ventanas emergentes secundarias (onCreateWindow)
     private val activePopupWebViews: MutableList<WebView> = mutableListOf()
@@ -359,22 +361,32 @@ class VideoPlaybackManager(
                     Log.w(TAG, "HTTP $status en $sanitizedUrl (isMain=$isMain)")
 
                     if (status == 429) {
+                        val failedHost = request?.url?.host.orEmpty()
+                        val isKnownRateLimitedEdge = failedHost.contains("kora", ignoreCase = true)
                         mainHandler.post {
-                            val limitMsg = "⚠️ Servidor temporalmente limitado (HTTP 429). Selecciona Live 2 arriba."
-                            if (isDedicatedFullscreenActive) {
-                                showDedicatedBuffering("Límite de Servidor (429)", limitMsg)
-                            } else {
-                                showPlayerBufferingState("Límite de Servidor (429)", limitMsg)
-                            }
-                            mainHandler.postDelayed({ dismissOverlays() }, 3500)
-
-                            // Sugerir y enfocar automáticamente Live 2 si estamos en Live 1 (índice 0)
-                            if (activeChannelIndex == 0 && discoveredChannels.size > 1) {
+                            val canFallback = !isMain && isKnownRateLimitedEdge &&
+                                activeChannelIndex == 0 && discoveredChannels.size > 1 && !autoFallbackTriggered
+                            if (canFallback) {
+                                autoFallbackTriggered = true
+                                val limitMsg = "Live 1 está limitado (HTTP 429). Cambiando automáticamente a Live 2…"
                                 if (isDedicatedFullscreenActive) {
+                                    showDedicatedBuffering("Cambiando de servidor", limitMsg)
                                     channelButtonsDedicated.getOrNull(1)?.requestFocus()
                                 } else {
+                                    showPlayerBufferingState("Cambiando de servidor", limitMsg)
                                     channelButtonsInline.getOrNull(1)?.requestFocus()
                                 }
+                                Log.w(TAG, "HTTP 429 en edge $failedHost; fallback automático a Live 2")
+                                switchToDiscoveredChannel(1)
+                                mainHandler.postDelayed({ dismissOverlays() }, 1800)
+                            } else {
+                                val limitMsg = "El servidor está temporalmente limitado (HTTP 429)."
+                                if (isDedicatedFullscreenActive) {
+                                    showDedicatedBuffering("Servidor temporalmente limitado", limitMsg)
+                                } else {
+                                    showPlayerBufferingState("Servidor temporalmente limitado", limitMsg)
+                                }
+                                mainHandler.postDelayed({ dismissOverlays() }, 2500)
                             }
                         }
                     } else if (isMain && status >= 400) {
@@ -629,6 +641,10 @@ class VideoPlaybackManager(
         if (events.isNotEmpty()) {
             val target = events.first()
             currentF1Event = target
+            discoveredChannels = emptyList()
+            autoFallbackTriggered = false
+            channelButtonsInline.clear()
+            channelButtonsDedicated.clear()
             tvDedicatedSourceName.text = target.title
             Log.i(TAG, "Navegando a evento F1: ${target.title} -> ${target.url}")
             currentMode = PageMode.EVENT_PLAYER
@@ -645,8 +661,24 @@ class VideoPlaybackManager(
         }
         if (channels.isNotEmpty()) {
             buildChannelButtons(channels)
-            activeChannelIndex = 0
-            highlightActiveChannel(0)
+            // Live 1 previously returned HTTP 429 on this provider. Prefer Live 2
+            // when the event actually advertises it; otherwise use the only available channel.
+            val live2Index = channels.indexOfFirst { it.name.contains("Live 2", ignoreCase = true) }
+            val preferredIndex = when {
+                live2Index >= 0 -> live2Index
+                channels.size > 1 -> 1
+                else -> 0
+            }
+            activeChannelIndex = preferredIndex
+            highlightActiveChannel(preferredIndex)
+            Log.i(TAG, "Canal inicial seleccionado: ${channels[preferredIndex].name} (index=$preferredIndex)")
+            if (preferredIndex != 0) {
+                mainHandler.postDelayed({
+                    if (currentMode == PageMode.EVENT_PLAYER && discoveredChannels.size > preferredIndex) {
+                        switchToDiscoveredChannel(preferredIndex)
+                    }
+                }, 350)
+            }
         }
     }
 
@@ -1100,6 +1132,12 @@ class VideoPlaybackManager(
     fun pause() {
         exoPlayer?.pause()
         webVideoView.onPause()
+    }
+
+    /** Resume WebView timers and media after MainActivity returns to the foreground. */
+    fun resume() {
+        webVideoView.onResume()
+        WebView.resumeTimers()
     }
 
     fun stop() {
