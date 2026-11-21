@@ -6,6 +6,7 @@ import com.f1pitwall.tv.data.model.*
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.JolpicaApiClient
 import com.f1pitwall.tv.network.OpenF1ApiClient
+import com.f1pitwall.tv.network.OpenF1AccessStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
@@ -275,6 +276,8 @@ class F1Repository(
             null
         }
     }
+
+    fun getOpenF1AccessStatus(): OpenF1AccessStatus = openF1Api.getAccessStatus()
 
     /**
      * Consulta la telemetría en tiempo real o histórica para un piloto específico.

@@ -70,6 +70,12 @@ Para añadir o modificar enlaces de transmisión desde tu computador:
 
 ---
 
+## 📡 Telemetría en vivo de OpenF1
+
+Consulta los requisitos de autenticación, los límites por tipo de sesión y el diagnóstico de errores en [docs/OPENF1_LIVE_ACCESS.md](docs/OPENF1_LIVE_ACCESS.md).
+
+---
+
 ## 📦 Compilación e Instalación en Smart TV
 
 ```bash
