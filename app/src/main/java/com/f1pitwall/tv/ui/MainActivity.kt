@@ -776,7 +776,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         val message = when (status) {
             OpenF1AccessStatus.AUTHENTICATION_REQUIRED ->
-                "🔒 OPENF1 LIVE: REQUIERE SUSCRIPCIÓN Y AUTENTICACIÓN"
+                "🔒 OPENF1 LIVE: ACCESO REQUERIDO"
             OpenF1AccessStatus.RATE_LIMITED ->
                 "⏳ OPENF1: LÍMITE DE SOLICITUDES ALCANZADO"
             OpenF1AccessStatus.SERVICE_UNAVAILABLE ->
@@ -803,15 +803,15 @@ class MainActivity : AppCompatActivity() {
         )
         tvWeather.text = when (status) {
             OpenF1AccessStatus.AUTHENTICATION_REQUIRED ->
-                "Los datos en vivo requieren un plan Live y un token Bearer válido."
+                "Plan Live + token Bearer"
             OpenF1AccessStatus.RATE_LIMITED ->
-                "OpenF1 limitó temporalmente las consultas. Se reintentará automáticamente."
+                "OpenF1: límite de solicitudes"
             OpenF1AccessStatus.SERVICE_UNAVAILABLE ->
-                "OpenF1 no está respondiendo. Se reintentará automáticamente."
+                "OpenF1: servicio no disponible"
             OpenF1AccessStatus.NETWORK_ERROR ->
-                "Comprueba la conexión de red del televisor."
+                "Sin conexión con OpenF1"
             OpenF1AccessStatus.REQUEST_FAILED ->
-                "OpenF1 rechazó una consulta. Revisa el acceso de la sesión."
+                "OpenF1: solicitud rechazada"
             else ->
                 "Todavía no se reciben posiciones o vueltas de esta sesión."
         }
