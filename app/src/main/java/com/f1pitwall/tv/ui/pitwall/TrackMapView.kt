@@ -76,6 +76,8 @@ class TrackMapView @JvmOverloads constructor(
     private val tempStartFinishPoint = PointF()
     private val tempAnnPoint = PointF()
     var selectedDriverNumber: Int? = null
+    var leaderDriverNumber: Int? = null
+    var selectedRadioDriverNumber: Int? = null
     var circuitName: String = "Las Vegas"
     private var turnAnnotations: List<CircuitOutlinesCatalog.CircuitTurnAnnotation> = emptyList()
     private val tempRectF = RectF()
@@ -523,27 +525,37 @@ class TrackMapView @JvmOverloads constructor(
                 }
                 markerFillPaint.color = color
 
-                val isSelected = driver.driverNumber == selectedDriverNumber
-                if (isSelected) {
+                val isLeader = (driver.driverNumber == leaderDriverNumber)
+                val isRadioSelected = (selectedRadioDriverNumber != null && driver.driverNumber == selectedRadioDriverNumber) || (driver.driverNumber == selectedDriverNumber)
+
+                if (isRadioSelected) {
                     canvas.drawCircle(ptX, ptY, 22f, highlightRingPaint)
                 }
 
-                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerFillPaint)
-                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerStrokePaint)
+                canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerFillPaint)
+                canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerStrokePaint)
 
-                val label = if (isSelected) "★ ${driver.acronym}" else driver.acronym
-                val currentTextPaint = if (isSelected) selectedTextPaint else textPaint
-                val currentBgPaint = if (isSelected) selectedLabelBgPaint else labelBgPaint
-                val textWidth = currentTextPaint.measureText(label)
+                // SOLICITUD: solo mostrar el nombre del líder y del seleccionado en la radio
+                if (isLeader || isRadioSelected) {
+                    val prefix = when {
+                        isLeader && isRadioSelected -> "👑📻 "
+                        isLeader -> "P1 "
+                        else -> "📻 "
+                    }
+                    val label = "$prefix${driver.acronym}"
+                    val currentTextPaint = if (isRadioSelected) selectedTextPaint else textPaint
+                    val currentBgPaint = if (isRadioSelected) selectedLabelBgPaint else labelBgPaint
+                    val textWidth = currentTextPaint.measureText(label)
 
-                tempRectF.set(
-                    ptX - textWidth / 2f - 7f,
-                    ptY - 38f,
-                    ptX + textWidth / 2f + 7f,
-                    ptY - 15f
-                )
-                canvas.drawRoundRect(tempRectF, 4f, 4f, currentBgPaint)
-                canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
+                    tempRectF.set(
+                        ptX - textWidth / 2f - 7f,
+                        ptY - 38f,
+                        ptX + textWidth / 2f + 7f,
+                        ptY - 15f
+                    )
+                    canvas.drawRoundRect(tempRectF, 4f, 4f, currentBgPaint)
+                    canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
+                }
             }
 
             if (isShown && visibility == View.VISIBLE) {
@@ -588,27 +600,37 @@ class TrackMapView @JvmOverloads constructor(
                 }
                 markerFillPaint.color = color
 
-                val isSelected = driver.driverNumber == selectedDriverNumber
-                if (isSelected) {
+                val isLeader = (driver.driverNumber == leaderDriverNumber)
+                val isRadioSelected = (selectedRadioDriverNumber != null && driver.driverNumber == selectedRadioDriverNumber) || (driver.driverNumber == selectedDriverNumber)
+
+                if (isRadioSelected) {
                     canvas.drawCircle(ptX, ptY, 22f, highlightRingPaint)
                 }
 
-                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerFillPaint)
-                canvas.drawCircle(ptX, ptY, if (isSelected) 14f else 11f, markerStrokePaint)
+                canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerFillPaint)
+                canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerStrokePaint)
 
-                val label = if (isSelected) "★ ${driver.acronym}" else driver.acronym
-                val currentTextPaint = if (isSelected) selectedTextPaint else textPaint
-                val currentBgPaint = if (isSelected) selectedLabelBgPaint else labelBgPaint
-                val textWidth = currentTextPaint.measureText(label)
+                // SOLICITUD: solo mostrar el nombre del líder y del seleccionado en la radio
+                if (isLeader || isRadioSelected) {
+                    val prefix = when {
+                        isLeader && isRadioSelected -> "👑📻 "
+                        isLeader -> "P1 "
+                        else -> "📻 "
+                    }
+                    val label = "$prefix${driver.acronym}"
+                    val currentTextPaint = if (isRadioSelected) selectedTextPaint else textPaint
+                    val currentBgPaint = if (isRadioSelected) selectedLabelBgPaint else labelBgPaint
+                    val textWidth = currentTextPaint.measureText(label)
 
-                tempRectF.set(
-                    ptX - textWidth / 2f - 7f,
-                    ptY - 38f,
-                    ptX + textWidth / 2f + 7f,
-                    ptY - 15f
-                )
-                canvas.drawRoundRect(tempRectF, 4f, 4f, currentBgPaint)
-                canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
+                    tempRectF.set(
+                        ptX - textWidth / 2f - 7f,
+                        ptY - 38f,
+                        ptX + textWidth / 2f + 7f,
+                        ptY - 15f
+                    )
+                    canvas.drawRoundRect(tempRectF, 4f, 4f, currentBgPaint)
+                    canvas.drawText(label, ptX, ptY - 20f, currentTextPaint)
+                }
             }
 
             if (hasActiveMotion && isShown && visibility == View.VISIBLE) {

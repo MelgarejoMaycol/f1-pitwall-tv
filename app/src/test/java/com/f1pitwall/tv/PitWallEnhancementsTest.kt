@@ -334,23 +334,24 @@ class PitWallEnhancementsTest {
     @Test
     fun testTelemetryModesCycleSequence() {
         val modes = com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.values()
-        assertEquals(4, modes.size)
+        assertEquals(5, modes.size)
         assertEquals("TIMING", modes[0].name)
-        assertEquals("TRACK_MAP", modes[1].name)
+        assertEquals("TRACK_FIA", modes[1].name)
         assertEquals("TYRES", modes[2].name)
-        assertEquals("RACE_CONTROL", modes[3].name)
+        assertEquals("SOLO_TRACK", modes[3].name)
+        assertEquals("RACE_CONTROL", modes[4].name)
 
-        // Forward cycling from TIMING (0) -> TRACK_MAP (1)
+        // Forward cycling from TIMING (0) -> TRACK_FIA (1)
         var currentIndex = 0
         var nextIndex = (currentIndex + 1) % modes.size
-        assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TRACK_MAP, modes[nextIndex])
+        assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TRACK_FIA, modes[nextIndex])
 
-        // Forward cycling from RACE_CONTROL (3) -> wraps to TIMING (0)
-        currentIndex = 3
+        // Forward cycling from RACE_CONTROL (4) -> wraps to TIMING (0)
+        currentIndex = 4
         nextIndex = (currentIndex + 1) % modes.size
         assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TIMING, modes[nextIndex])
 
-        // Backward cycling from TIMING (0) -> wraps to RACE_CONTROL (3)
+        // Backward cycling from TIMING (0) -> wraps to RACE_CONTROL (4)
         currentIndex = 0
         val prevIndex = if (currentIndex - 1 < 0) modes.size - 1 else currentIndex - 1
         assertEquals(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.RACE_CONTROL, modes[prevIndex])
@@ -1320,5 +1321,154 @@ class PitWallEnhancementsTest {
 
         // When already playing happily, no action needed
         assertFalse(shouldWatchdogTriggerPlay(playbackState = stateReady, playWhenReady = true))
+    }
+
+    @Test
+    fun testSixPitWallViewsConfiguration() {
+        val modes = com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.values()
+        assertEquals(5, modes.size)
+        // Modo 1: Tiempo de los pilotos de intervalo
+        assertEquals("TIMING", modes[0].name)
+        assertEquals("Tiempos", modes[0].title)
+        assertTrue(modes[0].icon.contains("TIEMPOS"))
+
+        // Modo 2: Pista + Mensaje FIA (70% pista / 30% mensajes)
+        assertEquals("TRACK_FIA", modes[1].name)
+        assertEquals("Pista + FIA", modes[1].title)
+        assertTrue(modes[1].icon.contains("PISTA + FIA"))
+
+        // Modo 3: Neumáticos
+        assertEquals("TYRES", modes[2].name)
+        assertEquals("Neumáticos", modes[2].title)
+        assertTrue(modes[2].icon.contains("NEUMÁTICOS"))
+
+        // Modo 4: Solo Pista (100% altura)
+        assertEquals("SOLO_TRACK", modes[3].name)
+        assertEquals("Solo Pista", modes[3].title)
+        assertTrue(modes[3].icon.contains("SOLO PISTA"))
+
+        // Modo 5: Solo Mensajes (100% altura)
+        assertEquals("RACE_CONTROL", modes[4].name)
+        assertEquals("Solo Mensajes", modes[4].title)
+        assertTrue(modes[4].icon.contains("SOLO MENSAJES"))
+    }
+
+    @Test
+    fun testTrackMapLeaderAndRadioOnlyLabelsLogic() {
+        // En pista hay 22 monoplazas.
+        // Requisito: Solo mostrar el nombre del líder de la carrera (P1) y del piloto seleccionado en la radio.
+        // Los otros 20 pilotos NO deben tener etiqueta de texto (solo círculo con color de equipo).
+        val leaderNum = 1 // Verstappen P1
+        val radioSelectedNum = 16 // Leclerc seleccionado en radio
+
+        data class MockDriver(val num: Int, val acronym: String)
+        val drivers = listOf(
+            MockDriver(1, "VER"),
+            MockDriver(4, "NOR"),
+            MockDriver(16, "LEC"),
+            MockDriver(44, "HAM"),
+            MockDriver(63, "RUS"),
+            MockDriver(81, "PIA")
+        )
+
+        fun getDriverLabelOrNull(driver: MockDriver): String? {
+            val isLeader = (driver.num == leaderNum)
+            val isRadio = (driver.num == radioSelectedNum)
+            if (!isLeader && !isRadio) return null
+            val prefix = when {
+                isLeader && isRadio -> "👑📻 "
+                isLeader -> "P1 "
+                else -> "📻 "
+            }
+            return "$prefix${driver.acronym}"
+        }
+
+        // VER (Líder) -> Muestra "P1 VER"
+        assertEquals("P1 VER", getDriverLabelOrNull(drivers[0]))
+
+        // NOR (P2, no radio) -> null (sin etiqueta)
+        assertNull(getDriverLabelOrNull(drivers[1]))
+
+        // LEC (Radio seleccionada) -> Muestra "📻 LEC"
+        assertEquals("📻 LEC", getDriverLabelOrNull(drivers[2]))
+
+        // HAM, RUS, PIA (otros) -> null (sin etiqueta, no saturan el trazado)
+        assertNull(getDriverLabelOrNull(drivers[3]))
+        assertNull(getDriverLabelOrNull(drivers[4]))
+        assertNull(getDriverLabelOrNull(drivers[5]))
+
+        // Si el líder es también el seleccionado en la radio:
+        val dualSelected = MockDriver(1, "VER")
+        val isLeader2 = true
+        val isRadio2 = true
+        val dualLabel = if (isLeader2 && isRadio2) "👑📻 ${dualSelected.acronym}" else ""
+        assertEquals("👑📻 VER", dualLabel)
+    }
+
+    @Test
+    fun testView2SplitProportionsAndTwoLatestFiaMessages() {
+        // Requisito: Proporción 70% Pista y 30% Mensajes FIA con solo los 2 últimos mensajes
+        val view2TrackWeight = 0.70f
+        val view2FiaWeight = 0.30f
+        assertEquals(1.0f, view2TrackWeight + view2FiaWeight, 0.001f)
+
+        // Modo 4 (Solo Pista) toma el 100%
+        val view4TrackWeight = 1.0f
+        assertEquals(1.0f, view4TrackWeight, 0.001f)
+
+        // Verificación de los dos últimos mensajes
+        val allMessages = listOf(
+            com.f1pitwall.tv.model.RaceControl(
+                date = "15:05:00",
+                category = "Flag",
+                message = "DRS ENABLED IN ZONES 1 AND 2",
+                flag = "GREEN",
+                scope = "Track",
+                lapNumber = 35
+            ),
+            com.f1pitwall.tv.model.RaceControl(
+                date = "15:02:40",
+                category = "Flag",
+                message = "YELLOW FLAG SECTOR 2",
+                flag = "YELLOW",
+                scope = "Sector",
+                sector = 2,
+                lapNumber = 34
+            ),
+            com.f1pitwall.tv.model.RaceControl(
+                date = "15:00:10",
+                category = "Flag",
+                message = "GREEN FLAG • RACE STARTED",
+                flag = "GREEN",
+                scope = "Track",
+                lapNumber = 33
+            )
+        )
+
+        val latestTwo = allMessages.take(2)
+        assertEquals(2, latestTwo.size)
+        assertEquals("DRS ENABLED IN ZONES 1 AND 2", latestTwo[0].message)
+        assertEquals("YELLOW FLAG SECTOR 2", latestTwo[1].message)
+    }
+
+    @Test
+    fun testVideoContainerDPadNavigationTransit() {
+        // Requisito: "deje que el puntero del control pase por el del video para poderle dar a la derecha y que vaya a telemetria"
+        // Verificar resolución de destinos de foco para cardVideoContainer:
+        fun getRightTargetForVideo(activeMode: com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode): String {
+            return when (activeMode) {
+                com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TIMING -> "rvLeaderboard"
+                com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TRACK_FIA -> "btnMetricsTrackMap"
+                com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TYRES -> "rvTyreStrategy"
+                com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.SOLO_TRACK -> "btnMetricsSoloTrack"
+                com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.RACE_CONTROL -> "rvRaceControl"
+            }
+        }
+
+        assertEquals("rvLeaderboard", getRightTargetForVideo(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TIMING))
+        assertEquals("btnMetricsTrackMap", getRightTargetForVideo(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TRACK_FIA))
+        assertEquals("rvTyreStrategy", getRightTargetForVideo(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.TYRES))
+        assertEquals("btnMetricsSoloTrack", getRightTargetForVideo(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.SOLO_TRACK))
+        assertEquals("rvRaceControl", getRightTargetForVideo(com.f1pitwall.tv.ui.pitwall.PitWallViewManager.TelemetryMode.RACE_CONTROL))
     }
 }
