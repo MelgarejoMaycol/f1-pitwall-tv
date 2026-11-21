@@ -1181,10 +1181,6 @@ class PitWallViewManager(
                     Toast.makeText(context, "No se pudo reproducir la señal de video", Toast.LENGTH_LONG).show()
                     switchToStandby()
                 }
-            } else if (!isUserStoppedPlayback) {
-                    exoPlayer?.prepare()
-                    exoPlayer?.play()
-                }
             }
         })
 
