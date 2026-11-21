@@ -42,6 +42,7 @@ import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.FlxExtractor
 import com.f1pitwall.tv.network.FutbolLibreExtractor
 import com.f1pitwall.tv.network.FutbolVivoExtractor
+import com.f1pitwall.tv.network.OpenF1AccessStatus
 import com.f1pitwall.tv.ui.LeaderboardAdapter
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -2476,6 +2477,51 @@ class PitWallViewManager(
         }
     }
 
+    fun showOpenF1AccessStatus(status: OpenF1AccessStatus) {
+        if (isSimulationMode) return
+
+        val message = when (status) {
+            OpenF1AccessStatus.AUTHENTICATION_REQUIRED ->
+                "🔒 OPENF1 LIVE REQUIERE SUSCRIPCIÓN Y AUTENTICACIÓN"
+            OpenF1AccessStatus.RATE_LIMITED ->
+                "⏳ OPENF1 LIMITÓ LAS SOLICITUDES"
+            OpenF1AccessStatus.SERVICE_UNAVAILABLE ->
+                "⚠️ OPENF1 NO ESTÁ DISPONIBLE"
+            OpenF1AccessStatus.NETWORK_ERROR ->
+                "⚠️ SIN CONEXIÓN CON OPENF1"
+            OpenF1AccessStatus.REQUEST_FAILED ->
+                "⚠️ OPENF1 RECHAZÓ LA CONSULTA"
+            OpenF1AccessStatus.UNKNOWN, OpenF1AccessStatus.AVAILABLE -> return
+        }
+
+        tvSessionTitle.text = message
+        tvTrackMapGpsStatus?.apply {
+            text = message
+            setBackgroundColor(Color.parseColor("#7C2D12"))
+        }
+        tvTrackMapFollowedDriver?.text =
+            "La sesión está activa, pero OpenF1 no está entregando los datos solicitados"
+
+        tvRcMainFlagBanner?.apply {
+            text = message
+            setBackgroundColor(Color.parseColor("#7C2D12"))
+        }
+
+        if (isDriverTelemetryOpen) {
+            tvTelemetryDriverHeader.text = message
+            tvTelemetrySpeed.text = "--"
+            tvTelemetryGear.text = "--"
+            tvTelemetryRpm.text = "Comprueba el acceso Live de OpenF1"
+            pbTelemetryRpm.progress = 0
+            tvTelemetryThrottle.text = "Acelerador: --"
+            pbTelemetryThrottle.progress = 0
+            tvTelemetryBrake.text = "Freno: --"
+            pbTelemetryBrake.progress = 0
+            tvTelemetryDrs.text = "DRS --"
+            tvTelemetryLapTime.text = "Telemetría en vivo no autorizada"
+        }
+    }
+
     fun showTelemetryUnavailableUI() {
         val dateInfo = nextSessionFormattedDate ?: currentScheduleTitle
         tvTelemetryDriverHeader.text = "Telemetría no disponible • Sin sesión en vivo activa"
@@ -2582,12 +2628,19 @@ class PitWallViewManager(
                     tvTelemetryDrs.text = "DRS --"
                     tvTelemetryDrs.setBackgroundColor(Color.parseColor("#4B5563"))
                     if (lap == null) {
-                        val message = if (isUpcomingSession) {
-                            "La telemetría estará disponible cuando comience $currentScheduleTitle"
+                        val accessStatus = repository.getOpenF1AccessStatus()
+                        if (accessStatus != OpenF1AccessStatus.UNKNOWN &&
+                            accessStatus != OpenF1AccessStatus.AVAILABLE
+                        ) {
+                            showOpenF1AccessStatus(accessStatus)
                         } else {
-                            "OpenF1 todavía no ha publicado telemetría para esta sesión"
+                            val message = if (isUpcomingSession) {
+                                "La telemetría estará disponible cuando comience $currentScheduleTitle"
+                            } else {
+                                "OpenF1 todavía no ha publicado telemetría para esta sesión"
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         }
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
@@ -3454,6 +3507,12 @@ class PitWallViewManager(
 
                 val locations: List<CarLocation> = repository.getCarLocations(key)
                 val sessionDrivers = repository.getDrivers(key).associateBy { it.driverNumber }
+                val accessStatus = repository.getOpenF1AccessStatus()
+                if (locations.isEmpty() && accessStatus != OpenF1AccessStatus.UNKNOWN &&
+                    accessStatus != OpenF1AccessStatus.AVAILABLE
+                ) {
+                    showOpenF1AccessStatus(accessStatus)
+                }
 
                 val markers: List<TrackMapView.DriverMarker> = if (locations.isNotEmpty()) {
                     // Posiciones GPS en tiempo real de OpenF1
@@ -3572,6 +3631,14 @@ class PitWallViewManager(
                 val key = currentSessionKey ?: return@launch
                 val strategies = repository.getTyreStrategies(key)
                 tyreStrategyAdapter.updateData(strategies)
+                if (strategies.isEmpty()) {
+                    val accessStatus = repository.getOpenF1AccessStatus()
+                    if (accessStatus != OpenF1AccessStatus.UNKNOWN &&
+                        accessStatus != OpenF1AccessStatus.AVAILABLE
+                    ) {
+                        showOpenF1AccessStatus(accessStatus)
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -3636,6 +3703,14 @@ class PitWallViewManager(
                     tvRcAirTemp?.text = "Aire: ${w.airTemp ?: "--"} °C"
                     tvRcRain?.text = if ((w.rainfall ?: 0) > 0) "Lluvia: 🌧️ DETECTADA" else "Lluvia: ☀️ SECO"
                     tvRcWind?.text = "Viento: ${w.windSpeed ?: "--"} km/h"
+                }
+                if (messages.isEmpty() && weather == null) {
+                    val accessStatus = repository.getOpenF1AccessStatus()
+                    if (accessStatus != OpenF1AccessStatus.UNKNOWN &&
+                        accessStatus != OpenF1AccessStatus.AVAILABLE
+                    ) {
+                        showOpenF1AccessStatus(accessStatus)
+                    }
                 }
 
 
