@@ -54,6 +54,10 @@ class LeaderboardAdapter(
             val o = oldList[oldItemPosition]
             val n = newList[newItemPosition]
             return o.position == n.position &&
+                    o.acronym == n.acronym &&
+                    o.fullName == n.fullName &&
+                    o.teamName == n.teamName &&
+                    o.teamColor == n.teamColor &&
                     o.gapToLeader == n.gapToLeader &&
                     o.interval == n.interval &&
                     o.lastLap == n.lastLap &&
