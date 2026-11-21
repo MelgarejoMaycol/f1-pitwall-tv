@@ -26,4 +26,24 @@ class OpenF1SessionPolicyTest {
         assertTrue(OpenF1SessionPolicy.supportsIntervals("Sprint", "Sprint"))
         assertTrue(OpenF1SessionPolicy.supportsIntervals(" race ", "Carrera"))
     }
+
+    @Test
+    fun httpResponsesAreClassifiedWithoutConfusingAuthAndRateLimits() {
+        assertTrue(
+            com.f1pitwall.tv.network.OpenF1AccessStatus.fromHttpStatus(401) ==
+                com.f1pitwall.tv.network.OpenF1AccessStatus.AUTHENTICATION_REQUIRED
+        )
+        assertTrue(
+            com.f1pitwall.tv.network.OpenF1AccessStatus.fromHttpStatus(403) ==
+                com.f1pitwall.tv.network.OpenF1AccessStatus.AUTHENTICATION_REQUIRED
+        )
+        assertTrue(
+            com.f1pitwall.tv.network.OpenF1AccessStatus.fromHttpStatus(429) ==
+                com.f1pitwall.tv.network.OpenF1AccessStatus.RATE_LIMITED
+        )
+        assertTrue(
+            com.f1pitwall.tv.network.OpenF1AccessStatus.fromHttpStatus(503) ==
+                com.f1pitwall.tv.network.OpenF1AccessStatus.SERVICE_UNAVAILABLE
+        )
+    }
 }
