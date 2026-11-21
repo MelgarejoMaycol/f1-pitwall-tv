@@ -22,6 +22,8 @@ import com.f1pitwall.tv.data.repository.ConfigSyncResult
 import com.f1pitwall.tv.data.model.RemoteBroadcastConfig
 import com.f1pitwall.tv.model.*
 import com.f1pitwall.tv.network.OpenF1ApiClient
+import com.f1pitwall.tv.network.OpenF1AccessStatus
+import com.f1pitwall.tv.network.OpenF1SessionPolicy
 import com.f1pitwall.tv.ui.home.HomeViewManager
 import com.f1pitwall.tv.ui.pitwall.PitWallViewManager
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +98,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var remoteConfigRepo: RemoteBroadcastConfigRepository
 
     private var sessionRefreshJob: Job? = null
+    private var hasLiveSessionForRefresh: Boolean = false
     private var selectedMeeting: Meeting? = null
     private var selectedYear: Int = AppConfig.DEFAULT_SEASON // 2026
 
@@ -616,12 +619,14 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun loadLiveSessionData() {
         if (preferencesManager.isRaceSimulationEnabled) {
+            hasLiveSessionForRefresh = false
             pitWallViewManager.setSimulationMode(true)
             return
         }
         try {
             val session = repository.getCurrentOrNextSession(selectedYear)
             if (session == null) {
+                hasLiveSessionForRefresh = false
                 pitWallViewManager.onScheduleUnavailable()
                 pitWallViewManager.leaderboardAdapter.updateData(emptyList())
                 tvRaceFlag.text = "🏁 CALENDARIO NO DISPONIBLE"
@@ -633,6 +638,7 @@ class MainActivity : AppCompatActivity() {
             val now = Date()
             val start = TimeUtils.parseUtc(session.dateStart)
             val isLive = TimeUtils.isCurrentlyLive(session.dateStart, session.dateEnd)
+            hasLiveSessionForRefresh = isLive
             val isUpcoming = start?.after(now) == true
             val venue = session.circuitShortName ?: session.countryName ?: "F1"
             val title = "$venue • ${session.sessionName ?: "Sesión"}"
@@ -719,6 +725,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
+            tvRaceFlag.visibility = View.VISIBLE
             tvRaceFlag.text = "🏁 SESIÓN ACTIVA"
             tvRaceFlag.setTextColor(Color.parseColor("#22C55E"))
             tvWeather.text = "⛅ Pista: -- | Aire: --"
@@ -740,45 +747,77 @@ class MainActivity : AppCompatActivity() {
 
             val drivers = api.getDrivers(session.sessionKey)
             val positions = api.getLatestPositions(session.sessionKey)
-            val intervals = api.getLatestIntervals(session.sessionKey)
+            val intervals = if (
+                OpenF1SessionPolicy.supportsIntervals(session.sessionType, session.sessionName)
+            ) {
+                api.getLatestIntervals(session.sessionKey)
+            } else {
+                emptyList()
+            }
             val laps = api.getLatestLaps(session.sessionKey)
             val stints = api.getStints(session.sessionKey)
 
-            var items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
-            if (items.isEmpty()) {
-                val standings = repository.getDriverStandings(selectedYear)
-                if (standings.isNotEmpty()) {
-                    val leaderPts = standings.firstOrNull()?.points?.toDoubleOrNull() ?: 0.0
-                    items = standings.map { st ->
-                        val driverPts = st.points.toDoubleOrNull() ?: 0.0
-                        val diff = leaderPts - driverPts
-                        val diffFormatted = if (diff % 1.0 == 0.0) "${diff.toInt()}" else String.format(Locale.US, "%.1f", diff)
-                        val diffText = if (st.position == 1) "LÍDER" else "-$diffFormatted PTS"
-                        val ptsText = "${st.points} PTS"
-
-                        DriverLeaderboardItem(
-                            driverNumber = st.driverNumber,
-                            position = st.position,
-                            acronym = st.acronym,
-                            fullName = st.fullName,
-                            teamName = st.teamName,
-                            teamColor = st.teamColor,
-                            gapToLeader = ptsText,
-                            interval = diffText,
-                            lastLap = diffText,
-                            s1 = "--",
-                            s2 = "--",
-                            s3 = "--",
-                            tyreCompound = "SOFT",
-                            tyreAge = 1
-                        )
-                    }
-                }
-            }
+            val items = buildLeaderboardItems(drivers, positions, intervals, laps, stints)
             pitWallViewManager.leaderboardAdapter.updateData(items)
+
+            updateLiveOpenF1Status(
+                status = api.getAccessStatus(),
+                hasTimingData = items.isNotEmpty()
+            )
         } catch (e: Exception) {
             e.printStackTrace()
             pitWallViewManager.onScheduleUnavailable()
+        }
+    }
+
+    private fun updateLiveOpenF1Status(
+        status: OpenF1AccessStatus,
+        hasTimingData: Boolean
+    ) {
+        val message = when (status) {
+            OpenF1AccessStatus.AUTHENTICATION_REQUIRED ->
+                "🔒 OPENF1 LIVE: REQUIERE SUSCRIPCIÓN Y AUTENTICACIÓN"
+            OpenF1AccessStatus.RATE_LIMITED ->
+                "⏳ OPENF1: LÍMITE DE SOLICITUDES ALCANZADO"
+            OpenF1AccessStatus.SERVICE_UNAVAILABLE ->
+                "⚠️ OPENF1: SERVICIO NO DISPONIBLE"
+            OpenF1AccessStatus.NETWORK_ERROR ->
+                "⚠️ OPENF1: SIN CONEXIÓN CON OPENF1"
+            OpenF1AccessStatus.REQUEST_FAILED ->
+                "⚠️ OPENF1: SOLICITUD RECHAZADA"
+            OpenF1AccessStatus.UNKNOWN, OpenF1AccessStatus.AVAILABLE ->
+                if (!hasTimingData) "⏳ SESIÓN ACTIVA • ESPERANDO PRIMEROS DATOS" else null
+        } ?: return
+
+        tvRaceFlag.visibility = View.VISIBLE
+        tvRaceFlag.text = message
+        tvRaceFlag.setTextColor(
+            when (status) {
+                OpenF1AccessStatus.AUTHENTICATION_REQUIRED,
+                OpenF1AccessStatus.RATE_LIMITED -> Color.parseColor("#F59E0B")
+                OpenF1AccessStatus.SERVICE_UNAVAILABLE,
+                OpenF1AccessStatus.NETWORK_ERROR,
+                OpenF1AccessStatus.REQUEST_FAILED -> Color.parseColor("#EF4444")
+                else -> Color.parseColor("#38BDF8")
+            }
+        )
+        tvWeather.text = when (status) {
+            OpenF1AccessStatus.AUTHENTICATION_REQUIRED ->
+                "Los datos en vivo requieren un plan Live y un token Bearer válido."
+            OpenF1AccessStatus.RATE_LIMITED ->
+                "OpenF1 limitó temporalmente las consultas. Se reintentará automáticamente."
+            OpenF1AccessStatus.SERVICE_UNAVAILABLE ->
+                "OpenF1 no está respondiendo. Se reintentará automáticamente."
+            OpenF1AccessStatus.NETWORK_ERROR ->
+                "Comprueba la conexión de red del televisor."
+            OpenF1AccessStatus.REQUEST_FAILED ->
+                "OpenF1 rechazó una consulta. Revisa el acceso de la sesión."
+            else ->
+                "Todavía no se reciben posiciones o vueltas de esta sesión."
+        }
+
+        if (status != OpenF1AccessStatus.UNKNOWN && status != OpenF1AccessStatus.AVAILABLE) {
+            pitWallViewManager.showOpenF1AccessStatus(status)
         }
     }
 
@@ -807,9 +846,9 @@ class MainActivity : AppCompatActivity() {
             val stint = stintMap[pos.driverNumber]
 
             val gapStr = if (pos.position == 1) "LÍDER" else {
-                interval?.gapToLeader?.toString()?.let { "+${it}s" } ?: "+--"
+                interval?.gapToLeader?.toString()?.takeIf { it.isNotBlank() }?.let { "+${it}s" } ?: "—"
             }
-            val intervalStr = interval?.interval?.toString()?.let { "+${it}s" } ?: ""
+            val intervalStr = interval?.interval?.toString()?.takeIf { it.isNotBlank() }?.let { "+${it}s" } ?: "—"
             val lastLapStr = lap?.lapDuration?.let { formatLapDuration(it) } ?: "--:--.---"
 
             DriverLeaderboardItem(
@@ -950,7 +989,7 @@ class MainActivity : AppCompatActivity() {
         sessionRefreshJob = lifecycleScope.launch {
             while (isActive) {
                 loadLiveSessionData()
-                delay(60_000L)
+                delay(if (hasLiveSessionForRefresh) 30_000L else 60_000L)
             }
         }
     }
