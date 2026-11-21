@@ -78,6 +78,8 @@ class TrackMapView @JvmOverloads constructor(
     var selectedDriverNumber: Int? = null
     var leaderDriverNumber: Int? = null
     var selectedRadioDriverNumber: Int? = null
+    var showAllDriverLabels: Boolean = false
+    var hideAllDriverLabels: Boolean = false
     var circuitName: String = "Las Vegas"
     private var turnAnnotations: List<CircuitOutlinesCatalog.CircuitTurnAnnotation> = emptyList()
     private val tempRectF = RectF()
@@ -441,7 +443,7 @@ class TrackMapView @JvmOverloads constructor(
         val rangeX = (maxX - minX).coerceAtLeast(1f)
         val rangeY = (maxY - minY).coerceAtLeast(1f)
 
-        val padding = 40f
+        val padding = if (hideAllDriverLabels) 14f else 40f
         val availW = width - (padding * 2)
         val availH = height - (padding * 2)
 
@@ -469,26 +471,28 @@ class TrackMapView @JvmOverloads constructor(
             canvas.drawPath(pathSector2, trackPaintS2)
             canvas.drawPath(pathSector3, trackPaintS3)
 
-            // 2. Draw Start / Finish line
-            transformPointInPlace(rawTrackPoints.first().x, rawTrackPoints.first().y, tempStartFinishPoint)
-            canvas.drawCircle(tempStartFinishPoint.x, tempStartFinishPoint.y, 8f, startFinishPaint)
-            drawAnnotationBadge(canvas, "🏁 META", tempStartFinishPoint.x, tempStartFinishPoint.y + 26f, annotationBadgeBg, annotationTextPaint)
+            // 2. Draw Start / Finish line & Annotations (solo si no es modo mini-pista limpia)
+            if (!hideAllDriverLabels) {
+                transformPointInPlace(rawTrackPoints.first().x, rawTrackPoints.first().y, tempStartFinishPoint)
+                canvas.drawCircle(tempStartFinishPoint.x, tempStartFinishPoint.y, 8f, startFinishPaint)
+                drawAnnotationBadge(canvas, "🏁 META", tempStartFinishPoint.x, tempStartFinishPoint.y + 26f, annotationBadgeBg, annotationTextPaint)
 
-            // 3. Draw authentic corner and DRS annotations from catalog
-            val activeAnnotations = if (turnAnnotations.isNotEmpty()) {
-                turnAnnotations
-            } else {
-                CircuitOutlinesCatalog.getCircuitData(circuitName).annotations
-            }
+                // 3. Draw authentic corner and DRS annotations from catalog
+                val activeAnnotations = if (turnAnnotations.isNotEmpty()) {
+                    turnAnnotations
+                } else {
+                    CircuitOutlinesCatalog.getCircuitData(circuitName).annotations
+                }
 
-            val totalPts = rawTrackPoints.size
-            if (totalPts > 0) {
-                for (ann in activeAnnotations) {
-                    val ptIdx = ann.pointIndex.coerceIn(0, totalPts - 1)
-                    transformPointInPlace(rawTrackPoints[ptIdx].x, rawTrackPoints[ptIdx].y, tempAnnPoint)
-                    val bgPaint = if (ann.isDrs) drsBadgeBg else annotationBadgeBg
-                    val tPaint = if (ann.isDrs) drsTextPaint else annotationTextPaint
-                    drawAnnotationBadge(canvas, ann.label, tempAnnPoint.x, tempAnnPoint.y - 14f, bgPaint, tPaint)
+                val totalPts = rawTrackPoints.size
+                if (totalPts > 0) {
+                    for (ann in activeAnnotations) {
+                        val ptIdx = ann.pointIndex.coerceIn(0, totalPts - 1)
+                        transformPointInPlace(rawTrackPoints[ptIdx].x, rawTrackPoints[ptIdx].y, tempAnnPoint)
+                        val bgPaint = if (ann.isDrs) drsBadgeBg else annotationBadgeBg
+                        val tPaint = if (ann.isDrs) drsTextPaint else annotationTextPaint
+                        drawAnnotationBadge(canvas, ann.label, tempAnnPoint.x, tempAnnPoint.y - 14f, bgPaint, tPaint)
+                    }
                 }
             }
         }
@@ -535,12 +539,17 @@ class TrackMapView @JvmOverloads constructor(
                 canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerFillPaint)
                 canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerStrokePaint)
 
-                // SOLICITUD: solo mostrar el nombre del líder y del seleccionado en la radio
-                if (isLeader || isRadioSelected) {
+                // Configuración de nombres:
+                // - Si hideAllDriverLabels == true (PIP flotante): no se muestra ningún nombre, solo puntos.
+                // - Si showAllDriverLabels == true (Vista 4: Solo Pista / Mapa completo): se muestran TODOS los pilotos.
+                // - Si es normal (Vista 2: Pista + FIA): solo Líder (P1) y seleccionado en radio.
+                val shouldDrawLabel = !hideAllDriverLabels && (showAllDriverLabels || isLeader || isRadioSelected)
+                if (shouldDrawLabel) {
                     val prefix = when {
                         isLeader && isRadioSelected -> "👑📻 "
                         isLeader -> "P1 "
-                        else -> "📻 "
+                        isRadioSelected -> "📻 "
+                        else -> ""
                     }
                     val label = "$prefix${driver.acronym}"
                     val currentTextPaint = if (isRadioSelected) selectedTextPaint else textPaint
@@ -610,12 +619,17 @@ class TrackMapView @JvmOverloads constructor(
                 canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerFillPaint)
                 canvas.drawCircle(ptX, ptY, if (isRadioSelected) 14f else 11f, markerStrokePaint)
 
-                // SOLICITUD: solo mostrar el nombre del líder y del seleccionado en la radio
-                if (isLeader || isRadioSelected) {
+                // Configuración de nombres:
+                // - Si hideAllDriverLabels == true (PIP flotante): no se muestra ningún nombre, solo puntos.
+                // - Si showAllDriverLabels == true (Vista 4: Solo Pista / Mapa completo): se muestran TODOS los pilotos.
+                // - Si es normal (Vista 2: Pista + FIA): solo Líder (P1) y seleccionado en radio.
+                val shouldDrawLabel = !hideAllDriverLabels && (showAllDriverLabels || isLeader || isRadioSelected)
+                if (shouldDrawLabel) {
                     val prefix = when {
                         isLeader && isRadioSelected -> "👑📻 "
                         isLeader -> "P1 "
-                        else -> "📻 "
+                        isRadioSelected -> "📻 "
+                        else -> ""
                     }
                     val label = "$prefix${driver.acronym}"
                     val currentTextPaint = if (isRadioSelected) selectedTextPaint else textPaint

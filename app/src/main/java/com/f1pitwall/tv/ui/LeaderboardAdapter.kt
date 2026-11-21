@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.f1pitwall.tv.R
 import com.f1pitwall.tv.model.DriverLeaderboardItem
@@ -18,9 +19,54 @@ class LeaderboardAdapter(
     var onDriverKeyLeft: ((DriverLeaderboardItem) -> Boolean)? = null
     var onFirstItemKeyUp: (() -> Boolean)? = null
 
+    init {
+        setHasStableIds(true)
+    }
+
+    override fun getItemId(position: Int): Long {
+        return items.getOrNull(position)?.driverNumber?.toLong() ?: position.toLong()
+    }
+
     fun updateData(newItems: List<DriverLeaderboardItem>) {
+        if (items.isEmpty()) {
+            items = newItems
+            notifyDataSetChanged()
+            return
+        }
+        val diffCallback = LeaderboardDiffCallback(items, newItems)
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
         items = newItems
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
+    }
+
+    class LeaderboardDiffCallback(
+        private val oldList: List<DriverLeaderboardItem>,
+        private val newList: List<DriverLeaderboardItem>
+    ) : DiffUtil.Callback() {
+        override fun getOldListSize(): Int = oldList.size
+        override fun getNewListSize(): Int = newList.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldList[oldItemPosition].driverNumber == newList[newItemPosition].driverNumber
+        }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            val o = oldList[oldItemPosition]
+            val n = newList[newItemPosition]
+            return o.position == n.position &&
+                    o.acronym == n.acronym &&
+                    o.fullName == n.fullName &&
+                    o.teamName == n.teamName &&
+                    o.teamColor == n.teamColor &&
+                    o.gapToLeader == n.gapToLeader &&
+                    o.interval == n.interval &&
+                    o.lastLap == n.lastLap &&
+                    o.s1 == n.s1 &&
+                    o.s2 == n.s2 &&
+                    o.s3 == n.s3 &&
+                    o.tyreCompound == n.tyreCompound &&
+                    o.tyreAge == n.tyreAge
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -123,10 +169,19 @@ class LeaderboardAdapter(
 
             itemView.setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN) {
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                        if (onDriverKeyLeft?.invoke(item) == true) return@setOnKeyListener true
-                    } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && bindingAdapterPosition == 0) {
-                        if (onFirstItemKeyUp?.invoke() == true) return@setOnKeyListener true
+                    when (keyCode) {
+                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                            onDriverClick(item)
+                            return@setOnKeyListener true
+                        }
+                        KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            if (onDriverKeyLeft?.invoke(item) == true) return@setOnKeyListener true
+                        }
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            if (bindingAdapterPosition == 0) {
+                                if (onFirstItemKeyUp?.invoke() == true) return@setOnKeyListener true
+                            }
+                        }
                     }
                 }
                 false

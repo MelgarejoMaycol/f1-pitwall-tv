@@ -4,7 +4,9 @@
     android:layout_height="wrap_content"
     android:layout_marginVertical="2dp"
     android:background="@drawable/card_focus_selector"
+    android:clickable="true"
     android:focusable="true"
+    android:focusableInTouchMode="false"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="6dp">
