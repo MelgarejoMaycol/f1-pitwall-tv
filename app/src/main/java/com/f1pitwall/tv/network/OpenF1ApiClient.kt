@@ -1,6 +1,7 @@
 package com.f1pitwall.tv.network
 
 import com.f1pitwall.tv.model.*
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+
+enum class OpenF1AccessStatus {
+    UNKNOWN,
+    AVAILABLE,
+    AUTHENTICATION_REQUIRED,
+    RATE_LIMITED,
+    SERVICE_UNAVAILABLE,
+    NETWORK_ERROR,
+    REQUEST_FAILED
+}
 
 class OpenF1ApiClient {
     private val client = OkHttpClient.Builder()
@@ -25,7 +36,13 @@ class OpenF1ApiClient {
     // In-memory cache to avoid redundant calls and respect OpenF1 rate limits
     private val cache = ConcurrentHashMap<String, Any>()
     private val requestMutex = Mutex()
+
+    @Volatile
+    private var accessStatus: OpenF1AccessStatus = OpenF1AccessStatus.UNKNOWN
+
     private var lastRequestTime = 0L
+
+    fun getAccessStatus(): OpenF1AccessStatus = accessStatus
 
     private suspend fun <T> get(url: String, typeToken: TypeToken<T>, useCache: Boolean = true): T? = withContext(Dispatchers.IO) {
         if (useCache && cache.containsKey(url)) {
@@ -57,8 +74,25 @@ class OpenF1ApiClient {
                 }
 
                 if (!response.isSuccessful) {
+                    val statusCode = response.code
+                    accessStatus = when (statusCode) {
+                        401, 403 -> OpenF1AccessStatus.AUTHENTICATION_REQUIRED
+                        429 -> OpenF1AccessStatus.RATE_LIMITED
+                        in 500..599 -> OpenF1AccessStatus.SERVICE_UNAVAILABLE
+                        else -> OpenF1AccessStatus.REQUEST_FAILED
+                    }
+                    Log.w(
+                        "OpenF1ApiClient",
+                        "OpenF1 request rejected with HTTP $statusCode; access status=$accessStatus"
+                    )
                     response.close()
                     return@withContext null
+                }
+
+                // Una respuesta histórica correcta no debe borrar un 401/403 recibido
+                // en un endpoint de datos en vivo durante esta misma sesión.
+                if (accessStatus != OpenF1AccessStatus.AUTHENTICATION_REQUIRED) {
+                    accessStatus = OpenF1AccessStatus.AVAILABLE
                 }
 
                 val body = response.body?.string() ?: return@withContext null
@@ -68,7 +102,8 @@ class OpenF1ApiClient {
                 }
                 result
             } catch (e: Exception) {
-                e.printStackTrace()
+                accessStatus = OpenF1AccessStatus.NETWORK_ERROR
+                Log.w("OpenF1ApiClient", "Network error while requesting OpenF1 data", e)
                 null
             }
         }
