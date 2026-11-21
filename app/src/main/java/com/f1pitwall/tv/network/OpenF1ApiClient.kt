@@ -4,6 +4,7 @@ import com.f1pitwall.tv.model.*
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -101,6 +102,8 @@ class OpenF1ApiClient {
                     cache[url] = result
                 }
                 result
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 accessStatus = OpenF1AccessStatus.NETWORK_ERROR
                 Log.w("OpenF1ApiClient", "Network error while requesting OpenF1 data", e)
