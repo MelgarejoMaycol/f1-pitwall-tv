@@ -166,6 +166,7 @@
 
             <!-- Video Player Column (65% width) -->
             <LinearLayout
+                android:id="@+id/layoutVideoColumn"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="0.65"
@@ -457,6 +458,37 @@
                                     android:visibility="gone" />
                             </LinearLayout>
                         </LinearLayout>
+
+                        <!-- FLOATING MINI TRACK MAP OVERLAY (PIP) SOBRE VIDEO EN PANTALLA COMPLETA -->
+                        <FrameLayout
+                            android:id="@+id/layoutFloatingPipTrackMap"
+                            android:layout_width="220dp"
+                            android:layout_height="160dp"
+                            android:layout_gravity="bottom|end"
+                            android:layout_marginEnd="16dp"
+                            android:layout_marginBottom="16dp"
+                            android:background="@android:color/transparent"
+                            android:visibility="gone">
+
+                            <com.f1pitwall.tv.ui.pitwall.TrackMapView
+                                android:id="@+id/pipTrackMapView"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@android:color/transparent" />
+
+                            <TextView
+                                android:id="@+id/tvPipTrackBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="top|start"
+                                android:background="#60000000"
+                                android:paddingHorizontal="4dp"
+                                android:paddingVertical="1dp"
+                                android:text="📍 PISTA EN VIVO"
+                                android:textColor="#FFFFFF"
+                                android:textSize="7sp"
+                                android:textStyle="bold" />
+                        </FrameLayout>
                     </FrameLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -663,7 +695,7 @@
                         android:id="@+id/rvLeaderboard"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:focusable="true"
+                        android:focusable="false"
                         android:descendantFocusability="afterDescendants"
                         android:visibility="visible" />
                 </LinearLayout>
@@ -715,6 +747,20 @@
                                 android:text="🟢 GPS ACTIVO"
                                 android:textColor="#FFFFFF"
                                 android:textSize="8sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnPipFullscreenTrack"
+                                android:layout_width="wrap_content"
+                                android:layout_height="20dp"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/btn_tab_selector"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="6dp"
+                                android:text="📺 PANTALLA COMPLETA"
+                                android:textColor="@color/text_primary"
+                                android:textSize="7.5sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
