@@ -1164,14 +1164,24 @@ class PitWallViewManager(
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                if (currentDirectStreamUrl != null && !isUserStoppedPlayback) {
-                    android.util.Log.w("PitWallViewManager", "Direct stream error (${error.message}), falling back to webVideoView")
-                    currentDirectStreamUrl = null
+                if (isUserStoppedPlayback) return
+
+                Log.e("PitWallViewManager", "Video playback failed: code=${error.errorCode}, message=${error.message}", error)
+
+                val fallbackUrl = currentWebUrl
+                currentDirectStreamUrl = null
+                exoPlayer?.stop()
+
+                if (!fallbackUrl.isNullOrBlank()) {
                     playerView.visibility = View.GONE
                     webVideoView.visibility = View.VISIBLE
                     updatePitWallFocusChains()
-                    currentWebUrl?.let { url -> webVideoView.loadUrl(url) }
-                } else if (!isUserStoppedPlayback) {
+                    webVideoView.loadUrl(fallbackUrl)
+                } else {
+                    Toast.makeText(context, "No se pudo reproducir la señal de video", Toast.LENGTH_LONG).show()
+                    switchToStandby()
+                }
+            } else if (!isUserStoppedPlayback) {
                     exoPlayer?.prepare()
                     exoPlayer?.play()
                 }
@@ -1665,22 +1675,10 @@ class PitWallViewManager(
             return
         }
 
-        isUserStoppedPlayback = false
-        startVideoPlaybackWatchdog()
-        webVideoView.stopLoading()
-        webVideoView.loadUrl("about:blank")
-        webVideoView.visibility = View.GONE
-        layoutPlayerStandby.visibility = View.GONE
-        playerView.visibility = View.VISIBLE
-        btnStandbyStopVideo.visibility = View.VISIBLE
-        updatePitWallFocusChains()
-
-        exoPlayer?.let { player ->
-            val mediaItem = MediaItem.fromUri(url)
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.playWhenReady = true
-        }
+        // Los enlaces directos usan el mismo flujo ExoPlayer que las señales detectadas:
+        // registra la URL activa y evita reintentos infinitos si la reproducción falla.
+        currentWebUrl = null
+        playDirectStreamInExoPlayer(url)
 
         if (title != null) {
             tvLiveSessionAlertTitle.text = "🏎️ $title"
