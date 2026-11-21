@@ -140,7 +140,6 @@ class PitWallViewManager(
     // Video Card Container for Direct D-Pad Navigation
     private val cardVideoContainer: View? = rootView.findViewById(R.id.cardVideoContainer)
     private val layoutVideoColumn: View? = rootView.findViewById(R.id.layoutVideoColumn)
-    private val layoutMetricsContainer: View? = rootView.findViewById(R.id.layoutMetricsContainer)
     private val btnPipFullscreenTrack: Button? = rootView.findViewById(R.id.btnPipFullscreenTrack)
     private val layoutFloatingPipTrackMap: View? = rootView.findViewById(R.id.layoutFloatingPipTrackMap)
     private val pipTrackMapView: TrackMapView? = rootView.findViewById(R.id.pipTrackMapView)
