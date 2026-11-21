@@ -139,6 +139,12 @@ class PitWallViewManager(
 
     // Video Card Container for Direct D-Pad Navigation
     private val cardVideoContainer: View? = rootView.findViewById(R.id.cardVideoContainer)
+    private val layoutVideoColumn: View? = rootView.findViewById(R.id.layoutVideoColumn)
+    private val btnPipFullscreenTrack: Button? = rootView.findViewById(R.id.btnPipFullscreenTrack)
+    private val layoutFloatingPipTrackMap: View? = rootView.findViewById(R.id.layoutFloatingPipTrackMap)
+    private val pipTrackMapView: TrackMapView? = rootView.findViewById(R.id.pipTrackMapView)
+    var isFullscreenVideoPipMode: Boolean = false
+        private set
 
     // Metrics Switcher & Containers (6 Dynamic Views)
     private val scrollTelemetryModes: HorizontalScrollView? = rootView.findViewById(R.id.scrollTelemetryModes)
@@ -230,6 +236,7 @@ class PitWallViewManager(
     private var radioPollingJob: Job? = null
     private var latestRadioUrl: String? = null
     private var lastPlayedRadioUrl: String? = null
+    @Volatile
     private var currentDirectStreamUrl: String? = null
     private var currentSessionKey: Long? = null
     private var isLiveSessionActive: Boolean = false
@@ -239,6 +246,7 @@ class PitWallViewManager(
     private var discoveredFutbolEventUrl: String? = null
     private var discoveredAlternativeUrls: List<String> = emptyList()
     private var discoveredFutbolEventTitle: String = "Evento de Fórmula 1"
+    @Volatile
     private var currentWebUrl: String? = null
     private var customFullScreenView: View? = null
     private var customFullScreenCallback: WebChromeClient.CustomViewCallback? = null
@@ -449,7 +457,7 @@ class PitWallViewManager(
                     if (isDirectStreamUrl(rawUrl)) {
                         if (currentDirectStreamUrl == null) {
                             val headers = request.requestHeaders ?: emptyMap()
-                            val referer = headers["Referer"] ?: headers["referer"] ?: view?.url ?: ""
+                            val referer = headers["Referer"] ?: headers["referer"] ?: currentWebUrl.orEmpty()
                             val origin = headers["Origin"] ?: headers["origin"] ?: ""
                             val userAgent = headers["User-Agent"] ?: headers["user-agent"] ?: ""
 
