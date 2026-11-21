@@ -2482,7 +2482,7 @@ class PitWallViewManager(
 
         val message = when (status) {
             OpenF1AccessStatus.AUTHENTICATION_REQUIRED ->
-                "🔒 OPENF1 LIVE REQUIERE SUSCRIPCIÓN Y AUTENTICACIÓN"
+                "🔒 OPENF1 LIVE: ACCESO REQUERIDO"
             OpenF1AccessStatus.RATE_LIMITED ->
                 "⏳ OPENF1 LIMITÓ LAS SOLICITUDES"
             OpenF1AccessStatus.SERVICE_UNAVAILABLE ->
