@@ -22,7 +22,16 @@ enum class OpenF1AccessStatus {
     RATE_LIMITED,
     SERVICE_UNAVAILABLE,
     NETWORK_ERROR,
-    REQUEST_FAILED
+    REQUEST_FAILED;
+
+    companion object {
+        fun fromHttpStatus(statusCode: Int): OpenF1AccessStatus = when (statusCode) {
+            401, 403 -> AUTHENTICATION_REQUIRED
+            429 -> RATE_LIMITED
+            in 500..599 -> SERVICE_UNAVAILABLE
+            else -> REQUEST_FAILED
+        }
+    }
 }
 
 class OpenF1ApiClient {
@@ -76,12 +85,7 @@ class OpenF1ApiClient {
 
                 if (!response.isSuccessful) {
                     val statusCode = response.code
-                    accessStatus = when (statusCode) {
-                        401, 403 -> OpenF1AccessStatus.AUTHENTICATION_REQUIRED
-                        429 -> OpenF1AccessStatus.RATE_LIMITED
-                        in 500..599 -> OpenF1AccessStatus.SERVICE_UNAVAILABLE
-                        else -> OpenF1AccessStatus.REQUEST_FAILED
-                    }
+                    accessStatus = OpenF1AccessStatus.fromHttpStatus(statusCode)
                     Log.w(
                         "OpenF1ApiClient",
                         "OpenF1 request rejected with HTTP $statusCode; access status=$accessStatus"
